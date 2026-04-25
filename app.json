@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.urgimeaso.sermon-recall"
+      "bundleIdentifier": "com.urgimeaso.sermon-recall",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -26,6 +29,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d7e3e8a9-6c39-41df-8363-534cb21b7f3c"
+      }
+    },
+    "owner": "urgimeaso"
   }
 }
