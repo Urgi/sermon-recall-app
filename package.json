@@ -15,7 +15,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.105.3",
     "expo": "~55.0.23",
-    "expo-av": "^16.0.8",
+    "expo-audio": "~55.0.14",
     "expo-constants": "~55.0.16",
     "expo-device": "^55.0.16",
     "expo-linking": "~55.0.15",

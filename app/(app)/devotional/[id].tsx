@@ -1,6 +1,14 @@
-import { Audio } from 'expo-av';
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+  useAudioRecorder,
+  useAudioRecorderState,
+} from 'expo-audio';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -58,12 +66,13 @@ export default function DevotionalScreen() {
 
   const [gateDraft, setGateDraft] = useState('');
   const [commitmentDraft, setCommitmentDraft] = useState('');
-  const recordingRef = useRef<InstanceType<typeof Audio.Recording> | null>(null);
-  const playbackRef = useRef<InstanceType<typeof Audio.Sound> | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
   const [voiceBusy, setVoiceBusy] = useState(false);
-  const [playingVoice, setPlayingVoice] = useState(false);
   const [sessionVoicePath, setSessionVoicePath] = useState<string | null>(null);
+
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recordState = useAudioRecorderState(recorder, 400);
+  const voicePlayer = useAudioPlayer(null);
+  const voicePlayerStatus = useAudioPlayerStatus(voicePlayer);
 
   const completed = Boolean(progress?.completed_at);
 
@@ -175,47 +184,36 @@ export default function DevotionalScreen() {
     setRefreshing(false);
   }, [load]);
 
-  useEffect(() => {
-    return () => {
-      void playbackRef.current?.unloadAsync();
-      playbackRef.current = null;
-      void recordingRef.current?.stopAndUnloadAsync();
-      recordingRef.current = null;
-    };
-  }, []);
-
   async function startVoice() {
     if (!session?.user || !row) return;
     setError(null);
     try {
-      const perm = await Audio.requestPermissionsAsync();
-      if (perm.status !== 'granted') {
+      const { granted } = await requestRecordingPermissionsAsync();
+      if (!granted) {
         setError('Microphone access is needed to record.');
         return;
       }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        allowsRecording: true,
+        interruptionMode: 'duckOthers',
+        shouldPlayInBackground: false,
+        shouldRouteThroughEarpiece: false,
       });
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY,
-      );
-      recordingRef.current = recording;
-      setIsRecording(true);
+      await recorder.prepareToRecordAsync();
+      recorder.record();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not start recording.');
     }
   }
 
   async function stopVoiceUpload() {
-    const rec = recordingRef.current;
-    if (!rec || !supabase || !session?.user || !row) return;
+    if (!supabase || !session?.user || !row) return;
+    if (!recorder.isRecording) return;
     setVoiceBusy(true);
-    setIsRecording(false);
     try {
-      await rec.stopAndUnloadAsync();
-      const uri = rec.getURI();
-      recordingRef.current = null;
+      await recorder.stop();
+      const uri = recorder.uri;
       if (!uri) {
         setVoiceBusy(false);
         return;
@@ -231,6 +229,7 @@ export default function DevotionalScreen() {
       } else {
         setSessionVoicePath(up.path);
       }
+      await recorder.prepareToRecordAsync();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Recording failed.');
     }
@@ -241,11 +240,8 @@ export default function DevotionalScreen() {
     if (!supabase || !effectiveVoicePath) return;
     setError(null);
     try {
-      if (playingVoice && playbackRef.current) {
-        await playbackRef.current.stopAsync();
-        await playbackRef.current.unloadAsync();
-        playbackRef.current = null;
-        setPlayingVoice(false);
+      if (voicePlayerStatus.playing) {
+        voicePlayer.pause();
         return;
       }
       setVoiceBusy(true);
@@ -255,18 +251,15 @@ export default function DevotionalScreen() {
         setVoiceBusy(false);
         return;
       }
-      const { sound } = await Audio.Sound.createAsync({ uri: url });
-      playbackRef.current = sound;
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (!status.isLoaded) return;
-        if (status.didJustFinish) {
-          setPlayingVoice(false);
-          void sound.unloadAsync();
-          playbackRef.current = null;
-        }
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        allowsRecording: false,
+        interruptionMode: 'duckOthers',
+        shouldPlayInBackground: false,
+        shouldRouteThroughEarpiece: false,
       });
-      await sound.playAsync();
-      setPlayingVoice(true);
+      voicePlayer.replace(url);
+      voicePlayer.play();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Playback failed.');
     }
@@ -459,16 +452,18 @@ export default function DevotionalScreen() {
                 <Pressable
                   style={({ pressed }) => [
                     styles.voiceBtn,
-                    isRecording && styles.voiceBtnDanger,
+                    recordState.isRecording && styles.voiceBtnDanger,
                     pressed && styles.primaryBtnPressed,
                   ]}
-                  onPress={() => void (isRecording ? stopVoiceUpload() : startVoice())}
+                  onPress={() =>
+                    void (recordState.isRecording ? stopVoiceUpload() : startVoice())
+                  }
                   disabled={voiceBusy || saving}
                 >
                   <Text style={styles.voiceBtnLabel}>
-                    {voiceBusy && !isRecording
+                    {voiceBusy && !recordState.isRecording
                       ? 'Saving…'
-                      : isRecording
+                      : recordState.isRecording
                         ? 'Stop & upload'
                         : 'Record voice note'}
                   </Text>
@@ -480,7 +475,7 @@ export default function DevotionalScreen() {
                     disabled={voiceBusy}
                   >
                     <Text style={styles.voiceBtnSecondaryLabel}>
-                      {playingVoice ? 'Stop playback' : 'Play recording'}
+                      {voicePlayerStatus.playing ? 'Stop playback' : 'Play recording'}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -493,7 +488,7 @@ export default function DevotionalScreen() {
                 disabled={voiceBusy}
               >
                 <Text style={styles.voiceBtnSecondaryLabel}>
-                  {playingVoice ? 'Stop playback' : 'Play voice commitment'}
+                  {voicePlayerStatus.playing ? 'Stop playback' : 'Play voice commitment'}
                 </Text>
               </Pressable>
             ) : null}
