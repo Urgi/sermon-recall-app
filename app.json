@@ -57,7 +57,8 @@
         {
           "icon": "./assets/logo.png",
           "color": "#05070a",
-          "sounds": []
+          "sounds": [],
+          "enableBackgroundRemoteNotifications": true
         }
       ],
       "expo-audio"
