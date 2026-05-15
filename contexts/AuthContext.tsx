@@ -10,6 +10,9 @@ export type UserProfile = {
   full_name: string | null;
   phone_number: string | null;
   role: string;
+  devotional_notify_hour?: number | null;
+  devotional_notify_enabled?: boolean | null;
+  devotional_notify_prompt_done?: boolean | null;
 };
 
 type AuthContextValue = {

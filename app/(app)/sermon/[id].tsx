@@ -12,7 +12,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../../contexts/AuthContext';
-import { accessibleDevotionalIds } from '../../../lib/devotionalUnlock';
+import {
+  accessibleDevotionalIds,
+  buildUnlockContext,
+  nextUnlockedIncompleteDevotional,
+} from '../../../lib/devotionalUnlock';
+import { recallion } from '../../../lib/recallionTheme';
 import { supabase } from '../../../lib/supabase';
 
 type SermonRow = {
@@ -21,6 +26,8 @@ type SermonRow = {
   sermon_date: string | null;
   pastor_name: string | null;
   status: string;
+  created_at: string;
+  churches: { timezone: string } | { timezone: string }[] | null;
 };
 
 type DevotionalRow = {
@@ -48,7 +55,7 @@ export default function SermonDetailScreen() {
 
     const { data: s, error: e1 } = await supabase
       .from('sermons')
-      .select('id, title, sermon_date, pastor_name, status')
+      .select('id, title, sermon_date, pastor_name, status, created_at, churches(timezone)')
       .eq('id', id)
       .maybeSingle();
 
@@ -101,13 +108,35 @@ export default function SermonDetailScreen() {
     setRefreshing(false);
   }, [load]);
 
-  const nextDevotional = devotionals.find((d) => !completedIds.has(d.id));
   const allDone =
     devotionals.length > 0 && devotionals.every((d) => completedIds.has(d.id));
   const totalDays = devotionals.length;
 
+  const churchTzRow = sermon?.churches;
+  const churchTz = Array.isArray(churchTzRow)
+    ? churchTzRow[0]?.timezone
+    : churchTzRow?.timezone;
+  const unlockCtx =
+    sermon?.created_at != null
+      ? buildUnlockContext({
+          sermonDateYmd: sermon.sermon_date,
+          sermonCreatedAtIso: sermon.created_at,
+          churchTimeZone: churchTz ?? 'America/New_York',
+        })
+      : null;
+
   const unlockedIds =
-    devotionals.length > 0 ? accessibleDevotionalIds(devotionals, completedIds) : new Set<string>();
+    devotionals.length > 0
+      ? accessibleDevotionalIds(devotionals, completedIds, unlockCtx)
+      : new Set<string>();
+
+  const nextDevotional = nextUnlockedIncompleteDevotional(
+    devotionals,
+    completedIds,
+    unlockedIds,
+  );
+
+  const sermonStatusBadge = sermon ? statusBadge(sermon.status) : null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
@@ -119,128 +148,163 @@ export default function SermonDetailScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#1d4ed8" />
+          <ActivityIndicator size="large" color={recallion.blue} />
         </View>
       ) : error || !sermon ? (
-        <View style={styles.pad}>
+        <View style={styles.padBare}>
           <Text style={styles.err}>{error ?? 'Not found.'}</Text>
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.pad}
+          contentContainerStyle={styles.scrollOuter}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1d4ed8" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={recallion.blue} />
           }
         >
-          <Text style={styles.title}>{sermon.title}</Text>
-          <Text style={styles.meta}>
-            {[sermon.pastor_name, sermon.sermon_date].filter(Boolean).join(' · ') || '—'}
-          </Text>
-          <View style={[styles.badge, statusStyle(sermon.status)]}>
-            <Text style={styles.badgeText}>{sermon.status}</Text>
-          </View>
+          <View style={styles.contentCard}>
+            <View style={styles.cardHero}>
+              <Text style={styles.title}>{sermon.title}</Text>
+              <Text style={styles.meta}>
+                {[sermon.pastor_name, sermon.sermon_date].filter(Boolean).join(' · ') || '—'}
+              </Text>
+              {sermonStatusBadge ? (
+                <View style={[styles.badge, sermonStatusBadge.wrap]}>
+                  <Text style={[styles.badgeText, { color: sermonStatusBadge.text }]}>
+                    {sermon.status}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
 
-          {totalDays > 0 ? (
-            <View style={styles.progressBanner}>
-              <Text style={styles.progressTitle}>Your progress</Text>
-              {allDone ? (
-                <Text style={styles.progressBody}>
-                  You finished all {totalDays} days. Come back for the next sermon.
+            {totalDays > 0 ? (
+              <View style={styles.progressBanner}>
+                <Text style={styles.progressTitle}>Your progress</Text>
+                {allDone ? (
+                  <Text style={styles.progressBody}>
+                    You finished all {totalDays} days. Come back for the next sermon.
+                  </Text>
+                ) : nextDevotional ? (
+                  <Text style={styles.progressBody}>
+                    Day {nextDevotional.day_number} of {totalDays} — tap below to continue.
+                  </Text>
+                ) : (
+                  <Text style={styles.progressBody}>
+                    {completedIds.size} of {totalDays} days marked complete.
+                  </Text>
+                )}
+                <Text style={styles.progressHint}>
+                  Progress saves when you tap “Mark day complete” on each devotional.
                 </Text>
-              ) : nextDevotional ? (
-                <Text style={styles.progressBody}>
-                  Day {nextDevotional.day_number} of {totalDays} — tap below to continue.
+              </View>
+            ) : null}
+
+            <View style={styles.journeySection}>
+              <Text style={styles.section}>Six-day journey</Text>
+              {devotionals.length === 0 ? (
+                <Text style={styles.muted}>
+                  Daily devotionals will appear here once they are published for this sermon.
                 </Text>
               ) : (
-                <Text style={styles.progressBody}>
-                  {completedIds.size} of {totalDays} days marked complete.
-                </Text>
+                <View style={styles.list}>
+                  {devotionals.map((d) => {
+                    const done = completedIds.has(d.id);
+                    const unlocked = unlockedIds.has(d.id);
+                    const isNext = unlocked && !done && nextDevotional?.id === d.id;
+                    return (
+                      <Pressable
+                        key={d.id}
+                        disabled={!unlocked}
+                        style={({ pressed }) => [
+                          styles.row,
+                          unlocked && isNext && styles.rowCurrent,
+                          !unlocked && styles.rowLocked,
+                          pressed && unlocked && styles.rowPressed,
+                        ]}
+                        onPress={() => unlocked && router.push(`/devotional/${d.id}`)}
+                      >
+                        <View style={styles.rowTop}>
+                          <Text style={[styles.day, !unlocked && styles.dayMuted]}>
+                            Day {d.day_number}
+                          </Text>
+                          {done ? (
+                            <View style={styles.pillDone}>
+                              <Text style={styles.pillDoneText}>Done</Text>
+                            </View>
+                          ) : isNext ? (
+                            <View style={styles.pillNext}>
+                              <Text style={styles.pillNextText}>Current</Text>
+                            </View>
+                          ) : !unlocked ? (
+                            <View style={styles.pillLocked}>
+                              <Text style={styles.pillLockedText}>Locked</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        {unlocked ? (
+                          <>
+                            <Text style={styles.rowTitle} numberOfLines={2}>
+                              {d.title?.trim() || 'Daily devotional'}
+                            </Text>
+                            <Text style={styles.rowSub}>{d.estimated_minutes} min read</Text>
+                          </>
+                        ) : (
+                          <>
+                            <Text style={styles.rowTitleMuted}>Not open yet on the calendar.</Text>
+                            <Text style={styles.rowSubMuted}>
+                              Each day unlocks on its day of the six-day week, or open everything after
+                              that week ends.
+                            </Text>
+                          </>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
               )}
-              <Text style={styles.progressHint}>
-                Progress saves when you tap “Mark day complete” on each devotional.
-              </Text>
             </View>
-          ) : null}
-
-          <Text style={styles.section}>Six-day journey</Text>
-          {devotionals.length === 0 ? (
-            <Text style={styles.muted}>
-              Daily devotionals will appear here once they are published for this sermon.
-            </Text>
-          ) : (
-            <View style={styles.list}>
-              {devotionals.map((d) => {
-                const done = completedIds.has(d.id);
-                const unlocked = unlockedIds.has(d.id);
-                const isNext = unlocked && !done && nextDevotional?.id === d.id;
-                return (
-                  <Pressable
-                    key={d.id}
-                    disabled={!unlocked}
-                    style={({ pressed }) => [
-                      styles.row,
-                      unlocked && isNext && styles.rowCurrent,
-                      !unlocked && styles.rowLocked,
-                      pressed && unlocked && styles.rowPressed,
-                    ]}
-                    onPress={() => unlocked && router.push(`/devotional/${d.id}`)}
-                  >
-                    <View style={styles.rowTop}>
-                      <Text style={[styles.day, !unlocked && styles.dayMuted]}>Day {d.day_number}</Text>
-                      {done ? (
-                        <View style={styles.pillDone}>
-                          <Text style={styles.pillDoneText}>Done</Text>
-                        </View>
-                      ) : isNext ? (
-                        <View style={styles.pillNext}>
-                          <Text style={styles.pillNextText}>Current</Text>
-                        </View>
-                      ) : !unlocked ? (
-                        <View style={styles.pillLocked}>
-                          <Text style={styles.pillLockedText}>Locked</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                    {unlocked ? (
-                      <>
-                        <Text style={styles.rowTitle} numberOfLines={2}>
-                          {d.title?.trim() || 'Daily devotional'}
-                        </Text>
-                        <Text style={styles.rowSub}>~{d.estimated_minutes} min</Text>
-                      </>
-                    ) : (
-                      <>
-                        <Text style={styles.rowTitleMuted}>Finish earlier days to unlock.</Text>
-                        <Text style={styles.rowSubMuted}>Day content stays hidden until then.</Text>
-                      </>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
+          </View>
         </ScrollView>
       )}
     </SafeAreaView>
   );
 }
 
-function statusStyle(status: string) {
-  if (status === 'ready') return { backgroundColor: '#dcfce7' };
-  if (status === 'failed') return { backgroundColor: '#fee2e2' };
-  return { backgroundColor: '#fef3c7' };
+function statusBadge(status: string): { wrap: object; text: string } {
+  if (status === 'ready') {
+    return { wrap: { backgroundColor: 'rgba(34,197,94,0.18)' }, text: '#86efac' };
+  }
+  if (status === 'failed') {
+    return { wrap: { backgroundColor: 'rgba(248,113,113,0.15)' }, text: '#fca5a5' };
+  }
+  return { wrap: { backgroundColor: 'rgba(250,204,21,0.12)' }, text: '#fde047' };
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f8f6f3' },
-  topBar: { paddingHorizontal: 16, paddingBottom: 8 },
-  back: { fontSize: 17, color: '#1d4ed8', fontWeight: '600' },
+  safe: { flex: 1, backgroundColor: recallion.bgPage },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 8,
+  },
+  back: { fontSize: 14, color: recallion.blue, fontWeight: '500' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  pad: { padding: 20, paddingBottom: 40 },
+  padBare: { padding: 20, paddingBottom: 40 },
+  scrollOuter: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 40 },
+  contentCard: {
+    backgroundColor: recallion.bgCard,
+    borderRadius: recallion.radiusCard,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: recallion.borderSubtle,
+    overflow: 'hidden',
+  },
+  cardHero: { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 8 },
   err: { color: '#b91c1c', fontSize: 16 },
-  title: { fontSize: 26, fontWeight: '700', color: '#0f172a' },
-  meta: { marginTop: 8, fontSize: 16, color: '#475569' },
+  title: { fontSize: 24, fontWeight: '500', color: recallion.navy, letterSpacing: -0.2 },
+  meta: { marginTop: 8, fontSize: 14, color: recallion.navyMid },
   badge: {
     alignSelf: 'flex-start',
     marginTop: 12,
@@ -248,36 +312,51 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
   },
-  badgeText: { fontSize: 13, fontWeight: '600', color: '#0f172a', textTransform: 'capitalize' },
+  badgeText: { fontSize: 13, fontWeight: '500', textTransform: 'capitalize' },
   progressBanner: {
-    marginTop: 20,
+    marginHorizontal: 22,
+    marginBottom: 8,
     padding: 16,
-    borderRadius: 14,
-    backgroundColor: '#eff6ff',
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderRadius: recallion.radiusMd,
+    backgroundColor: recallion.bgWash,
+    borderLeftWidth: 3,
+    borderLeftColor: recallion.blue,
   },
-  progressTitle: { fontSize: 14, fontWeight: '700', color: '#1e40af', marginBottom: 6 },
-  progressBody: { fontSize: 16, color: '#1e293b', lineHeight: 22 },
-  progressHint: { marginTop: 10, fontSize: 13, color: '#64748b', lineHeight: 18 },
-  section: { marginTop: 28, marginBottom: 12, fontSize: 18, fontWeight: '700', color: '#0f172a' },
-  muted: { fontSize: 15, color: '#64748b', lineHeight: 22 },
+  progressTitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: recallion.blue,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  progressBody: { fontSize: 16, color: recallion.navyMid, lineHeight: 22 },
+  progressHint: { marginTop: 10, fontSize: 13, color: recallion.muted, lineHeight: 18 },
+  journeySection: { paddingHorizontal: 22, paddingBottom: 24 },
+  section: {
+    marginTop: 12,
+    marginBottom: 12,
+    fontSize: 16,
+    fontWeight: '500',
+    color: recallion.navy,
+  },
+  muted: { fontSize: 15, color: recallion.muted, lineHeight: 22 },
   list: { gap: 10 },
   row: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: recallion.bgCard,
+    borderRadius: recallion.radiusMd,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: recallion.borderSubtle,
   },
   rowCurrent: {
-    borderColor: '#1d4ed8',
-    borderWidth: 2,
-    backgroundColor: '#f8fafc',
+    borderColor: recallion.blue,
+    borderWidth: 1,
+    backgroundColor: recallion.bgWash,
   },
   rowLocked: {
     opacity: 0.72,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: recallion.bgWash,
   },
   rowPressed: { opacity: 0.92 },
   rowTop: {
@@ -286,31 +365,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
-  day: { fontSize: 13, fontWeight: '700', color: '#1d4ed8' },
-  dayMuted: { color: '#64748b' },
+  day: { fontSize: 11, fontWeight: '500', letterSpacing: 0.8, textTransform: 'uppercase', color: recallion.blue },
+  dayMuted: { color: recallion.muted },
   pillDone: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: 'rgba(34,197,94,0.18)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
   },
-  pillDoneText: { fontSize: 12, fontWeight: '700', color: '#166534' },
+  pillDoneText: { fontSize: 12, fontWeight: '600', color: '#86efac' },
   pillNext: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: recallion.bgWash,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: recallion.blue,
   },
-  pillNextText: { fontSize: 12, fontWeight: '700', color: '#1d4ed8' },
+  pillNextText: { fontSize: 12, fontWeight: '600', color: recallion.blue },
   pillLocked: {
-    backgroundColor: '#e2e8f0',
+    backgroundColor: recallion.progressRest,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
   },
-  pillLockedText: { fontSize: 12, fontWeight: '700', color: '#475569' },
-  rowTitle: { fontSize: 17, fontWeight: '600', color: '#0f172a' },
-  rowTitleMuted: { fontSize: 16, fontWeight: '600', color: '#64748b' },
-  rowSub: { marginTop: 6, fontSize: 14, color: '#64748b' },
-  rowSubMuted: { marginTop: 6, fontSize: 13, color: '#94a3b8', fontStyle: 'italic' },
+  pillLockedText: { fontSize: 12, fontWeight: '600', color: recallion.navyMid },
+  rowTitle: { fontSize: 16, fontWeight: '500', color: recallion.navy },
+  rowTitleMuted: { fontSize: 15, fontWeight: '500', color: recallion.muted },
+  rowSub: { marginTop: 6, fontSize: 13, color: recallion.muted },
+  rowSubMuted: { marginTop: 6, fontSize: 13, color: recallion.muted, fontStyle: 'italic' },
 });

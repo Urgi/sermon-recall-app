@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -12,6 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { DevotionalNotifyPrompt } from '../../components/DevotionalNotifyPrompt';
+import { recallion } from '../../lib/recallionTheme';
 import { supabase } from '../../lib/supabase';
 
 type SermonListItem = {
@@ -24,10 +27,14 @@ type SermonListItem = {
 };
 
 export default function HomeScreen() {
-  const { session, profile, signOut, loading } = useAuth();
+  const { session, profile, signOut, loading, refreshProfile } = useAuth();
   const [sermons, setSermons] = useState<SermonListItem[]>([]);
   const [loadingSermons, setLoadingSermons] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const showNotifyPrompt = Boolean(
+    profile?.church_id && profile.devotional_notify_prompt_done === false,
+  );
 
   const loadSermons = useCallback(async () => {
     if (!supabase || !profile?.church_id) {
@@ -72,12 +79,26 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+      {profile?.id && showNotifyPrompt ? (
+        <DevotionalNotifyPrompt
+          visible
+          userId={profile.id}
+          onComplete={() => void refreshProfile()}
+        />
+      ) : null}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.brand}>Sermon Recall</Text>
-          <Text style={styles.sub}>
-            {profile?.full_name?.trim() || session?.user?.email?.split('@')[0]}
-          </Text>
+        <View style={styles.headerLeft}>
+          <Image
+            source={require('../../assets/logo.png')}
+            style={styles.brandMark}
+            accessibilityLabel="Sermon Recall"
+          />
+          <View style={styles.headerTitles}>
+            <Text style={styles.brand}>Sermon Recall</Text>
+            <Text style={styles.sub}>
+              {profile?.full_name?.trim() || session?.user?.email?.split('@')[0]}
+            </Text>
+          </View>
         </View>
         <Pressable
           style={({ pressed }) => [styles.signOutSm, pressed && styles.pressed]}
@@ -95,7 +116,7 @@ export default function HomeScreen() {
 
       {loadingSermons ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#1d4ed8" />
+          <ActivityIndicator size="large" color={recallion.blue} />
         </View>
       ) : (
         <FlatList
@@ -103,7 +124,7 @@ export default function HomeScreen() {
           data={sermons}
           keyExtractor={(item) => item.id}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1d4ed8" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={recallion.blue} />
           }
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
@@ -114,7 +135,9 @@ export default function HomeScreen() {
               </Text>
             </View>
           }
-          renderItem={({ item }) => (
+          renderItem={({ item }) => {
+            const st = statusBadge(item.status);
+            return (
             <Pressable
               style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
               onPress={() => router.push(`/sermon/${item.id}`)}
@@ -126,11 +149,12 @@ export default function HomeScreen() {
                 {[item.pastor_name, formatDate(item.sermon_date)].filter(Boolean).join(' · ') ||
                   '—'}
               </Text>
-              <View style={[styles.badge, statusBg(item.status)]}>
-                <Text style={styles.badgeText}>{item.status}</Text>
+              <View style={[styles.badge, st.wrap]}>
+                <Text style={[styles.badgeText, { color: st.text }]}>{item.status}</Text>
               </View>
             </Pressable>
-          )}
+            );
+          }}
         />
       )}
     </SafeAreaView>
@@ -147,14 +171,18 @@ function formatDate(iso: string | null): string | null {
   }
 }
 
-function statusBg(status: string) {
-  if (status === 'ready') return { backgroundColor: '#dcfce7' };
-  if (status === 'failed') return { backgroundColor: '#fee2e2' };
-  return { backgroundColor: '#fef3c7' };
+function statusBadge(status: string): { wrap: object; text: string } {
+  if (status === 'ready') {
+    return { wrap: { backgroundColor: 'rgba(34,197,94,0.18)' }, text: '#86efac' };
+  }
+  if (status === 'failed') {
+    return { wrap: { backgroundColor: 'rgba(248,113,113,0.15)' }, text: '#fca5a5' };
+  }
+  return { wrap: { backgroundColor: 'rgba(250,204,21,0.12)' }, text: '#fde047' };
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f8f6f3' },
+  safe: { flex: 1, backgroundColor: recallion.bgPage },
   list: { flex: 1 },
   header: {
     flexDirection: 'row',
@@ -163,38 +191,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
-  brand: { fontSize: 26, fontWeight: '700', color: '#0f172a' },
-  sub: { marginTop: 4, fontSize: 15, color: '#64748b' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 },
+  brandMark: { width: 44, height: 44, borderRadius: 10 },
+  headerTitles: { flex: 1, minWidth: 0 },
+  brand: { fontSize: 26, fontWeight: '600', color: recallion.navy },
+  sub: { marginTop: 4, fontSize: 15, color: recallion.muted },
   signOutSm: { paddingVertical: 8, paddingHorizontal: 12 },
-  signOutSmLabel: { fontSize: 16, color: '#1d4ed8', fontWeight: '600' },
+  signOutSmLabel: { fontSize: 16, color: recallion.blue, fontWeight: '500' },
   pressed: { opacity: 0.75 },
   sectionTitle: {
     paddingHorizontal: 20,
     marginTop: 8,
     fontSize: 20,
-    fontWeight: '700',
-    color: '#0f172a',
+    fontWeight: '600',
+    color: recallion.navy,
   },
   sectionHint: {
     paddingHorizontal: 20,
     marginTop: 6,
     marginBottom: 12,
     fontSize: 15,
-    color: '#64748b',
+    color: recallion.muted,
     lineHeight: 21,
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 48 },
-  listContent: { paddingHorizontal: 20, paddingBottom: 32, gap: 12 },
+  listContent: { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
+    backgroundColor: recallion.bgCard,
+    borderRadius: recallion.radiusCard,
     padding: 18,
-    borderWidth: 1,
-    borderColor: '#e7e5e0',
+    paddingHorizontal: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: recallion.borderSubtle,
   },
   cardPressed: { opacity: 0.95 },
-  cardTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
-  cardMeta: { marginTop: 8, fontSize: 15, color: '#475569' },
+  cardTitle: { fontSize: 17, fontWeight: '500', color: recallion.navy },
+  cardMeta: { marginTop: 8, fontSize: 14, color: recallion.navyMid },
   badge: {
     alignSelf: 'flex-start',
     marginTop: 10,
@@ -202,13 +234,13 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 999,
   },
-  badgeText: { fontSize: 12, fontWeight: '700', color: '#0f172a', textTransform: 'capitalize' },
+  badgeText: { fontSize: 12, fontWeight: '600', textTransform: 'capitalize' },
   empty: { paddingVertical: 40, paddingHorizontal: 8 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#334155', textAlign: 'center' },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: recallion.navyMid, textAlign: 'center' },
   emptyBody: {
     marginTop: 10,
     fontSize: 15,
-    color: '#64748b',
+    color: recallion.muted,
     textAlign: 'center',
     lineHeight: 22,
   },

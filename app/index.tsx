@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
+import { recallion } from '../lib/recallionTheme';
 import { supabase } from '../lib/supabase';
 
 export default function GateScreen() {
@@ -18,7 +19,7 @@ export default function GateScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={recallion.blue} />
       </View>
     );
   }
@@ -40,7 +41,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    backgroundColor: '#f8f6f3',
+    backgroundColor: recallion.bgCard,
   },
   err: {
     color: '#b91c1c',

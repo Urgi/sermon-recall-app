@@ -2,6 +2,7 @@ import { Link, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { recallion } from '../../lib/recallionTheme';
 
 export default function RegisterScreen() {
   const { signUp, session, loading } = useAuth();
@@ -59,11 +61,17 @@ export default function RegisterScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.card}>
+        <Image
+          source={require('../../assets/logo.png')}
+          style={styles.logo}
+          accessibilityLabel="Sermon Recall"
+        />
         <Text style={styles.title}>Create account</Text>
 
         <TextInput
           style={styles.input}
           placeholder="Full name (optional)"
+          placeholderTextColor={recallion.muted}
           autoComplete="name"
           value={fullName}
           onChangeText={setFullName}
@@ -71,6 +79,7 @@ export default function RegisterScreen() {
         <TextInput
           style={styles.input}
           placeholder="Email"
+          placeholderTextColor={recallion.muted}
           autoCapitalize="none"
           keyboardType="email-address"
           autoComplete="email"
@@ -80,6 +89,7 @@ export default function RegisterScreen() {
         <TextInput
           style={styles.input}
           placeholder="Password (8+ characters)"
+          placeholderTextColor={recallion.muted}
           secureTextEntry
           autoComplete="new-password"
           value={password}
@@ -114,38 +124,46 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: '#f8f6f3',
+    backgroundColor: recallion.bgPage,
   },
   card: {
     gap: 12,
   },
+  logo: {
+    width: 88,
+    height: 88,
+    borderRadius: 16,
+    alignSelf: 'center',
+    marginBottom: 4,
+  },
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#0f172a',
+    color: recallion.navy,
     marginBottom: 8,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: recallion.borderInput,
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
+    color: recallion.navy,
+    backgroundColor: recallion.bgCard,
   },
   error: {
-    color: '#b91c1c',
+    color: '#fca5a5',
     fontSize: 14,
   },
   info: {
-    color: '#15803d',
+    color: '#86efac',
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#1d4ed8',
+    backgroundColor: recallion.ctaSolid,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
     marginTop: 8,
   },
@@ -161,7 +179,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: 'center',
     fontSize: 16,
-    color: '#1d4ed8',
+    color: recallion.blue,
     fontWeight: '600',
   },
 });
