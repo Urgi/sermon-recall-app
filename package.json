@@ -9,8 +9,8 @@
     "ios": "expo run:ios",
     "ios:native": "expo run:ios",
     "web": "expo start --web",
-    "eas:build:ios": "npx eas-cli build --platform ios --profile production",
-    "eas:publish:ios": "npx eas-cli build --platform ios --profile production",
+    "eas:build:ios": "npx eas-cli build --platform ios --profile production --auto-submit",
+    "eas:publish:ios": "npx eas-cli build --platform ios --profile production --auto-submit",
     "eas:submit:ios": "npx eas-cli submit --platform ios --latest"
   },
   "dependencies": {
