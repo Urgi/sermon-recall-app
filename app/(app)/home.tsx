@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,8 +13,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { useRecallionTheme } from '../../contexts/ThemeContext';
 import { DevotionalNotifyPrompt } from '../../components/DevotionalNotifyPrompt';
-import { recallion } from '../../lib/recallionTheme';
+import type { RecallionColors } from '../../lib/recallionTheme';
 import { supabase } from '../../lib/supabase';
 
 type SermonListItem = {
@@ -28,6 +29,8 @@ type SermonListItem = {
 
 export default function HomeScreen() {
   const { session, profile, signOut, loading, refreshProfile } = useAuth();
+  const { colors } = useRecallionTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [sermons, setSermons] = useState<SermonListItem[]>([]);
   const [loadingSermons, setLoadingSermons] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -100,15 +103,23 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
-        <Pressable
-          style={({ pressed }) => [styles.signOutSm, pressed && styles.pressed]}
-          onPress={async () => {
-            await signOut();
-            router.replace('/login');
-          }}
-        >
-          <Text style={styles.signOutSmLabel}>Sign out</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            style={({ pressed }) => [styles.headerActionBtn, pressed && styles.pressed]}
+            onPress={() => router.push('/settings')}
+          >
+            <Text style={styles.headerActionLabel}>Settings</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.headerActionBtn, pressed && styles.pressed]}
+            onPress={async () => {
+              await signOut();
+              router.replace('/login');
+            }}
+          >
+            <Text style={styles.headerActionLabel}>Sign out</Text>
+          </Pressable>
+        </View>
       </View>
 
       <Text style={styles.sectionTitle}>Sermons</Text>
@@ -116,7 +127,7 @@ export default function HomeScreen() {
 
       {loadingSermons ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={recallion.blue} />
+          <ActivityIndicator size="large" color={colors.blue} />
         </View>
       ) : (
         <FlatList
@@ -124,7 +135,7 @@ export default function HomeScreen() {
           data={sermons}
           keyExtractor={(item) => item.id}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={recallion.blue} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
           }
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
@@ -181,67 +192,70 @@ function statusBadge(status: string): { wrap: object; text: string } {
   return { wrap: { backgroundColor: 'rgba(250,204,21,0.12)' }, text: '#fde047' };
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: recallion.bgPage },
-  list: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-  },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 },
-  brandMark: { width: 44, height: 44, borderRadius: 10 },
-  headerTitles: { flex: 1, minWidth: 0 },
-  brand: { fontSize: 26, fontWeight: '600', color: recallion.navy },
-  sub: { marginTop: 4, fontSize: 15, color: recallion.muted },
-  signOutSm: { paddingVertical: 8, paddingHorizontal: 12 },
-  signOutSmLabel: { fontSize: 16, color: recallion.blue, fontWeight: '500' },
-  pressed: { opacity: 0.75 },
-  sectionTitle: {
-    paddingHorizontal: 20,
-    marginTop: 8,
-    fontSize: 20,
-    fontWeight: '600',
-    color: recallion.navy,
-  },
-  sectionHint: {
-    paddingHorizontal: 20,
-    marginTop: 6,
-    marginBottom: 12,
-    fontSize: 15,
-    color: recallion.muted,
-    lineHeight: 21,
-  },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 48 },
-  listContent: { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },
-  card: {
-    backgroundColor: recallion.bgCard,
-    borderRadius: recallion.radiusCard,
-    padding: 18,
-    paddingHorizontal: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: recallion.borderSubtle,
-  },
-  cardPressed: { opacity: 0.95 },
-  cardTitle: { fontSize: 17, fontWeight: '500', color: recallion.navy },
-  cardMeta: { marginTop: 8, fontSize: 14, color: recallion.navyMid },
-  badge: {
-    alignSelf: 'flex-start',
-    marginTop: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-  },
-  badgeText: { fontSize: 12, fontWeight: '600', textTransform: 'capitalize' },
-  empty: { paddingVertical: 40, paddingHorizontal: 8 },
-  emptyTitle: { fontSize: 18, fontWeight: '600', color: recallion.navyMid, textAlign: 'center' },
-  emptyBody: {
-    marginTop: 10,
-    fontSize: 15,
-    color: recallion.muted,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-});
+function createStyles(c: RecallionColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: c.bgPage },
+    list: { flex: 1 },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      paddingHorizontal: 20,
+      paddingBottom: 12,
+    },
+    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 },
+    brandMark: { width: 44, height: 44, borderRadius: 10 },
+    headerTitles: { flex: 1, minWidth: 0 },
+    brand: { fontSize: 26, fontWeight: '600', color: c.navy },
+    sub: { marginTop: 4, fontSize: 15, color: c.muted },
+    headerActions: { flexDirection: 'column', alignItems: 'flex-end', gap: 4 },
+    headerActionBtn: { paddingVertical: 4, paddingHorizontal: 4 },
+    headerActionLabel: { fontSize: 15, color: c.blue, fontWeight: '500' },
+    pressed: { opacity: 0.75 },
+    sectionTitle: {
+      paddingHorizontal: 20,
+      marginTop: 8,
+      fontSize: 20,
+      fontWeight: '600',
+      color: c.navy,
+    },
+    sectionHint: {
+      paddingHorizontal: 20,
+      marginTop: 6,
+      marginBottom: 12,
+      fontSize: 15,
+      color: c.muted,
+      lineHeight: 21,
+    },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 48 },
+    listContent: { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },
+    card: {
+      backgroundColor: c.bgCard,
+      borderRadius: c.radiusCard,
+      padding: 18,
+      paddingHorizontal: 20,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.borderSubtle,
+    },
+    cardPressed: { opacity: 0.95 },
+    cardTitle: { fontSize: 17, fontWeight: '500', color: c.navy },
+    cardMeta: { marginTop: 8, fontSize: 14, color: c.navyMid },
+    badge: {
+      alignSelf: 'flex-start',
+      marginTop: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 999,
+    },
+    badgeText: { fontSize: 12, fontWeight: '600', textTransform: 'capitalize' },
+    empty: { paddingVertical: 40, paddingHorizontal: 8 },
+    emptyTitle: { fontSize: 18, fontWeight: '600', color: c.navyMid, textAlign: 'center' },
+    emptyBody: {
+      marginTop: 10,
+      fontSize: 15,
+      color: c.muted,
+      textAlign: 'center',
+      lineHeight: 22,
+    },
+  });
+}

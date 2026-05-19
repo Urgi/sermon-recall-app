@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -12,9 +12,13 @@ import {
 } from 'react-native';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { useRecallionTheme } from '../../contexts/ThemeContext';
+import type { RecallionColors } from '../../lib/recallionTheme';
 
 export default function JoinChurchScreen() {
   const { joinChurch, signOut, profile } = useAuth();
+  const { colors } = useRecallionTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -79,63 +83,40 @@ export default function JoinChurchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#f8f6f3',
-  },
-  card: {
-    gap: 12,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  hint: {
-    fontSize: 15,
-    color: '#64748b',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 18,
-    fontWeight: '600',
-    letterSpacing: 1,
-    backgroundColor: '#fff',
-  },
-  error: {
-    color: '#b91c1c',
-    fontSize: 14,
-  },
-  button: {
-    backgroundColor: '#1d4ed8',
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonPressed: {
-    opacity: 0.9,
-  },
-  buttonLabel: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  outline: {
-    marginTop: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  outlineLabel: {
-    color: '#64748b',
-    fontSize: 16,
-  },
-});
+function createStyles(c: RecallionColors) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      justifyContent: 'center',
+      padding: 24,
+      backgroundColor: c.bgPage,
+    },
+    card: { gap: 12 },
+    title: { fontSize: 26, fontWeight: '700', color: c.navy },
+    hint: { fontSize: 15, color: c.muted, marginBottom: 8 },
+    input: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.borderInput,
+      borderRadius: c.radiusMd,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 18,
+      fontWeight: '600',
+      letterSpacing: 1,
+      color: c.navy,
+      backgroundColor: c.bgCard,
+    },
+    error: { color: '#b91c1c', fontSize: 14 },
+    button: {
+      backgroundColor: c.ctaSolid,
+      paddingVertical: 14,
+      borderRadius: c.radiusMd,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonPressed: { opacity: 0.9 },
+    buttonLabel: { color: '#fff', fontSize: 17, fontWeight: '600' },
+    outline: { marginTop: 12, paddingVertical: 12, alignItems: 'center' },
+    outlineLabel: { color: c.muted, fontSize: 16 },
+  });
+}

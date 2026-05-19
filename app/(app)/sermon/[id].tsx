@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -17,7 +17,8 @@ import {
   buildUnlockContext,
   nextUnlockedIncompleteDevotional,
 } from '../../../lib/devotionalUnlock';
-import { recallion } from '../../../lib/recallionTheme';
+import { useRecallionTheme } from '../../../contexts/ThemeContext';
+import type { RecallionColors } from '../../../lib/recallionTheme';
 import { supabase } from '../../../lib/supabase';
 
 type SermonRow = {
@@ -38,6 +39,8 @@ type DevotionalRow = {
 };
 
 export default function SermonDetailScreen() {
+  const { colors } = useRecallionTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
   const [sermon, setSermon] = useState<SermonRow | null>(null);
@@ -148,7 +151,7 @@ export default function SermonDetailScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={recallion.blue} />
+          <ActivityIndicator size="large" color={colors.blue} />
         </View>
       ) : error || !sermon ? (
         <View style={styles.padBare}>
@@ -159,7 +162,7 @@ export default function SermonDetailScreen() {
           contentContainerStyle={styles.scrollOuter}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={recallion.blue} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
           }
         >
           <View style={styles.contentCard}>
@@ -280,8 +283,9 @@ function statusBadge(status: string): { wrap: object; text: string } {
   return { wrap: { backgroundColor: 'rgba(250,204,21,0.12)' }, text: '#fde047' };
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: recallion.bgPage },
+function createStyles(c: RecallionColors) {
+  return StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bgPage },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -290,21 +294,21 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 8,
   },
-  back: { fontSize: 14, color: recallion.blue, fontWeight: '500' },
+  back: { fontSize: 14, color: c.blue, fontWeight: '500' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   padBare: { padding: 20, paddingBottom: 40 },
   scrollOuter: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 40 },
   contentCard: {
-    backgroundColor: recallion.bgCard,
-    borderRadius: recallion.radiusCard,
+    backgroundColor: c.bgCard,
+    borderRadius: c.radiusCard,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: recallion.borderSubtle,
+    borderColor: c.borderSubtle,
     overflow: 'hidden',
   },
   cardHero: { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 8 },
   err: { color: '#b91c1c', fontSize: 16 },
-  title: { fontSize: 24, fontWeight: '500', color: recallion.navy, letterSpacing: -0.2 },
-  meta: { marginTop: 8, fontSize: 14, color: recallion.navyMid },
+  title: { fontSize: 24, fontWeight: '500', color: c.navy, letterSpacing: -0.2 },
+  meta: { marginTop: 8, fontSize: 14, color: c.navyMid },
   badge: {
     alignSelf: 'flex-start',
     marginTop: 12,
@@ -317,46 +321,46 @@ const styles = StyleSheet.create({
     marginHorizontal: 22,
     marginBottom: 8,
     padding: 16,
-    borderRadius: recallion.radiusMd,
-    backgroundColor: recallion.bgWash,
+    borderRadius: c.radiusMd,
+    backgroundColor: c.bgWash,
     borderLeftWidth: 3,
-    borderLeftColor: recallion.blue,
+    borderLeftColor: c.blue,
   },
   progressTitle: {
     fontSize: 11,
     fontWeight: '500',
-    color: recallion.blue,
+    color: c.blue,
     letterSpacing: 1,
     textTransform: 'uppercase',
     marginBottom: 8,
   },
-  progressBody: { fontSize: 16, color: recallion.navyMid, lineHeight: 22 },
-  progressHint: { marginTop: 10, fontSize: 13, color: recallion.muted, lineHeight: 18 },
+  progressBody: { fontSize: 16, color: c.navyMid, lineHeight: 22 },
+  progressHint: { marginTop: 10, fontSize: 13, color: c.muted, lineHeight: 18 },
   journeySection: { paddingHorizontal: 22, paddingBottom: 24 },
   section: {
     marginTop: 12,
     marginBottom: 12,
     fontSize: 16,
     fontWeight: '500',
-    color: recallion.navy,
+    color: c.navy,
   },
-  muted: { fontSize: 15, color: recallion.muted, lineHeight: 22 },
+  muted: { fontSize: 15, color: c.muted, lineHeight: 22 },
   list: { gap: 10 },
   row: {
-    backgroundColor: recallion.bgCard,
-    borderRadius: recallion.radiusMd,
+    backgroundColor: c.bgCard,
+    borderRadius: c.radiusMd,
     padding: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: recallion.borderSubtle,
+    borderColor: c.borderSubtle,
   },
   rowCurrent: {
-    borderColor: recallion.blue,
+    borderColor: c.blue,
     borderWidth: 1,
-    backgroundColor: recallion.bgWash,
+    backgroundColor: c.bgWash,
   },
   rowLocked: {
     opacity: 0.72,
-    backgroundColor: recallion.bgWash,
+    backgroundColor: c.bgWash,
   },
   rowPressed: { opacity: 0.92 },
   rowTop: {
@@ -365,8 +369,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
-  day: { fontSize: 11, fontWeight: '500', letterSpacing: 0.8, textTransform: 'uppercase', color: recallion.blue },
-  dayMuted: { color: recallion.muted },
+  day: { fontSize: 11, fontWeight: '500', letterSpacing: 0.8, textTransform: 'uppercase', color: c.blue },
+  dayMuted: { color: c.muted },
   pillDone: {
     backgroundColor: 'rgba(34,197,94,0.18)',
     paddingHorizontal: 10,
@@ -375,23 +379,24 @@ const styles = StyleSheet.create({
   },
   pillDoneText: { fontSize: 12, fontWeight: '600', color: '#86efac' },
   pillNext: {
-    backgroundColor: recallion.bgWash,
+    backgroundColor: c.bgWash,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: recallion.blue,
+    borderColor: c.blue,
   },
-  pillNextText: { fontSize: 12, fontWeight: '600', color: recallion.blue },
+  pillNextText: { fontSize: 12, fontWeight: '600', color: c.blue },
   pillLocked: {
-    backgroundColor: recallion.progressRest,
+    backgroundColor: c.progressRest,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
   },
-  pillLockedText: { fontSize: 12, fontWeight: '600', color: recallion.navyMid },
-  rowTitle: { fontSize: 16, fontWeight: '500', color: recallion.navy },
-  rowTitleMuted: { fontSize: 15, fontWeight: '500', color: recallion.muted },
-  rowSub: { marginTop: 6, fontSize: 13, color: recallion.muted },
-  rowSubMuted: { marginTop: 6, fontSize: 13, color: recallion.muted, fontStyle: 'italic' },
+  pillLockedText: { fontSize: 12, fontWeight: '600', color: c.navyMid },
+  rowTitle: { fontSize: 16, fontWeight: '500', color: c.navy },
+  rowTitleMuted: { fontSize: 15, fontWeight: '500', color: c.muted },
+  rowSub: { marginTop: 6, fontSize: 13, color: c.muted },
+  rowSubMuted: { marginTop: 6, fontSize: 13, color: c.muted, fontStyle: 'italic' },
 });
+}

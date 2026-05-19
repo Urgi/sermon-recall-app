@@ -1,5 +1,5 @@
 import { Link, router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -13,9 +13,12 @@ import {
 } from 'react-native';
 
 import { useAuth } from '../../contexts/AuthContext';
-import { recallion } from '../../lib/recallionTheme';
+import { useRecallionTheme } from '../../contexts/ThemeContext';
+import type { RecallionColors } from '../../lib/recallionTheme';
 
 export default function RegisterScreen() {
+  const { colors } = useRecallionTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { signUp, session, loading } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -71,7 +74,7 @@ export default function RegisterScreen() {
         <TextInput
           style={styles.input}
           placeholder="Full name (optional)"
-          placeholderTextColor={recallion.muted}
+          placeholderTextColor={colors.muted}
           autoComplete="name"
           value={fullName}
           onChangeText={setFullName}
@@ -79,7 +82,7 @@ export default function RegisterScreen() {
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor={recallion.muted}
+          placeholderTextColor={colors.muted}
           autoCapitalize="none"
           keyboardType="email-address"
           autoComplete="email"
@@ -89,7 +92,7 @@ export default function RegisterScreen() {
         <TextInput
           style={styles.input}
           placeholder="Password (8+ characters)"
-          placeholderTextColor={recallion.muted}
+          placeholderTextColor={colors.muted}
           secureTextEntry
           autoComplete="new-password"
           value={password}
@@ -119,12 +122,13 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(c: RecallionColors) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: recallion.bgPage,
+    backgroundColor: c.bgPage,
   },
   card: {
     gap: 12,
@@ -139,18 +143,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: recallion.navy,
+    color: c.navy,
     marginBottom: 8,
   },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: recallion.borderInput,
+    borderColor: c.borderInput,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: recallion.navy,
-    backgroundColor: recallion.bgCard,
+    color: c.navy,
+    backgroundColor: c.bgCard,
   },
   error: {
     color: '#fca5a5',
@@ -161,7 +165,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   button: {
-    backgroundColor: recallion.ctaSolid,
+    backgroundColor: c.ctaSolid,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -179,7 +183,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: 'center',
     fontSize: 16,
-    color: recallion.blue,
+    color: c.blue,
     fontWeight: '600',
   },
 });
+}

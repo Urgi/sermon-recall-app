@@ -8,7 +8,7 @@ import {
   useAudioRecorderState,
 } from 'expo-audio';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState , useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
@@ -26,7 +26,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../../contexts/AuthContext';
 import { accessibleDevotionalIds, buildUnlockContext, nextUnlockedIncompleteDevotional } from '../../../lib/devotionalUnlock';
-import { recallion } from '../../../lib/recallionTheme';
+import { useRecallionTheme } from '../../../contexts/ThemeContext';
+import type { RecallionColors } from '../../../lib/recallionTheme';
 import { supabase } from '../../../lib/supabase';
 import { touchDevotionalOpen } from '../../../lib/touchDevotionalOpen';
 import { createVoicePlaybackUrl, uploadVoiceCommitment } from '../../../lib/voiceCommitment';
@@ -77,6 +78,8 @@ function formatSermonKicker(iso: string | null): string | null {
 }
 
 export default function DevotionalScreen() {
+  const { colors } = useRecallionTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
   const [row, setRow] = useState<DevotionalDetail | null>(null);
@@ -472,7 +475,7 @@ export default function DevotionalScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={recallion.blue} />
+          <ActivityIndicator size="large" color={colors.blue} />
         </View>
       ) : error && !row ? (
         <View style={styles.padBare}>
@@ -532,7 +535,7 @@ export default function DevotionalScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={recallion.blue} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
           }
         >
           <View style={styles.contentCard}>
@@ -577,7 +580,7 @@ export default function DevotionalScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Your answer"
-                placeholderTextColor={recallion.muted}
+                placeholderTextColor={colors.muted}
                 value={gateDraft}
                 onChangeText={setGateDraft}
                 multiline
@@ -603,7 +606,7 @@ export default function DevotionalScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={recallion.blue} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
           }
         >
           <View style={styles.contentCard}>
@@ -644,7 +647,7 @@ export default function DevotionalScreen() {
                 {row.title ? row.title : `Day ${row.day_number}`}
               </Text>
               <View style={styles.readTimeRow}>
-                <Ionicons name="time-outline" size={14} color={recallion.muted} />
+                <Ionicons name="time-outline" size={14} color={colors.muted} />
                 <Text style={styles.min}>{row.estimated_minutes} min read</Text>
               </View>
 
@@ -684,7 +687,7 @@ export default function DevotionalScreen() {
             {row.reflection_question ? (
               <View style={styles.reflectSection}>
                 <View style={styles.reflectHeader}>
-                  <Ionicons name="bulb-outline" size={16} color={recallion.blue} />
+                  <Ionicons name="bulb-outline" size={16} color={colors.blue} />
                   <Text style={styles.reflectLabel}>Reflection</Text>
                 </View>
                 <Text style={styles.reflect}>{row.reflection_question}</Text>
@@ -693,7 +696,7 @@ export default function DevotionalScreen() {
 
             <View style={styles.commitmentSection}>
               <View style={styles.commitmentHeader}>
-                <Ionicons name="flag-outline" size={18} color={recallion.blue} />
+                <Ionicons name="flag-outline" size={18} color={colors.blue} />
                 <Text style={styles.commitmentTitle}>Application commitment</Text>
               </View>
               <Text style={styles.commitmentPrompt}>
@@ -708,7 +711,7 @@ export default function DevotionalScreen() {
               <TextInput
                 style={[styles.input, completed && styles.inputDisabled]}
                 placeholder="e.g. This week I will ___ (who / what / when)."
-                placeholderTextColor={recallion.muted}
+                placeholderTextColor={colors.muted}
                 value={completed ? progress?.application_commitment ?? '' : commitmentDraft}
                 onChangeText={setCommitmentDraft}
                 multiline
@@ -737,7 +740,7 @@ export default function DevotionalScreen() {
                         <Ionicons
                           name="mic-outline"
                           size={16}
-                          color={recordState.isRecording ? '#fff' : recallion.navyMid}
+                          color={recordState.isRecording ? '#fff' : colors.navyMid}
                         />
                         <Text
                           style={[
@@ -824,8 +827,9 @@ export default function DevotionalScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: recallion.bgPage },
+function createStyles(c: RecallionColors) {
+  return StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bgPage },
   flex: { flex: 1 },
   topBar: {
     flexDirection: 'row',
@@ -835,15 +839,15 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 8,
   },
-  back: { fontSize: 14, color: recallion.blue, fontWeight: '500' },
+  back: { fontSize: 14, color: c.blue, fontWeight: '500' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   padBare: { padding: 20, paddingBottom: 48 },
   scrollOuter: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 48 },
   contentCard: {
-    backgroundColor: recallion.bgCard,
-    borderRadius: recallion.radiusCard,
+    backgroundColor: c.bgCard,
+    borderRadius: c.radiusCard,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: recallion.borderSubtle,
+    borderColor: c.borderSubtle,
     overflow: 'hidden',
   },
   sermonHeaderRow: {
@@ -853,20 +857,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: recallion.borderSubtle,
+    borderBottomColor: c.borderSubtle,
   },
   sermonMark: {
     width: 38,
     height: 38,
     borderRadius: 8,
-    backgroundColor: recallion.brandMarkBg,
+    backgroundColor: c.brandMarkBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sermonMarkText: {
     fontSize: 13,
     fontWeight: '500',
-    color: recallion.brandMarkText,
+    color: c.brandMarkText,
     letterSpacing: -0.3,
   },
   sermonHeaderText: { flex: 1, minWidth: 0 },
@@ -874,12 +878,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    color: recallion.muted,
+    color: c.muted,
     fontWeight: '500',
   },
   sermonTitleLine: {
     fontSize: 15,
-    color: recallion.navy,
+    color: c.navy,
     fontWeight: '500',
     marginTop: 2,
   },
@@ -895,22 +899,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: recallion.blue,
+    color: c.blue,
     fontWeight: '500',
   },
   segmentRow: { flex: 1, flexDirection: 'row', gap: 4 },
   segment: { height: 3, flex: 1, borderRadius: 2 },
-  segmentActive: { backgroundColor: recallion.blue },
-  segmentIdle: { backgroundColor: recallion.progressRest },
+  segmentActive: { backgroundColor: c.blue },
+  segmentIdle: { backgroundColor: c.progressRest },
   err: { color: '#b91c1c', fontSize: 16 },
   inlineErr: { color: '#b91c1c', fontSize: 14, marginBottom: 12 },
-  lockTitle: { fontSize: 22, fontWeight: '600', color: recallion.navy, marginBottom: 10 },
-  lockBody: { fontSize: 16, lineHeight: 24, color: recallion.navyMid, marginBottom: 12 },
-  lockHint: { fontSize: 16, fontWeight: '600', color: recallion.blue, marginBottom: 20 },
+  lockTitle: { fontSize: 22, fontWeight: '600', color: c.navy, marginBottom: 10 },
+  lockBody: { fontSize: 16, lineHeight: 24, color: c.navyMid, marginBottom: 12 },
+  lockHint: { fontSize: 16, fontWeight: '600', color: c.blue, marginBottom: 20 },
   gateKicker: {
     fontSize: 11,
     fontWeight: '500',
-    color: recallion.blue,
+    color: c.blue,
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 8,
@@ -918,25 +922,25 @@ const styles = StyleSheet.create({
   gatePrompt: {
     fontSize: 18,
     fontWeight: '600',
-    color: recallion.navy,
+    color: c.navy,
     lineHeight: 26,
     marginBottom: 10,
   },
-  gateHint: { fontSize: 14, color: recallion.muted, lineHeight: 21, marginBottom: 16 },
+  gateHint: { fontSize: 14, color: c.muted, lineHeight: 21, marginBottom: 16 },
   title: {
     fontSize: 24,
     fontWeight: '500',
-    color: recallion.navy,
+    color: c.navy,
     lineHeight: 30,
     marginBottom: 8,
     letterSpacing: -0.2,
   },
   readTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  min: { fontSize: 13, color: recallion.muted },
+  min: { fontSize: 13, color: c.muted },
   doneBanner: {
     marginTop: 16,
     padding: 12,
-    borderRadius: recallion.radiusSm,
+    borderRadius: c.radiusSm,
     backgroundColor: 'rgba(34,197,94,0.12)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(34,197,94,0.35)',
@@ -945,33 +949,33 @@ const styles = StyleSheet.create({
   recallBox: {
     marginTop: 16,
     padding: 16,
-    borderRadius: recallion.radiusMd,
-    backgroundColor: recallion.bgWash,
+    borderRadius: c.radiusMd,
+    backgroundColor: c.bgWash,
     borderLeftWidth: 3,
-    borderLeftColor: recallion.blue,
+    borderLeftColor: c.blue,
   },
   recallLabel: {
     fontSize: 11,
     fontWeight: '500',
-    color: recallion.blue,
+    color: c.blue,
     letterSpacing: 1,
     textTransform: 'uppercase',
     marginBottom: 8,
   },
-  recallBody: { fontSize: 15, lineHeight: 24, color: recallion.navyMid },
+  recallBody: { fontSize: 15, lineHeight: 24, color: c.navyMid },
   scriptureSection: { paddingHorizontal: 22, paddingVertical: 10 },
   scriptureBlock: {
     padding: 16,
     paddingHorizontal: 18,
-    backgroundColor: recallion.bgWash,
-    borderRadius: recallion.radiusMd,
+    backgroundColor: c.bgWash,
+    borderRadius: c.radiusMd,
     borderLeftWidth: 3,
-    borderLeftColor: recallion.blue,
+    borderLeftColor: c.blue,
   },
   scriptureRef: {
     fontSize: 11,
     fontWeight: '500',
-    color: recallion.blue,
+    color: c.blue,
     letterSpacing: 1,
     textTransform: 'uppercase',
     marginBottom: 8,
@@ -979,54 +983,54 @@ const styles = StyleSheet.create({
   scriptureBody: {
     fontSize: 15,
     lineHeight: 24,
-    color: recallion.navyMid,
+    color: c.navyMid,
     fontStyle: 'italic',
   },
   bodySection: { paddingHorizontal: 22, paddingTop: 4, paddingBottom: 20 },
-  body: { fontSize: 16, lineHeight: 27, color: recallion.navyMid },
+  body: { fontSize: 16, lineHeight: 27, color: c.navyMid },
   reflectSection: {
     marginHorizontal: 22,
     marginBottom: 22,
     padding: 18,
-    backgroundColor: recallion.bgWash,
-    borderRadius: recallion.radiusMd,
+    backgroundColor: c.bgWash,
+    borderRadius: c.radiusMd,
   },
   reflectHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   reflectLabel: {
     fontSize: 11,
     fontWeight: '500',
-    color: recallion.blue,
+    color: c.blue,
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  reflect: { fontSize: 16, lineHeight: 25, color: recallion.navy },
+  reflect: { fontSize: 16, lineHeight: 25, color: c.navy },
   commitmentSection: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: recallion.borderSubtle,
+    borderTopColor: c.borderSubtle,
     paddingHorizontal: 22,
     paddingTop: 22,
     paddingBottom: 8,
   },
   commitmentHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  commitmentTitle: { fontSize: 18, color: recallion.navy, fontWeight: '500' },
+  commitmentTitle: { fontSize: 18, color: c.navy, fontWeight: '500' },
   commitmentPrompt: {
     fontSize: 14,
     lineHeight: 22,
-    color: recallion.navyMid,
+    color: c.navyMid,
     marginBottom: 6,
   },
   commitmentHint: {
     fontSize: 13,
     lineHeight: 20,
-    color: recallion.muted,
+    color: c.muted,
     marginBottom: 14,
   },
   ctaSection: { paddingHorizontal: 22, paddingBottom: 24 },
   primaryBtn: {
     marginTop: 16,
-    backgroundColor: recallion.ctaSolid,
+    backgroundColor: c.ctaSolid,
     paddingVertical: 15,
-    borderRadius: recallion.radiusMd,
+    borderRadius: c.radiusMd,
     alignItems: 'center',
   },
   primaryBtnInner: {
@@ -1040,16 +1044,16 @@ const styles = StyleSheet.create({
   input: {
     minHeight: 100,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: recallion.borderInput,
-    borderRadius: recallion.radiusSm,
+    borderColor: c.borderInput,
+    borderRadius: c.radiusSm,
     paddingVertical: 12,
     paddingHorizontal: 14,
     fontSize: 14,
     lineHeight: 21,
-    color: recallion.navy,
-    backgroundColor: recallion.bgCard,
+    color: c.navy,
+    backgroundColor: c.bgCard,
   },
-  inputDisabled: { backgroundColor: recallion.bgWash, color: recallion.navyMid },
+  inputDisabled: { backgroundColor: c.bgWash, color: c.navyMid },
   voiceRow: {
     flexDirection: 'column',
     alignItems: 'flex-start',
@@ -1060,7 +1064,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: recallion.muted,
+    color: c.muted,
     fontWeight: '500',
   },
   voiceButtonsRow: {
@@ -1078,22 +1082,22 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   voiceBtnOutline: {
-    backgroundColor: recallion.bgCard,
+    backgroundColor: c.bgCard,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: recallion.borderInput,
+    borderColor: c.borderInput,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: recallion.radiusSm,
+    borderRadius: c.radiusSm,
   },
   voiceBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   recDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: recallion.ctaSolid,
+    backgroundColor: c.ctaSolid,
   },
   voiceBtnOutlineLabel: {
-    color: recallion.navyMid,
+    color: c.navyMid,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -1103,3 +1107,4 @@ const styles = StyleSheet.create({
   },
   voiceBtnDangerLabel: { color: '#fff' },
 });
+}

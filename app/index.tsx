@@ -1,11 +1,15 @@
 import { Redirect } from 'expo-router';
+import { useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
-import { recallion } from '../lib/recallionTheme';
+import { useRecallionTheme } from '../contexts/ThemeContext';
+import type { RecallionColors } from '../lib/recallionTheme';
 import { supabase } from '../lib/supabase';
 
 export default function GateScreen() {
+  const { colors } = useRecallionTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { session, profile, loading } = useAuth();
 
   if (!supabase) {
@@ -19,7 +23,7 @@ export default function GateScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={recallion.blue} />
+        <ActivityIndicator size="large" color={colors.blue} />
       </View>
     );
   }
@@ -35,13 +39,14 @@ export default function GateScreen() {
   return <Redirect href="/home" />;
 }
 
-const styles = StyleSheet.create({
+function createStyles(c: RecallionColors) {
+  return StyleSheet.create({
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    backgroundColor: recallion.bgCard,
+    backgroundColor: c.bgPage,
   },
   err: {
     color: '#b91c1c',
@@ -49,3 +54,4 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 });
+}

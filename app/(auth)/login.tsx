@@ -1,5 +1,5 @@
 import { Link, router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -13,10 +13,13 @@ import {
 } from 'react-native';
 
 import { useAuth } from '../../contexts/AuthContext';
-import { recallion } from '../../lib/recallionTheme';
+import { useRecallionTheme } from '../../contexts/ThemeContext';
+import type { RecallionColors } from '../../lib/recallionTheme';
 
 export default function LoginScreen() {
   const { signIn, session, loading } = useAuth();
+  const { colors } = useRecallionTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +60,7 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor={recallion.muted}
+          placeholderTextColor={colors.muted}
           autoCapitalize="none"
           keyboardType="email-address"
           autoComplete="email"
@@ -67,7 +70,7 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Password"
-          placeholderTextColor={recallion.muted}
+          placeholderTextColor={colors.muted}
           secureTextEntry
           autoComplete="password"
           value={password}
@@ -96,67 +99,44 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: recallion.bgPage,
-  },
-  card: {
-    gap: 12,
-  },
-  logo: {
-    width: 88,
-    height: 88,
-    borderRadius: 16,
-    alignSelf: 'center',
-    marginBottom: 4,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: recallion.navy,
-  },
-  hint: {
-    fontSize: 15,
-    color: recallion.muted,
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: recallion.borderInput,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: recallion.navy,
-    backgroundColor: recallion.bgCard,
-  },
-  error: {
-    color: '#fca5a5',
-    fontSize: 14,
-  },
-  button: {
-    backgroundColor: recallion.ctaSolid,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonPressed: {
-    opacity: 0.9,
-  },
-  buttonLabel: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  link: {
-    marginTop: 16,
-    textAlign: 'center',
-    fontSize: 16,
-    color: recallion.blue,
-    fontWeight: '600',
-  },
-});
+function createStyles(c: RecallionColors) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      justifyContent: 'center',
+      padding: 24,
+      backgroundColor: c.bgPage,
+    },
+    card: { gap: 12 },
+    logo: {
+      width: 88,
+      height: 88,
+      borderRadius: 16,
+      alignSelf: 'center',
+      marginBottom: 4,
+    },
+    title: { fontSize: 26, fontWeight: '700', color: c.navy },
+    hint: { fontSize: 15, color: c.muted, marginBottom: 8 },
+    input: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.borderInput,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 16,
+      color: c.navy,
+      backgroundColor: c.bgCard,
+    },
+    error: { color: '#fca5a5', fontSize: 14 },
+    button: {
+      backgroundColor: c.ctaSolid,
+      paddingVertical: 14,
+      borderRadius: 12,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonPressed: { opacity: 0.9 },
+    buttonLabel: { color: '#fff', fontSize: 17, fontWeight: '600' },
+    link: { marginTop: 16, textAlign: 'center', fontSize: 16, color: c.blue, fontWeight: '600' },
+  });
+}

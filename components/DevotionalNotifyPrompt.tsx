@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState , useMemo } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -8,7 +8,8 @@ import {
   View,
 } from 'react-native';
 
-import { recallion } from '../lib/recallionTheme';
+import { useRecallionTheme } from '../contexts/ThemeContext';
+import type { RecallionColors } from '../lib/recallionTheme';
 import { supabase } from '../lib/supabase';
 
 const HOUR_OPTIONS: { label: string; hour: number }[] = [
@@ -25,6 +26,8 @@ type Props = {
 };
 
 export function DevotionalNotifyPrompt({ visible, userId, onComplete }: Props) {
+  const { colors } = useRecallionTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,14 +104,15 @@ export function DevotionalNotifyPrompt({ visible, userId, onComplete }: Props) {
             <Text style={styles.secondaryLabel}>No devotional reminders</Text>
           </Pressable>
 
-          {busy ? <ActivityIndicator style={styles.spinner} color={recallion.blue} /> : null}
+          {busy ? <ActivityIndicator style={styles.spinner} color={colors.blue} /> : null}
         </View>
       </View>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(c: RecallionColors) {
+  return StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(5, 7, 10, 0.72)',
@@ -116,21 +120,21 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   sheet: {
-    backgroundColor: recallion.bgCard,
+    backgroundColor: c.bgCard,
     borderRadius: 16,
     padding: 20,
     maxWidth: 400,
     alignSelf: 'center',
     width: '100%',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: recallion.borderSubtle,
+    borderColor: c.borderSubtle,
   },
-  title: { fontSize: 20, fontWeight: '600', color: recallion.navy },
+  title: { fontSize: 20, fontWeight: '600', color: c.navy },
   sub: {
     marginTop: 10,
     fontSize: 15,
     lineHeight: 22,
-    color: recallion.muted,
+    color: c.muted,
   },
   err: { marginTop: 10, color: '#fca5a5', fontSize: 14 },
   choice: {
@@ -138,7 +142,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 10,
-    backgroundColor: recallion.ctaSolid,
+    backgroundColor: c.ctaSolid,
   },
   choicePressed: { opacity: 0.9 },
   choiceLabel: { color: '#fff', fontSize: 16, fontWeight: '600', textAlign: 'center' },
@@ -148,9 +152,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: recallion.borderInput,
-    backgroundColor: recallion.bgWash,
+    borderColor: c.borderInput,
+    backgroundColor: c.bgWash,
   },
-  secondaryLabel: { color: recallion.navyMid, fontSize: 15, fontWeight: '500', textAlign: 'center' },
+  secondaryLabel: { color: c.navyMid, fontSize: 15, fontWeight: '500', textAlign: 'center' },
   spinner: { marginTop: 16 },
 });
+}
