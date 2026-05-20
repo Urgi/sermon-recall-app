@@ -1,6 +1,8 @@
 import type { Session } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+import { mapAuthError } from '../lib/auth/mapAuthError';
 import { registerExpoPushTokenForCurrentUser } from '../lib/registerPushToken';
 import { supabase } from '../lib/supabase';
 
@@ -25,12 +27,19 @@ type AuthContextValue = {
     password: string,
     fullName?: string,
   ) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>;
+  resetPasswordForEmail: (email: string) => Promise<{ error: string | null }>;
+  resendSignupConfirmation: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   joinChurch: (code: string) => Promise<{ error: string | null }>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function authCallbackUrl(next?: string): string {
+  const path = next ? `auth/callback?next=${encodeURIComponent(next)}` : 'auth/callback';
+  return Linking.createURL(path);
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -84,29 +93,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void registerExpoPushTokenForCurrentUser(session.user.id);
   }, [session?.user?.id]);
 
-  const signIn = useCallback(
-    async (email: string, password: string) => {
-      if (!supabase) return { error: 'Supabase is not configured' };
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return { error: error?.message ?? null };
-    },
-    [],
-  );
+  const signIn = useCallback(async (email: string, password: string) => {
+    if (!supabase) return { error: 'Supabase is not configured' };
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error: error ? mapAuthError(error.message) : null };
+  }, []);
 
-  const signUp = useCallback(
-    async (email: string, password: string, fullName?: string) => {
-      if (!supabase) return { error: 'Supabase is not configured', needsEmailConfirmation: false };
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName } },
-      });
-      if (error) return { error: error.message, needsEmailConfirmation: false };
-      const needsEmailConfirmation = Boolean(data.user && !data.session);
-      return { error: null, needsEmailConfirmation };
-    },
-    [],
-  );
+  const signUp = useCallback(async (email: string, password: string, fullName?: string) => {
+    if (!supabase) return { error: 'Supabase is not configured', needsEmailConfirmation: false };
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: authCallbackUrl(),
+        data: { full_name: fullName },
+      },
+    });
+    if (error) return { error: mapAuthError(error.message), needsEmailConfirmation: false };
+    if (data.user?.identities?.length === 0) {
+      return {
+        error: mapAuthError('User already registered'),
+        needsEmailConfirmation: false,
+      };
+    }
+    const needsEmailConfirmation = Boolean(data.user && !data.session);
+    return { error: null, needsEmailConfirmation };
+  }, []);
+
+  const resetPasswordForEmail = useCallback(async (email: string) => {
+    if (!supabase) return { error: 'Supabase is not configured' };
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: authCallbackUrl('reset-password'),
+    });
+    return { error: error ? mapAuthError(error.message) : null };
+  }, []);
+
+  const resendSignupConfirmation = useCallback(async (email: string) => {
+    if (!supabase) return { error: 'Supabase is not configured' };
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: authCallbackUrl() },
+    });
+    return { error: error ? mapAuthError(error.message) : null };
+  }, []);
 
   const signOut = useCallback(async () => {
     if (!supabase) return;
@@ -140,11 +170,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       signIn,
       signUp,
+      resetPasswordForEmail,
+      resendSignupConfirmation,
       signOut,
       refreshProfile,
       joinChurch,
     }),
-    [session, profile, loading, signIn, signUp, signOut, refreshProfile, joinChurch],
+    [
+      session,
+      profile,
+      loading,
+      signIn,
+      signUp,
+      resetPasswordForEmail,
+      resendSignupConfirmation,
+      signOut,
+      refreshProfile,
+      joinChurch,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
