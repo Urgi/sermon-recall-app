@@ -44,7 +44,7 @@ export function AuthToastBanner({ toast, onDismiss }: Props) {
       style={[
         styles.wrap,
         {
-          bottom: Math.max(insets.bottom, 16),
+          bottom: Math.max(insets.bottom + 12, 28),
           transform: [{ translateY }],
         },
       ]}

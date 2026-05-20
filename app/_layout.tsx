@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { GlobalAuthToast } from '../components/GlobalAuthToast';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ThemeProvider, useRecallionTheme } from '../contexts/ThemeContext';
 import { useNotificationRouting } from '../lib/notificationRouting';
@@ -27,6 +28,7 @@ function RootStack() {
   return (
     <>
       <StatusBar style={colors.statusBarStyle} />
+      <GlobalAuthToast />
       <Stack screenOptions={{ headerShown: false }} />
     </>
   );

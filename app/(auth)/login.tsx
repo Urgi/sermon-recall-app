@@ -14,10 +14,24 @@ import {
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
+import { getAdminPortalUrl, PASTOR_CONFIRM_IN_BROWSER_MESSAGE } from '../../lib/auth/adminPortalUrl';
 import type { RecallionColors } from '../../lib/recallionTheme';
 
+function param(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
 export default function LoginScreen() {
-  const params = useLocalSearchParams<{ confirmed?: string }>();
+  const params = useLocalSearchParams<{
+    confirmed?: string;
+    error?: string;
+  }>();
+  const linkError = param(params.error);
+  const showPastorBrowserHint =
+    linkError === 'wrong_client' ||
+    linkError === 'confirmation_failed' ||
+    linkError === 'missing_auth_code';
   const { signIn, resendSignupConfirmation, session, loading } = useAuth();
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -78,6 +92,16 @@ export default function LoginScreen() {
         />
         <Text style={styles.title}>Sign in</Text>
         <Text style={styles.hint}>Use the email you registered with.</Text>
+
+        {showPastorBrowserHint ? (
+          <View style={styles.linkErrorBox} accessibilityRole="alert">
+            <Text style={styles.linkErrorTitle}>Confirm in your browser</Text>
+            <Text style={styles.linkErrorBody}>
+              {PASTOR_CONFIRM_IN_BROWSER_MESSAGE}
+            </Text>
+            <Text style={styles.linkErrorUrl}>{getAdminPortalUrl()}</Text>
+          </View>
+        ) : null}
 
         <TextInput
           style={styles.input}
@@ -151,6 +175,29 @@ function createStyles(c: RecallionColors) {
     },
     title: { fontSize: 26, fontWeight: '700', color: c.navy },
     hint: { fontSize: 15, color: c.muted, marginBottom: 8 },
+    linkErrorBox: {
+      borderWidth: 1,
+      borderColor: 'rgba(248, 113, 113, 0.65)',
+      backgroundColor: '#4a1212',
+      borderRadius: 12,
+      padding: 14,
+      gap: 6,
+    },
+    linkErrorTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: '#fff1f2',
+    },
+    linkErrorBody: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: '#fecaca',
+    },
+    linkErrorUrl: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#7dd3fc',
+    },
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.borderInput,
