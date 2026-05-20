@@ -7,7 +7,13 @@ export type AccountDeletionPreview = {
   will_delete_church: boolean;
 };
 
-export const DELETE_CONFIRM_PHRASE = 'DELETE';
+export function normalizeAccountEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+export function emailsMatchForDeletion(entered: string, expected: string): boolean {
+  return normalizeAccountEmail(entered) === normalizeAccountEmail(expected);
+}
 
 export function parseDeletionPreview(raw: unknown): AccountDeletionPreview | null {
   if (!raw || typeof raw !== 'object') return null;

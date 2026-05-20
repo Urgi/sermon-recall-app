@@ -6,7 +6,11 @@ import {
 } from './accountDeletionTypes';
 
 export type { AccountDeletionPreview } from './accountDeletionTypes';
-export { DELETE_CONFIRM_PHRASE, parseDeletionPreview } from './accountDeletionTypes';
+export {
+  emailsMatchForDeletion,
+  normalizeAccountEmail,
+  parseDeletionPreview,
+} from './accountDeletionTypes';
 
 const DEFAULT_SITE_URL = 'https://sermonrecall.com';
 
@@ -20,24 +24,29 @@ export function getSiteApiBase(): string {
 
 export async function fetchDeletionPreview(
   accessToken: string,
-): Promise<{ preview: AccountDeletionPreview | null; error: string | null }> {
+): Promise<{ preview: AccountDeletionPreview | null; email: string | null; error: string | null }> {
   try {
     const res = await fetch(`${getSiteApiBase()}/api/account/deletion-preview`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    const json = (await res.json()) as { preview?: unknown; error?: string };
+    const json = (await res.json()) as { preview?: unknown; email?: string; error?: string };
     if (!res.ok) {
-      return { preview: null, error: json.error ?? 'Could not load account details.' };
+      return { preview: null, email: null, error: json.error ?? 'Could not load account details.' };
     }
-    return { preview: parseDeletionPreview(json.preview), error: null };
+    return {
+      preview: parseDeletionPreview(json.preview),
+      email: typeof json.email === 'string' ? json.email : null,
+      error: null,
+    };
   } catch {
-    return { preview: null, error: 'Network error. Check your connection.' };
+    return { preview: null, email: null, error: 'Network error. Check your connection.' };
   }
 }
 
 export async function deleteAccountViaSiteApi(
   session: Session,
   confirmChurchDeletion: boolean,
+  confirmEmail: string,
 ): Promise<{ error: string | null }> {
   try {
     const res = await fetch(`${getSiteApiBase()}/api/account/delete`, {
@@ -46,7 +55,7 @@ export async function deleteAccountViaSiteApi(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ confirmChurchDeletion }),
+      body: JSON.stringify({ confirmChurchDeletion, confirmEmail }),
     });
     const json = (await res.json()) as { error?: string };
     if (!res.ok) {

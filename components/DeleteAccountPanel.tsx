@@ -12,8 +12,8 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useRecallionTheme } from '../contexts/ThemeContext';
 import {
-  DELETE_CONFIRM_PHRASE,
   deleteAccountViaSiteApi,
+  emailsMatchForDeletion,
   fetchDeletionPreview,
   type AccountDeletionPreview,
 } from '../lib/accountDeletion';
@@ -24,9 +24,10 @@ export function DeleteAccountPanel() {
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [preview, setPreview] = useState<AccountDeletionPreview | null>(null);
+  const [accountEmail, setAccountEmail] = useState('');
   const [loadingPreview, setLoadingPreview] = useState(true);
   const [open, setOpen] = useState(false);
-  const [confirmText, setConfirmText] = useState('');
+  const [confirmEmail, setConfirmEmail] = useState('');
   const [churchAck, setChurchAck] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -35,8 +36,9 @@ export function DeleteAccountPanel() {
     if (!session?.access_token) return;
     setLoadingPreview(true);
     setError(null);
-    const { preview: p, error: err } = await fetchDeletionPreview(session.access_token);
+    const { preview: p, email, error: err } = await fetchDeletionPreview(session.access_token);
     setPreview(p);
+    setAccountEmail(email ?? session.user.email ?? '');
     if (err) setError(err);
     setLoadingPreview(false);
   }, [session?.access_token]);
@@ -48,8 +50,9 @@ export function DeleteAccountPanel() {
   async function onDelete() {
     if (!session) return;
     setError(null);
-    if (confirmText.trim() !== DELETE_CONFIRM_PHRASE) {
-      setError(`Type ${DELETE_CONFIRM_PHRASE} to confirm.`);
+    const expectedEmail = accountEmail || session.user.email || '';
+    if (!expectedEmail || !emailsMatchForDeletion(confirmEmail, expectedEmail)) {
+      setError('Enter your account email to confirm deletion.');
       return;
     }
     if (preview?.will_delete_church && !churchAck) {
@@ -60,6 +63,7 @@ export function DeleteAccountPanel() {
     const { error: err } = await deleteAccountViaSiteApi(
       session,
       preview?.will_delete_church === true,
+      confirmEmail.trim(),
     );
     setPending(false);
     if (err) {
@@ -84,7 +88,7 @@ export function DeleteAccountPanel() {
           disabled={loadingPreview}
         >
           <Text style={styles.outlineLabel}>
-            {loadingPreview ? 'Loading…' : 'Delete my account…'}
+            {loadingPreview ? 'Loading…' : 'Delete my account'}
           </Text>
         </Pressable>
       ) : (
@@ -114,13 +118,16 @@ export function DeleteAccountPanel() {
             </Pressable>
           ) : null}
 
-          <Text style={styles.inputLabel}>Type {DELETE_CONFIRM_PHRASE} to confirm</Text>
+          <Text style={styles.inputLabel}>Re-enter your email to confirm</Text>
           <TextInput
             style={styles.input}
-            value={confirmText}
-            onChangeText={setConfirmText}
-            autoCapitalize="characters"
+            value={confirmEmail}
+            onChangeText={setConfirmEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="email"
+            placeholder={accountEmail || 'you@example.com'}
             placeholderTextColor={colors.muted}
           />
 
@@ -140,7 +147,7 @@ export function DeleteAccountPanel() {
           <Pressable
             onPress={() => {
               setOpen(false);
-              setConfirmText('');
+              setConfirmEmail('');
               setChurchAck(false);
               setError(null);
             }}

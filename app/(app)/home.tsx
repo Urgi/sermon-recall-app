@@ -48,8 +48,9 @@ export default function HomeScreen() {
 
     const { data, error } = await supabase
       .from('sermons')
-      .select('id, title, sermon_date, pastor_name, status, created_at')
+      .select('id, title, sermon_date, pastor_name, status, created_at, workflow_status')
       .eq('church_id', profile.church_id)
+      .eq('workflow_status', 'published')
       .order('created_at', { ascending: false });
 
     if (error) {
