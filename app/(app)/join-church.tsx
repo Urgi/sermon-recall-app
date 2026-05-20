@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,9 +17,14 @@ import type { RecallionColors } from '../../lib/recallionTheme';
 
 export default function JoinChurchScreen() {
   const { joinChurch, signOut, profile } = useAuth();
+  const params = useLocalSearchParams<{ code?: string }>();
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(() => {
+    const raw = params.code;
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    return value?.trim().toUpperCase() ?? '';
+  });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
