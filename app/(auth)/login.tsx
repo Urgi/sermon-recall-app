@@ -1,4 +1,4 @@
-import { Link, router } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,30 +17,52 @@ import { useRecallionTheme } from '../../contexts/ThemeContext';
 import type { RecallionColors } from '../../lib/recallionTheme';
 
 export default function LoginScreen() {
-  const { signIn, session, loading } = useAuth();
+  const params = useLocalSearchParams<{ confirmed?: string }>();
+  const { signIn, resendSignupConfirmation, session, loading } = useAuth();
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showResend, setShowResend] = useState(false);
+  const [resendPending, setResendPending] = useState(false);
+  const [resendNotice, setResendNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && session) {
-      router.replace('/');
+      const delayMs = params.confirmed === '1' ? 3200 : 0;
+      const id = setTimeout(() => router.replace('/'), delayMs);
+      return () => clearTimeout(id);
     }
-  }, [loading, session]);
+  }, [loading, session, params.confirmed]);
 
   async function onSubmit() {
     setError(null);
+    setResendNotice(null);
+    setShowResend(false);
     setSubmitting(true);
     const { error: err } = await signIn(email.trim(), password);
     setSubmitting(false);
     if (err) {
       setError(err);
+      if (err.toLowerCase().includes('confirm')) {
+        setShowResend(true);
+      }
       return;
     }
     router.replace('/');
+  }
+
+  async function onResend() {
+    if (!email.trim()) {
+      setResendNotice('Enter your email above first.');
+      return;
+    }
+    setResendPending(true);
+    const { error: err } = await resendSignupConfirmation(email.trim());
+    setResendPending(false);
+    setResendNotice(err ?? 'Confirmation email sent. Check inbox and spam.');
   }
 
   return (
@@ -77,7 +99,19 @@ export default function LoginScreen() {
           onChangeText={setPassword}
         />
 
+        <Link href="/forgot-password" style={styles.forgotLink}>
+          Forgot password?
+        </Link>
+
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {showResend ? (
+          <Pressable onPress={onResend} disabled={resendPending || submitting}>
+            <Text style={styles.forgotLink}>
+              {resendPending ? 'Sending…' : 'Resend confirmation email'}
+            </Text>
+          </Pressable>
+        ) : null}
+        {resendNotice ? <Text style={styles.notice}>{resendNotice}</Text> : null}
 
         <Pressable
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
@@ -128,6 +162,8 @@ function createStyles(c: RecallionColors) {
       backgroundColor: c.bgCard,
     },
     error: { color: '#fca5a5', fontSize: 14 },
+    notice: { color: '#86efac', fontSize: 14 },
+    forgotLink: { fontSize: 15, color: c.blue, fontWeight: '600', alignSelf: 'flex-start' },
     button: {
       backgroundColor: c.ctaSolid,
       paddingVertical: 14,

@@ -24,7 +24,6 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -35,7 +34,6 @@ export default function RegisterScreen() {
 
   async function onSubmit() {
     setError(null);
-    setInfo(null);
     if (password.length < 8) {
       setError('Use at least 8 characters for the password.');
       return;
@@ -52,7 +50,7 @@ export default function RegisterScreen() {
       return;
     }
     if (needsEmailConfirmation) {
-      setInfo('Check your email to confirm your account, then sign in.');
+      router.replace('/login?email_sent=1');
       return;
     }
     router.replace('/');
@@ -100,12 +98,10 @@ export default function RegisterScreen() {
         />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        {info ? <Text style={styles.info}>{info}</Text> : null}
-
         <Pressable
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
           onPress={onSubmit}
-          disabled={submitting || Boolean(info)}
+          disabled={submitting}
         >
           {submitting ? (
             <ActivityIndicator color="#fff" />
@@ -158,10 +154,6 @@ function createStyles(c: RecallionColors) {
   },
   error: {
     color: '#fca5a5',
-    fontSize: 14,
-  },
-  info: {
-    color: '#86efac',
     fontSize: 14,
   },
   button: {
