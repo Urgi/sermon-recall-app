@@ -1,5 +1,7 @@
+import { getAdminPortalUrl, PASTOR_CONFIRM_IN_BROWSER_MESSAGE } from './auth/adminPortalUrl';
+
 export const EMAIL_SENT_TOAST =
-  'We sent a confirmation link to your email. Open it, then sign in here. Check spam if nothing arrives in a few minutes.';
+  'We sent a confirmation link to your email. Open it in this app’s browser flow, then sign in. Check spam if needed.';
 
 export const CONFIRMED_TOAST =
   'Your email is confirmed. Taking you into the app…';
@@ -27,9 +29,9 @@ export function toastFromAuthParams(params: {
       variant: 'error',
     };
   }
-  if (error === 'confirmation_failed') {
+  if (error === 'confirmation_failed' || error === 'wrong_client') {
     return {
-      message: 'Email confirmation failed. The link may have expired — sign in or register again.',
+      message: `${PASTOR_CONFIRM_IN_BROWSER_MESSAGE} ${getAdminPortalUrl()}`,
       variant: 'error',
     };
   }

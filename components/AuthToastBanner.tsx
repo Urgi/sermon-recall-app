@@ -4,7 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { PendingToast } from '../lib/pendingToast';
 
-const AUTO_DISMISS_MS = 9000;
+const AUTO_DISMISS_SUCCESS_MS = 9000;
+const AUTO_DISMISS_ERROR_MS = 16000;
 
 type Props = {
   toast: PendingToast | null;
@@ -26,9 +27,11 @@ export function AuthToastBanner({ toast, onDismiss }: Props) {
       damping: 18,
       stiffness: 180,
     }).start();
+    const dismissMs =
+      toast.variant === 'error' ? AUTO_DISMISS_ERROR_MS : AUTO_DISMISS_SUCCESS_MS;
     const id = setTimeout(() => {
       onDismiss();
-    }, AUTO_DISMISS_MS);
+    }, dismissMs);
     return () => clearTimeout(id);
   }, [toast, onDismiss, translateY]);
 
@@ -41,7 +44,7 @@ export function AuthToastBanner({ toast, onDismiss }: Props) {
       style={[
         styles.wrap,
         {
-          bottom: Math.max(insets.bottom, 12),
+          bottom: Math.max(insets.bottom, 16),
           transform: [{ translateY }],
         },
       ]}
@@ -57,7 +60,7 @@ export function AuthToastBanner({ toast, onDismiss }: Props) {
           accessibilityRole="button"
           accessibilityLabel="Dismiss"
         >
-          <Text style={styles.dismiss}>×</Text>
+          <Text style={[styles.dismiss, isError && styles.dismissError]}>×</Text>
         </Pressable>
       </View>
     </Animated.View>
@@ -78,36 +81,40 @@ const styles = StyleSheet.create({
     gap: 12,
     borderRadius: 12,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    elevation: 8,
   },
   bannerSuccess: {
-    borderColor: 'rgba(52, 211, 153, 0.45)',
+    borderColor: 'rgba(52, 211, 153, 0.55)',
     backgroundColor: '#061210',
   },
   bannerError: {
-    borderColor: 'rgba(248, 113, 113, 0.45)',
-    backgroundColor: '#1a0a0a',
+    borderColor: 'rgba(248, 113, 113, 0.7)',
+    backgroundColor: '#3f0a0a',
   },
   message: {
     flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
   },
   messageSuccess: {
     color: '#d1fae5',
   },
   messageError: {
-    color: '#fecaca',
+    color: '#fff1f2',
+    fontWeight: '500',
   },
   dismiss: {
-    fontSize: 22,
-    lineHeight: 22,
+    fontSize: 24,
+    lineHeight: 24,
     color: 'rgba(255,255,255,0.55)',
+  },
+  dismissError: {
+    color: 'rgba(255,255,255,0.85)',
   },
 });
