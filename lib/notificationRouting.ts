@@ -7,6 +7,7 @@ type PushData = {
   sermonId?: string;
   dayNumber?: number;
   churchId?: string;
+  broadcastId?: string;
 };
 
 function routeFromNotificationData(data: PushData | undefined): void {
@@ -27,7 +28,11 @@ function routeFromNotificationData(data: PushData | undefined): void {
   }
 
   if (data.kind === 'pastor_broadcast') {
-    router.push('/home');
+    if (typeof data.broadcastId === 'string' && data.broadcastId.length > 0) {
+      router.push(`/announcement/${data.broadcastId}`);
+    } else {
+      router.push('/home');
+    }
   }
 }
 
