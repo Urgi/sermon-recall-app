@@ -29,6 +29,8 @@ export default function JoinChurchScreen() {
     }
   }, [profile?.church_id]);
 
+  const dissolvedNotice = profile?.church_dissolved_notice?.trim();
+
   async function onSubmit() {
     setError(null);
     setSubmitting(true);
@@ -48,9 +50,16 @@ export default function JoinChurchScreen() {
     >
       <View style={styles.card}>
         <Text style={styles.title}>Join your church</Text>
-        <Text style={styles.hint}>
-          Enter the church code your pastor shared (e.g. GRACE001 for the demo seed).
-        </Text>
+        {dissolvedNotice ? (
+          <View style={styles.noticeBox}>
+            <Text style={styles.noticeTitle}>Your previous church</Text>
+            <Text style={styles.noticeText}>{dissolvedNotice}</Text>
+          </View>
+        ) : (
+          <Text style={styles.hint}>
+            Enter the church code your pastor shared (e.g. GRACE001 for the demo seed).
+          </Text>
+        )}
 
         <TextInput
           style={styles.input}
@@ -94,6 +103,16 @@ function createStyles(c: RecallionColors) {
     card: { gap: 12 },
     title: { fontSize: 26, fontWeight: '700', color: c.navy },
     hint: { fontSize: 15, color: c.muted, marginBottom: 8 },
+    noticeBox: {
+      padding: 14,
+      borderRadius: c.radiusMd,
+      borderWidth: 1,
+      borderColor: 'rgba(251, 191, 36, 0.45)',
+      backgroundColor: 'rgba(120, 53, 15, 0.2)',
+      marginBottom: 4,
+    },
+    noticeTitle: { fontSize: 15, fontWeight: '600', color: '#fde68a' },
+    noticeText: { marginTop: 8, fontSize: 14, color: '#fef3c7', lineHeight: 20 },
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.borderInput,

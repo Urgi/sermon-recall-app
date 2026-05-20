@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DeleteAccountPanel } from '../../components/DeleteAccountPanel';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
 import type { RecallionColors, ThemePreference } from '../../lib/recallionTheme';
 
@@ -52,6 +53,8 @@ export default function SettingsScreen() {
             </Pressable>
           );
         })}
+
+        <DeleteAccountPanel />
       </ScrollView>
     </SafeAreaView>
   );

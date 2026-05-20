@@ -38,6 +38,18 @@ export default function AuthCallbackScreen() {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (cancelled) return;
         if (error) {
+          const {
+            data: { session: existing },
+          } = await supabase.auth.getSession();
+          if (existing) {
+            if (next === 'reset-password') {
+              router.replace('/reset-password');
+              return;
+            }
+            await queuePendingToast({ variant: 'success', message: CONFIRMED_TOAST });
+            router.replace('/login?confirmed=1');
+            return;
+          }
           await queuePendingToast({
             variant: 'error',
             message:

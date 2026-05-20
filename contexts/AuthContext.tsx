@@ -15,6 +15,7 @@ export type UserProfile = {
   devotional_notify_hour?: number | null;
   devotional_notify_enabled?: boolean | null;
   devotional_notify_prompt_done?: boolean | null;
+  church_dissolved_notice?: string | null;
 };
 
 type AuthContextValue = {
