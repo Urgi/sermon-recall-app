@@ -2,7 +2,7 @@ export const EMAIL_SENT_TOAST =
   'We sent a confirmation link to your email. Open it, then sign in here. Check spam if nothing arrives in a few minutes.';
 
 export const CONFIRMED_TOAST =
-  'Your email is confirmed! You can sign in below, or continue into the app if you are already signed in.';
+  'Your email is confirmed. Taking you into the app…';
 
 export const PASSWORD_RESET_SENT_TOAST =
   'If an account exists for that email, we sent password reset instructions. Check your inbox and spam.';

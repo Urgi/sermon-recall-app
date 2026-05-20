@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { PendingToast } from '../lib/pendingToast';
 
@@ -11,13 +12,14 @@ type Props = {
 };
 
 export function AuthToastBanner({ toast, onDismiss }: Props) {
-  const translateY = useRef(new Animated.Value(-120)).current;
+  const insets = useSafeAreaInsets();
+  const translateY = useRef(new Animated.Value(120)).current;
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
     setVisible(true);
-    translateY.setValue(-120);
+    translateY.setValue(120);
     Animated.spring(translateY, {
       toValue: 0,
       useNativeDriver: true,
@@ -36,7 +38,13 @@ export function AuthToastBanner({ toast, onDismiss }: Props) {
 
   return (
     <Animated.View
-      style={[styles.wrap, { transform: [{ translateY }] }]}
+      style={[
+        styles.wrap,
+        {
+          bottom: Math.max(insets.bottom, 12),
+          transform: [{ translateY }],
+        },
+      ]}
       pointerEvents="box-none"
     >
       <View style={[styles.banner, isError ? styles.bannerError : styles.bannerSuccess]}>
@@ -59,11 +67,9 @@ export function AuthToastBanner({ toast, onDismiss }: Props) {
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    top: 0,
     left: 0,
     right: 0,
     zIndex: 100,
-    paddingTop: 56,
     paddingHorizontal: 16,
   },
   banner: {

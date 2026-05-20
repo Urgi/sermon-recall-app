@@ -11,14 +11,15 @@ export function useAuthScreenToast() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const stored = await consumePendingToast();
+      const fromParams = toastFromAuthParams(params);
       if (cancelled) return;
-      if (stored) {
-        setToast(stored);
+      if (fromParams) {
+        setToast(fromParams);
         return;
       }
-      const fromParams = toastFromAuthParams(params);
-      if (fromParams) setToast(fromParams);
+      const stored = await consumePendingToast();
+      if (cancelled) return;
+      if (stored) setToast(stored);
     })();
     return () => {
       cancelled = true;

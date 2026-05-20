@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthToastBanner } from '../../components/AuthToastBanner';
 import { useAuthScreenToast } from '../../hooks/useAuthScreenToast';

@@ -47,7 +47,7 @@ export default function AuthCallbackScreen() {
               return;
             }
             await queuePendingToast({ variant: 'success', message: CONFIRMED_TOAST });
-            router.replace('/login?confirmed=1');
+            router.replace('/');
             return;
           }
           await queuePendingToast({
@@ -68,9 +68,14 @@ export default function AuthCallbackScreen() {
           variant: 'success',
           message: CONFIRMED_TOAST,
         });
-        router.replace('/login?confirmed=1');
+        router.replace('/');
       } catch {
         if (!cancelled) {
+          await queuePendingToast({
+            variant: 'error',
+            message:
+              'Email confirmation failed. The link may have expired — try signing in or register again.',
+          });
           router.replace('/login?error=confirmation_failed');
         }
       }
