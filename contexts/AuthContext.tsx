@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { mapAuthError } from '../lib/auth/mapAuthError';
 import { registerExpoPushTokenForCurrentUser } from '../lib/registerPushToken';
@@ -92,6 +93,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!session?.user?.id || !supabase) return;
     void registerExpoPushTokenForCurrentUser(session.user.id);
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId || !supabase) return;
+
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void registerExpoPushTokenForCurrentUser(userId);
+      }
+    });
+    return () => sub.remove();
   }, [session?.user?.id]);
 
   const signIn = useCallback(async (email: string, password: string) => {

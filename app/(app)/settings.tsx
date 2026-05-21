@@ -4,6 +4,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DeleteAccountPanel } from '../../components/DeleteAccountPanel';
+import { DevotionalReminderSettings } from '../../components/DevotionalReminderSettings';
+import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
 import type { RecallionColors, ThemePreference } from '../../lib/recallionTheme';
 
@@ -14,6 +16,7 @@ const OPTIONS: { value: ThemePreference; label: string; description: string }[] 
 ];
 
 export default function SettingsScreen() {
+  const { profile, refreshProfile } = useAuth();
   const { colors, preference, resolved, setPreference } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors, resolved), [colors, resolved]);
 
@@ -30,9 +33,22 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.sectionTitle}>Appearance</Text>
-        <Text style={styles.sectionHint}>Currently using {resolved} mode on this device.</Text>
+        {profile?.church_id ? (
+          <>
+            <Text style={styles.sectionTitle}>Devotional reminders</Text>
+            <DevotionalReminderSettings
+              userId={profile.id}
+              notifyHour={profile.devotional_notify_hour}
+              notifyEnabled={profile.devotional_notify_enabled}
+              onUpdated={() => void refreshProfile()}
+            />
+          </>
+        ) : null}
 
+        <Text style={[styles.sectionTitle, profile?.church_id ? styles.sectionAfterBlock : null]}>
+          Appearance
+        </Text>
+        <Text style={styles.sectionHint}>Currently using {resolved} mode on this device.</Text>
         {OPTIONS.map((opt) => {
           const selected = preference === opt.value;
           return (
@@ -69,6 +85,7 @@ function createStyles(colors: RecallionColors, resolved: 'light' | 'dark') {
     title: { marginTop: 4, fontSize: 28, fontWeight: '700', color: colors.navy },
     scroll: { paddingHorizontal: 20, paddingBottom: 32 },
     sectionTitle: { marginTop: 8, fontSize: 18, fontWeight: '600', color: colors.navy },
+    sectionAfterBlock: { marginTop: 28 },
     sectionHint: { marginTop: 6, marginBottom: 16, fontSize: 15, color: colors.muted, lineHeight: 22 },
     option: {
       flexDirection: 'row',

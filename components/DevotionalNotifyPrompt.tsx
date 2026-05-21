@@ -10,14 +10,8 @@ import {
 
 import { useRecallionTheme } from '../contexts/ThemeContext';
 import type { RecallionColors } from '../lib/recallionTheme';
+import { DEVOTIONAL_REMINDER_HOUR_OPTIONS } from '../lib/devotionalReminderOptions';
 import { supabase } from '../lib/supabase';
-
-const HOUR_OPTIONS: { label: string; hour: number }[] = [
-  { label: '7:00 in the morning', hour: 7 },
-  { label: '8:00 in the morning', hour: 8 },
-  { label: '12:00 noon', hour: 12 },
-  { label: '6:00 in the evening', hour: 18 },
-];
 
 type Props = {
   visible: boolean;
@@ -62,7 +56,7 @@ export function DevotionalNotifyPrompt({ visible, userId, onComplete }: Props) {
 
           {error ? <Text style={styles.err}>{error}</Text> : null}
 
-          {HOUR_OPTIONS.map((o) => (
+          {DEVOTIONAL_REMINDER_HOUR_OPTIONS.map((o) => (
             <Pressable
               key={o.hour}
               style={({ pressed }) => [styles.choice, pressed && styles.choicePressed]}

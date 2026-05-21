@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 type PushData = {
   kind?: string;
   sermonId?: string;
+  devotionalId?: string;
   dayNumber?: number;
   churchId?: string;
   broadcastId?: string;
@@ -13,10 +14,12 @@ type PushData = {
 function routeFromNotificationData(data: PushData | undefined): void {
   if (!data?.kind) return;
 
-  if (data.kind === 'devotional_reminder' && data.sermonId) {
-    if (typeof data.dayNumber === 'number') {
-      router.push(`/sermon/${data.sermonId}`);
-    } else {
+  if (data.kind === 'devotional_reminder') {
+    if (typeof data.devotionalId === 'string' && data.devotionalId.length > 0) {
+      router.push(`/devotional/${data.devotionalId}`);
+      return;
+    }
+    if (data.sermonId) {
       router.push(`/sermon/${data.sermonId}`);
     }
     return;
