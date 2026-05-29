@@ -61,7 +61,8 @@
           "enableBackgroundRemoteNotifications": true
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "./plugins/withExpoSwift5Podfile.js"
     ],
     "web": {
       "favicon": "./assets/logo.png"
