@@ -1,5 +1,4 @@
 import type { Session } from '@supabase/supabase-js';
-import * as Linking from 'expo-linking';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { AppState } from 'react-native';
 
@@ -32,17 +31,13 @@ type AuthContextValue = {
   resetPasswordForEmail: (email: string) => Promise<{ error: string | null }>;
   resendSignupConfirmation: (email: string) => Promise<{ error: string | null }>;
   verifySignupOtp: (email: string, token: string) => Promise<{ error: string | null }>;
+  verifyRecoveryOtp: (email: string, token: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   joinChurch: (code: string) => Promise<{ error: string | null }>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-function authCallbackUrl(next?: string): string {
-  const path = next ? `auth/callback?next=${encodeURIComponent(next)}` : 'auth/callback';
-  return Linking.createURL(path);
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -136,8 +131,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const resetPasswordForEmail = useCallback(async (email: string) => {
     if (!supabase) return { error: 'Supabase is not configured' };
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: authCallbackUrl('reset-password'),
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    return { error: error ? mapAuthError(error.message) : null };
+  }, []);
+
+  const verifyRecoveryOtp = useCallback(async (email: string, token: string) => {
+    if (!supabase) return { error: 'Supabase is not configured' };
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: token.trim(),
+      type: 'recovery',
     });
     return { error: error ? mapAuthError(error.message) : null };
   }, []);
@@ -196,6 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       resetPasswordForEmail,
       resendSignupConfirmation,
       verifySignupOtp,
+      verifyRecoveryOtp,
       signOut,
       refreshProfile,
       joinChurch,
@@ -209,6 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       resetPasswordForEmail,
       resendSignupConfirmation,
       verifySignupOtp,
+      verifyRecoveryOtp,
       signOut,
       refreshProfile,
       joinChurch,

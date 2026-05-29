@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { useRecallionTheme } from '../../contexts/ThemeContext';
-import { ensurePublicUserProfile } from '../../lib/auth/ensurePublicProfile';
-import { USE_CODE_NOT_LINK_MESSAGE } from '../../lib/authToastMessages';
+import {
+  USE_CODE_NOT_LINK_MESSAGE,
+  USE_RESET_CODE_NOT_LINK_MESSAGE,
+} from '../../lib/authToastMessages';
 import { queuePendingToast } from '../../lib/pendingToast';
 import type { RecallionColors } from '../../lib/recallionTheme';
 import { requireSupabase } from '../../lib/supabase';
@@ -15,11 +17,7 @@ function param(value: string | string[] | undefined): string | undefined {
   return value;
 }
 
-/** Only password reset may complete via email link; signup uses in-app code. */
-function isPasswordResetFlow(next: string | undefined, type: string | undefined): boolean {
-  return next === 'reset-password' || type === 'recovery';
-}
-
+/** Signup and password reset use in-app OTP codes; legacy email links redirect here. */
 export default function AuthCallbackScreen() {
   const params = useLocalSearchParams<{
     code?: string | string[];
@@ -29,23 +27,10 @@ export default function AuthCallbackScreen() {
   }>();
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [message, setMessage] = useState('Finishing sign-in…');
+  const [message, setMessage] = useState('Redirecting…');
 
   useEffect(() => {
     let cancelled = false;
-
-    async function rejectEmailConfirmationLink() {
-      const supabase = requireSupabase();
-      await supabase.auth.signOut();
-      if (!cancelled) {
-        setMessage('Use your confirmation code');
-        await queuePendingToast({
-          variant: 'error',
-          message: USE_CODE_NOT_LINK_MESSAGE,
-        });
-        router.replace('/verify-email?error=use_code');
-      }
-    }
 
     async function run() {
       const supabase = requireSupabase();
@@ -53,77 +38,32 @@ export default function AuthCallbackScreen() {
       const type = param(params.type);
       const code = param(params.code);
       const tokenHash = param(params.token_hash);
+      const initialUrl = await Linking.getInitialURL();
+      const hash = new URLSearchParams(initialUrl?.split('#')[1] ?? '');
+      const hasImplicitTokens = Boolean(hash.get('access_token') && hash.get('refresh_token'));
+      const hasLinkParams =
+        Boolean(code || tokenHash || hasImplicitTokens) ||
+        type === 'signup' ||
+        type === 'email' ||
+        type === 'recovery';
 
-      if (!isPasswordResetFlow(next, type)) {
-        const initialUrl = await Linking.getInitialURL();
-        const hash = new URLSearchParams(initialUrl?.split('#')[1] ?? '');
-        const hasImplicitTokens = Boolean(hash.get('access_token') && hash.get('refresh_token'));
-        if (code || tokenHash || hasImplicitTokens) {
-          await rejectEmailConfirmationLink();
-          return;
-        }
-        if (!cancelled) {
-          router.replace('/verify-email');
-        }
-        return;
-      }
-
-      let exchangeError: string | null = null;
-
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) exchangeError = error.message;
-      } else if (tokenHash && type) {
-        const { error } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: type as 'recovery' | 'email_change',
+      if (hasLinkParams) {
+        await supabase.auth.signOut();
+        if (cancelled) return;
+        const isRecovery = next === 'reset-password' || type === 'recovery';
+        setMessage(isRecovery ? 'Use your reset code' : 'Use your confirmation code');
+        await queuePendingToast({
+          variant: 'error',
+          message: isRecovery ? USE_RESET_CODE_NOT_LINK_MESSAGE : USE_CODE_NOT_LINK_MESSAGE,
         });
-        if (error) exchangeError = error.message;
-      } else {
-        const initialUrl = await Linking.getInitialURL();
-        const hash = new URLSearchParams(initialUrl?.split('#')[1] ?? '');
-        const accessToken = hash.get('access_token');
-        const refreshToken = hash.get('refresh_token');
-        if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (error) exchangeError = error.message;
-        } else {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-          if (!session) {
-            if (!cancelled) {
-              router.replace('/forgot-password');
-            }
-            return;
-          }
-        }
-      }
-
-      if (cancelled) return;
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (exchangeError || !session?.user) {
-        if (!cancelled) {
-          await queuePendingToast({
-            variant: 'error',
-            message: 'This password reset link is invalid or expired. Request a new one.',
-          });
-          router.replace('/forgot-password');
-        }
+        router.replace(
+          isRecovery ? '/reset-password?error=use_code' : '/verify-email?error=use_code',
+        );
         return;
       }
 
-      await ensurePublicUserProfile(supabase, session.user);
       if (!cancelled) {
-        setMessage('Continue to set a new password…');
-        router.replace('/reset-password');
+        router.replace('/login');
       }
     }
 

@@ -24,7 +24,6 @@ export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [sent, setSent] = useState(false);
 
   async function onSubmit() {
     setError(null);
@@ -33,15 +32,15 @@ export default function ForgotPasswordScreen() {
       return;
     }
     setSubmitting(true);
-    const { error: err } = await resetPasswordForEmail(email.trim());
+    const trimmed = email.trim();
+    const { error: err } = await resetPasswordForEmail(trimmed);
     setSubmitting(false);
     if (err) {
       setError(err);
       return;
     }
-    setSent(true);
     await queuePendingToast({ variant: 'success', message: PASSWORD_RESET_SENT_TOAST });
-    router.replace('/login');
+    router.replace(`/reset-password?email=${encodeURIComponent(trimmed)}`);
   }
 
   return (
@@ -52,41 +51,38 @@ export default function ForgotPasswordScreen() {
       <View style={styles.card}>
         <Text style={styles.title}>Reset password</Text>
         <Text style={styles.hint}>
-          We will email you a link to choose a new password if an account exists for this address.
+          We will email a reset code if an account exists for this address.
         </Text>
 
-        {sent ? (
-          <Text style={styles.success}>Check your email for the reset link.</Text>
-        ) : (
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor={colors.muted}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            value={email}
-            onChangeText={setEmail}
-            editable={!submitting}
-          />
-        )}
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor={colors.muted}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
+          value={email}
+          onChangeText={setEmail}
+          editable={!submitting}
+        />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {!sent ? (
-          <Pressable
-            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-            onPress={onSubmit}
-            disabled={submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonLabel}>Send reset link</Text>
-            )}
-          </Pressable>
-        ) : null}
+        <Pressable
+          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          onPress={onSubmit}
+          disabled={submitting}
+        >
+          {submitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonLabel}>Send reset code</Text>
+          )}
+        </Pressable>
 
+        <Link href="/reset-password" style={styles.link}>
+          Already have a code?
+        </Link>
         <Link href="/login" style={styles.link}>
           Back to sign in
         </Link>
@@ -117,7 +113,6 @@ function createStyles(c: RecallionColors) {
       backgroundColor: c.bgCard,
     },
     error: { color: '#fca5a5', fontSize: 14 },
-    success: { color: '#86efac', fontSize: 14 },
     button: {
       backgroundColor: c.ctaSolid,
       paddingVertical: 14,
@@ -127,6 +122,6 @@ function createStyles(c: RecallionColors) {
     },
     buttonPressed: { opacity: 0.9 },
     buttonLabel: { color: '#fff', fontSize: 17, fontWeight: '600' },
-    link: { marginTop: 16, textAlign: 'center', fontSize: 16, color: c.blue, fontWeight: '600' },
+    link: { marginTop: 8, textAlign: 'center', fontSize: 16, color: c.blue, fontWeight: '600' },
   });
 }

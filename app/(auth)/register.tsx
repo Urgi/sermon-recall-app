@@ -14,6 +14,7 @@ import {
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
+import { queuePendingToast } from '../../lib/pendingToast';
 import type { RecallionColors } from '../../lib/recallionTheme';
 
 export default function RegisterScreen() {

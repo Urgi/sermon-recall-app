@@ -3,8 +3,14 @@ export const EMAIL_SENT_TOAST =
 
 export const CONFIRMED_TOAST = 'Your email is confirmed. Welcome to Sermon Recall.';
 
+export const PASSWORD_RESET_SENT_TOAST =
+  'If an account exists for that email, we sent a reset code. Enter it on the next screen. Check spam if needed.';
+
 export const USE_CODE_NOT_LINK_MESSAGE =
   'Email links cannot confirm your account. Open the app and enter the confirmation code from your email.';
+
+export const USE_RESET_CODE_NOT_LINK_MESSAGE =
+  'Email links cannot reset your password. Enter the reset code from your email on the reset password screen.';
 
 export function toastFromAuthParams(params: {
   email_sent?: string | string[];
@@ -22,6 +28,9 @@ export function toastFromAuthParams(params: {
   const error = param(params.error);
   if (error === 'use_code') {
     return { message: USE_CODE_NOT_LINK_MESSAGE, variant: 'error' };
+  }
+  if (error === 'reset_use_code') {
+    return { message: USE_RESET_CODE_NOT_LINK_MESSAGE, variant: 'error' };
   }
   if (error === 'missing_auth_code') {
     return {
