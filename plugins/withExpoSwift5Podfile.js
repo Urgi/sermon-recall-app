@@ -25,17 +25,14 @@ function withExpoSwift5Podfile(config) {
       let contents = fs.readFileSync(podfilePath, 'utf8');
 
       if (!contents.includes(MARKER)) {
-        const anchor = 'react_native_post_install(';
-        const anchorIndex = contents.indexOf(anchor);
-        if (anchorIndex === -1) {
+        const updated = contents.replace(
+          /(react_native_post_install\([\s\S]*?\)\n)/,
+          `$1${PODFILE_SNIPPET}\n`,
+        );
+        if (updated === contents) {
           throw new Error('[withExpoSwift5Podfile] Could not find react_native_post_install in Podfile');
         }
-        const closeIndex = contents.indexOf(')', anchorIndex);
-        if (closeIndex === -1) {
-          throw new Error('[withExpoSwift5Podfile] Could not parse Podfile post_install block');
-        }
-        contents =
-          contents.slice(0, closeIndex + 1) + PODFILE_SNIPPET + contents.slice(closeIndex + 1);
+        contents = updated;
         fs.writeFileSync(podfilePath, contents);
       }
 
