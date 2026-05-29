@@ -11,7 +11,8 @@
     "web": "expo start --web",
     "eas:build:ios": "npx eas-cli build --platform ios --profile production --auto-submit",
     "eas:publish:ios": "npx eas-cli build --platform ios --profile production --auto-submit",
-    "eas:submit:ios": "npx eas-cli submit --platform ios --latest"
+    "eas:submit:ios": "npx eas-cli submit --platform ios --latest",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
@@ -35,7 +36,17 @@
   "devDependencies": {
     "@types/react": "~19.2.10",
     "babel-preset-expo": "^55.0.21",
+    "patch-package": "^8.0.1",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "autolinking": {
+      "ios": {
+        "exclude": [
+          "expo-image"
+        ]
+      }
+    }
+  }
 }

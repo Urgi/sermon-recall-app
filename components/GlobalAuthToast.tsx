@@ -1,4 +1,4 @@
-import { useGlobalSearchParams } from 'expo-router';
+import { useGlobalSearchParams, usePathname } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { toastFromAuthParams } from '../lib/authToastMessages';
@@ -15,6 +15,7 @@ function param(value: string | string[] | undefined): string | undefined {
  * Bottom placement with safe-area — visible on iPhone 16 and other notched devices.
  */
 export function GlobalAuthToast() {
+  const pathname = usePathname();
   const searchParams = useGlobalSearchParams();
   const [toast, setToast] = useState<PendingToast | null>(null);
 
@@ -38,7 +39,7 @@ export function GlobalAuthToast() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams.email_sent, searchParams.confirmed, searchParams.error]);
+  }, [pathname, searchParams.email_sent, searchParams.confirmed, searchParams.error]);
 
   return <AuthToastBanner toast={toast} onDismiss={() => setToast(null)} />;
 }

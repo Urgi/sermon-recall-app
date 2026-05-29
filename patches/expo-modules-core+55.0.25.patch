@@ -1,0 +1,187 @@
+diff --git a/node_modules/expo-modules-core/ios/Core/Logging/PersistentFileLog.swift b/node_modules/expo-modules-core/ios/Core/Logging/PersistentFileLog.swift
+index 5ddcbb6..b857555 100644
+--- a/node_modules/expo-modules-core/ios/Core/Logging/PersistentFileLog.swift
++++ b/node_modules/expo-modules-core/ios/Core/Logging/PersistentFileLog.swift
+@@ -2,7 +2,7 @@
+ 
+ import Foundation
+ 
+-public typealias PersistentFileLogFilter = (String) -> Bool
++public typealias PersistentFileLogFilter = @Sendable (String) -> Bool
+ public typealias PersistentFileLogCompletionHandler = (Error?) -> Void
+ 
+ /**
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIHostingView.swift b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIHostingView.swift
+index d4ff7a9..09fa7be 100644
+--- a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIHostingView.swift
++++ b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIHostingView.swift
+@@ -42,7 +42,7 @@ extension ExpoSwiftUI {
+   /**
+    A hosting view that renders a SwiftUI view inside the UIKit view hierarchy.
+    */
+-  public final class HostingView<Props: ViewProps, ContentView: View<Props>>: ExpoView, @MainActor AnyExpoSwiftUIHostingView {
++  public final class HostingView<Props: ViewProps, ContentView: View<Props>>: ExpoView, AnyExpoSwiftUIHostingView {
+     /**
+      Props object that stores all the props for this particular view.
+      It's an environment object that is observed by the content view.
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIViewFrameObserver.swift b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIViewFrameObserver.swift
+index d62091c..186ae7d 100644
+--- a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIViewFrameObserver.swift
++++ b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIViewFrameObserver.swift
+@@ -26,7 +26,9 @@ extension ExpoSwiftUI {
+ 
+         // Update layout metrics of the `Child` view. The `origin` needs to be frame's origin,
+         // as `bounds` refers to coordinates relative to view's own space (instead of the parent's space).
+-        callback(CGRect(origin: view.frame.origin, size: newValue.size))
++        MainActor.assumeIsolated {
++          callback(CGRect(origin: view.frame.origin, size: newValue.size))
++        }
+       }
+     }
+   }
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIVirtualView.swift b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIVirtualView.swift
+index 6d65323..109b53a 100644
+--- a/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIVirtualView.swift
++++ b/node_modules/expo-modules-core/ios/Core/Views/SwiftUI/SwiftUIVirtualView.swift
+@@ -81,14 +81,16 @@ extension ExpoSwiftUI {
+      Updates the environment object with props, based on the given dictionary with raw props.
+      */
+     override func updateProps(_ rawProps: [String: Any]) {
+-      guard let appContext else {
+-        log.error("AppContext is not available, view props cannot be updated for \(self)")
+-        return
+-      }
+-      do {
+-        try props.updateRawProps(rawProps, appContext: appContext)
+-      } catch let error {
+-        log.error("Updating props for \(self) has failed: \(error.localizedDescription)")
++      MainActor.assumeIsolated {
++        guard let appContext else {
++          log.error("AppContext is not available, view props cannot be updated for \(self)")
++          return
++        }
++        do {
++          try props.updateRawProps(rawProps, appContext: appContext)
++        } catch let error {
++          log.error("Updating props for \(self) has failed: \(error.localizedDescription)")
++        }
+       }
+     }
+ 
+@@ -127,39 +129,43 @@ extension ExpoSwiftUI {
+      Fabric calls this function when mounting (attaching) a child component view.
+      */
+     override func mountChildComponentView(_ childComponentView: UIView, index: Int) {
+-      var children = props.children ?? []
+-      let child: any AnyChild
+-      if let view = childComponentView as AnyObject as? (any ExpoSwiftUI.View) {
+-        child = view
+-      } else {
+-        child = UIViewHost(view: childComponentView)
+-      }
+-      children.insert(child, at: index)
++      MainActor.assumeIsolated {
++        var children = props.children ?? []
++        let child: any AnyChild
++        if let view = childComponentView as AnyObject as? (any ExpoSwiftUI.View) {
++          child = view
++        } else {
++          child = UIViewHost(view: childComponentView)
++        }
++        children.insert(child, at: index)
+ 
+-      props.children = children
+-      props.objectWillChange.send()
++        props.children = children
++        props.objectWillChange.send()
++      }
+     }
+ 
+     /**
+      Fabric calls this function when unmounting (detaching) a child component view.
+      */
+     override func unmountChildComponentView(_ childComponentView: UIView, index: Int) {
+-      // Make sure the view has no superview, React Native asserts against this.
+-      childComponentView.removeFromSuperview()
+-
+-      let childViewId: ObjectIdentifier
+-      if let child = childComponentView as AnyObject as? (any AnyChild) {
+-        childViewId = child.id
+-      } else {
+-        childViewId = ObjectIdentifier(childComponentView)
+-      }
++      MainActor.assumeIsolated {
++        // Make sure the view has no superview, React Native asserts against this.
++        childComponentView.removeFromSuperview()
++
++        let childViewId: ObjectIdentifier
++        if let child = childComponentView as AnyObject as? (any AnyChild) {
++          childViewId = child.id
++        } else {
++          childViewId = ObjectIdentifier(childComponentView)
++        }
+ 
+-      if let children = props.children {
+-        props.children = children.filter({ $0.id != childViewId })
+-        #if DEBUG
+-        assert(props.children?.count == children.count - 1, "Failed to remove child view")
+-        #endif
+-        props.objectWillChange.send()
++        if let children = props.children {
++          props.children = children.filter({ $0.id != childViewId })
++          #if DEBUG
++          assert(props.children?.count == children.count - 1, "Failed to remove child view")
++          #endif
++          props.objectWillChange.send()
++        }
+       }
+     }
+ 
+@@ -193,7 +199,7 @@ extension ExpoSwiftUI {
+ 
+ // MARK: - ViewWrapper
+ 
+-extension ExpoSwiftUI.SwiftUIVirtualView: @MainActor ExpoSwiftUI.ViewWrapper {
++extension ExpoSwiftUI.SwiftUIVirtualView: @preconcurrency ExpoSwiftUI.ViewWrapper {
+   func getWrappedView() -> Any {
+     if let wrapper = contentView as? ExpoSwiftUI.ViewWrapper {
+       return wrapper.getWrappedView()
+diff --git a/node_modules/expo-modules-core/ios/Core/Views/ViewDefinition.swift b/node_modules/expo-modules-core/ios/Core/Views/ViewDefinition.swift
+index 5dc73e3..d641170 100644
+--- a/node_modules/expo-modules-core/ios/Core/Views/ViewDefinition.swift
++++ b/node_modules/expo-modules-core/ios/Core/Views/ViewDefinition.swift
+@@ -118,7 +118,7 @@ extension ConcurrentFunctionDefinition: ViewDefinitionFunctionElement {
+   public typealias ViewType = FirstArgType
+ }
+ 
+-extension UIView: @MainActor AnyArgument {
++extension UIView: AnyArgument {
+   public static func getDynamicType() -> AnyDynamicType {
+     return DynamicViewType(innerType: Self.self)
+   }
+diff --git a/node_modules/expo-modules-core/ios/DevTools/URLAuthenticationChallengeForwardSender.swift b/node_modules/expo-modules-core/ios/DevTools/URLAuthenticationChallengeForwardSender.swift
+index 8c3efcb..3ea385e 100644
+--- a/node_modules/expo-modules-core/ios/DevTools/URLAuthenticationChallengeForwardSender.swift
++++ b/node_modules/expo-modules-core/ios/DevTools/URLAuthenticationChallengeForwardSender.swift
+@@ -3,7 +3,7 @@
+ /**
+  A helper class to forward URLAuthenticationChallenge completion handler to URLAuthenticationChallengeSender
+  */
+-internal final class URLAuthenticationChallengeForwardSender: NSObject, URLAuthenticationChallengeSender {
++internal final class URLAuthenticationChallengeForwardSender: NSObject, URLAuthenticationChallengeSender, @unchecked Sendable {
+   let completionHandler: (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+ 
+   init(completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+diff --git a/node_modules/expo-modules-core/ios/DevTools/URLSessionSessionDelegateProxy.swift b/node_modules/expo-modules-core/ios/DevTools/URLSessionSessionDelegateProxy.swift
+index dbc5b65..1f2c962 100644
+--- a/node_modules/expo-modules-core/ios/DevTools/URLSessionSessionDelegateProxy.swift
++++ b/node_modules/expo-modules-core/ios/DevTools/URLSessionSessionDelegateProxy.swift
+@@ -3,7 +3,7 @@
+ /**
+  Shared URLSessionDelegate instance and delete calls back to ExpoRequestInterceptorProtocol instances.
+  */
+-public final class URLSessionSessionDelegateProxy: NSObject, URLSessionDataDelegate {
++public final class URLSessionSessionDelegateProxy: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+   private let dispatchQueue: DispatchQueue
+   private var delegateMap: [AnyHashable: URLSessionDataDelegate] = [:]
+ 

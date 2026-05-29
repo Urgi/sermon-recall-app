@@ -4,13 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { useRecallionTheme } from '../../contexts/ThemeContext';
-import {
-  getAdminPortalUrl,
-  isLikelyCrossClientAuthError,
-  PASTOR_CONFIRM_IN_BROWSER_MESSAGE,
-} from '../../lib/auth/adminPortalUrl';
 import { ensurePublicUserProfile } from '../../lib/auth/ensurePublicProfile';
-import { CONFIRMED_TOAST } from '../../lib/authToastMessages';
+import { USE_CODE_NOT_LINK_MESSAGE } from '../../lib/authToastMessages';
 import { queuePendingToast } from '../../lib/pendingToast';
 import type { RecallionColors } from '../../lib/recallionTheme';
 import { requireSupabase } from '../../lib/supabase';
@@ -20,8 +15,9 @@ function param(value: string | string[] | undefined): string | undefined {
   return value;
 }
 
-function pastorWrongAppMessage(): string {
-  return `${PASTOR_CONFIRM_IN_BROWSER_MESSAGE} ${getAdminPortalUrl()}`;
+/** Only password reset may complete via email link; signup uses in-app code. */
+function isPasswordResetFlow(next: string | undefined, type: string | undefined): boolean {
+  return next === 'reset-password' || type === 'recovery';
 }
 
 export default function AuthCallbackScreen() {
@@ -38,12 +34,39 @@ export default function AuthCallbackScreen() {
   useEffect(() => {
     let cancelled = false;
 
+    async function rejectEmailConfirmationLink() {
+      const supabase = requireSupabase();
+      await supabase.auth.signOut();
+      if (!cancelled) {
+        setMessage('Use your confirmation code');
+        await queuePendingToast({
+          variant: 'error',
+          message: USE_CODE_NOT_LINK_MESSAGE,
+        });
+        router.replace('/verify-email?error=use_code');
+      }
+    }
+
     async function run() {
       const supabase = requireSupabase();
       const next = param(params.next);
+      const type = param(params.type);
       const code = param(params.code);
       const tokenHash = param(params.token_hash);
-      const type = param(params.type);
+
+      if (!isPasswordResetFlow(next, type)) {
+        const initialUrl = await Linking.getInitialURL();
+        const hash = new URLSearchParams(initialUrl?.split('#')[1] ?? '');
+        const hasImplicitTokens = Boolean(hash.get('access_token') && hash.get('refresh_token'));
+        if (code || tokenHash || hasImplicitTokens) {
+          await rejectEmailConfirmationLink();
+          return;
+        }
+        if (!cancelled) {
+          router.replace('/verify-email');
+        }
+        return;
+      }
 
       let exchangeError: string | null = null;
 
@@ -53,7 +76,7 @@ export default function AuthCallbackScreen() {
       } else if (tokenHash && type) {
         const { error } = await supabase.auth.verifyOtp({
           token_hash: tokenHash,
-          type: type as 'signup' | 'email' | 'recovery' | 'email_change',
+          type: type as 'recovery' | 'email_change',
         });
         if (error) exchangeError = error.message;
       } else {
@@ -73,11 +96,7 @@ export default function AuthCallbackScreen() {
           } = await supabase.auth.getSession();
           if (!session) {
             if (!cancelled) {
-              await queuePendingToast({
-                variant: 'error',
-                message: pastorWrongAppMessage(),
-              });
-              router.replace('/login?error=missing_auth_code');
+              router.replace('/forgot-password');
             }
             return;
           }
@@ -90,53 +109,22 @@ export default function AuthCallbackScreen() {
         data: { session },
       } = await supabase.auth.getSession();
 
-      if (exchangeError) {
-        const crossClient = isLikelyCrossClientAuthError(exchangeError);
-        if (session && !crossClient) {
-          if (next === 'reset-password') {
-            router.replace('/reset-password');
-            return;
-          }
-          await queuePendingToast({ variant: 'success', message: CONFIRMED_TOAST });
-          router.replace('/');
-          return;
-        }
-        if (crossClient || !session) {
-          if (!cancelled) {
-            setMessage('Open the link in your browser');
-            await queuePendingToast({
-              variant: 'error',
-              message: pastorWrongAppMessage(),
-            });
-            router.replace('/login?error=wrong_client');
-          }
-          return;
-        }
-      }
-
-      if (!session?.user) {
+      if (exchangeError || !session?.user) {
         if (!cancelled) {
           await queuePendingToast({
             variant: 'error',
-            message: pastorWrongAppMessage(),
+            message: 'This password reset link is invalid or expired. Request a new one.',
           });
-          router.replace('/login?error=confirmation_failed');
+          router.replace('/forgot-password');
         }
-        return;
-      }
-
-      if (next === 'reset-password') {
-        router.replace('/reset-password');
         return;
       }
 
       await ensurePublicUserProfile(supabase, session.user);
-
-      await queuePendingToast({
-        variant: 'success',
-        message: CONFIRMED_TOAST,
-      });
-      router.replace('/');
+      if (!cancelled) {
+        setMessage('Continue to set a new password…');
+        router.replace('/reset-password');
+      }
     }
 
     void run();

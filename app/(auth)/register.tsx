@@ -14,8 +14,6 @@ import {
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
-import { EMAIL_SENT_TOAST } from '../../lib/authToastMessages';
-import { queuePendingToast } from '../../lib/pendingToast';
 import type { RecallionColors } from '../../lib/recallionTheme';
 
 export default function RegisterScreen() {
@@ -52,8 +50,7 @@ export default function RegisterScreen() {
       return;
     }
     if (needsEmailConfirmation) {
-      await queuePendingToast({ variant: 'success', message: EMAIL_SENT_TOAST });
-      router.replace('/login?email_sent=1');
+      router.replace(`/verify-email?email=${encodeURIComponent(email.trim())}`);
       return;
     }
     await queuePendingToast({

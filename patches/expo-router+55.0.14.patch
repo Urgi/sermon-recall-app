@@ -1,0 +1,120 @@
+diff --git a/node_modules/expo-router/ios/Toolbar/RouterToolbarHostView.swift b/node_modules/expo-router/ios/Toolbar/RouterToolbarHostView.swift
+index 3b2a9ad..f3c6cdf 100644
+--- a/node_modules/expo-router/ios/Toolbar/RouterToolbarHostView.swift
++++ b/node_modules/expo-router/ios/Toolbar/RouterToolbarHostView.swift
+@@ -80,14 +80,7 @@ class RouterToolbarHostView: RouterViewWithLogger, LinkPreviewMenuUpdatable {
+             )
+             // Otherwise, the menu items will be reversed in the toolbar
+             item.preferredMenuElementOrder = .fixed
+-            if #available(iOS 26.0, *) {
+-              if let hidesSharedBackground = menu.hidesSharedBackground {
+-                item.hidesSharedBackground = hidesSharedBackground
+-              }
+-              if let sharesBackground = menu.sharesBackground {
+-                item.sharesBackground = sharesBackground
+-              }
+-            }
++            // iOS 26 toolbar background APIs require Xcode 26 SDK (omitted for Xcode 16 builds).
+             if let titleStyle = menu.titleStyle {
+               RouterFontUtils.setTitleStyle(fromConfig: titleStyle, for: item)
+             }
+diff --git a/node_modules/expo-router/ios/Toolbar/RouterToolbarItemView.swift b/node_modules/expo-router/ios/Toolbar/RouterToolbarItemView.swift
+index 47936de..6d8f0ef 100644
+--- a/node_modules/expo-router/ios/Toolbar/RouterToolbarItemView.swift
++++ b/node_modules/expo-router/ios/Toolbar/RouterToolbarItemView.swift
+@@ -93,27 +93,11 @@ class RouterToolbarItemView: RouterViewWithLogger {
+     } else if type == .fixedSpacer {
+       item = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
+     } else if type == .searchBar {
+-      guard #available(iOS 26.0, *), let controller = self.host?.findViewController() else {
+-        // Check for iOS 26, should already be guarded by the JS side, so this warning will only fire if controller is nil
+-        logger?.warn(
+-          "[expo-router] navigationItem.searchBarPlacementBarButtonItem not available. This is most likely a bug in expo-router."
+-        )
+-        currentBarButtonItem = nil
+-        return
+-      }
+-      guard let navController = controller.navigationController else {
+-        currentBarButtonItem = nil
+-        return
+-      }
+-      guard navController.isNavigationBarHidden == false else {
+-        logger?.warn(
+-          "[expo-router] Toolbar.SearchBarPreferredSlot should only be used when stack header is shown."
+-        )
+-        currentBarButtonItem = nil
+-        return
+-      }
+-
+-      item = controller.navigationItem.searchBarPlacementBarButtonItem
++      logger?.warn(
++        "[expo-router] Toolbar search bar slot requires iOS 26 SDK / Xcode 26 to build native toolbar support."
++      )
++      currentBarButtonItem = nil
++      return
+     } else {
+       // Normal button - apply content properties during initial creation
+       applyContentProperties(to: item)
+@@ -160,43 +144,14 @@ class RouterToolbarItemView: RouterViewWithLogger {
+   }
+ 
+   private func applyCommonProperties(to item: UIBarButtonItem) {
+-    if #available(iOS 26.0, *) {
+-      item.hidesSharedBackground = hidesSharedBackground
+-      item.sharesBackground = sharesBackground
+-    }
++    // iOS 26 UIBarButtonItem background APIs omitted for Xcode 16 SDK builds.
+     item.style = barButtonItemStyle ?? .plain
+     item.width = width.map { CGFloat($0) } ?? 0
+     item.isSelected = selected
+     item.accessibilityLabel = routerAccessibilityLabel
+     item.accessibilityHint = routerAccessibilityHint
+     item.isEnabled = !disabled
+-    if #available(iOS 26.0, *) {
+-      if let badgeConfig = badgeConfiguration {
+-        var badge = UIBarButtonItem.Badge.indicator()
+-        if let value = badgeConfig.value {
+-          badge = .string(value)
+-        }
+-        if let backgroundColor = badgeConfig.backgroundColor {
+-          badge.backgroundColor = backgroundColor
+-        }
+-        if let foregroundColor = badgeConfig.color {
+-          badge.foregroundColor = foregroundColor
+-        }
+-        if badgeConfig.fontFamily != nil || badgeConfig.fontSize != nil
+-          || badgeConfig.fontWeight != nil {
+-          let font = RouterFontUtils.convertTitleStyleToFont(
+-            TitleStyle(
+-              fontFamily: badgeConfig.fontFamily,
+-              fontSize: badgeConfig.fontSize,
+-              fontWeight: badgeConfig.fontWeight
+-            ))
+-          badge.font = font
+-        }
+-        item.badge = badge
+-      } else {
+-        item.badge = nil
+-      }
+-    }
++    // iOS 26 UIBarButtonItem badge APIs omitted for Xcode 16 SDK builds.
+   }
+ 
+   required init(appContext: AppContext? = nil) {
+diff --git a/node_modules/expo-router/ios/Toolbar/RouterToolbarModule.swift b/node_modules/expo-router/ios/Toolbar/RouterToolbarModule.swift
+index 1bee03c..9dfe5ee 100644
+--- a/node_modules/expo-router/ios/Toolbar/RouterToolbarModule.swift
++++ b/node_modules/expo-router/ios/Toolbar/RouterToolbarModule.swift
+@@ -94,11 +94,7 @@ enum BarItemStyle: String, Enumerable {
+     case .plain:
+       return .plain
+     case .prominent:
+-      if #available(iOS 26.0, *) {
+-        return .prominent
+-      } else {
+-        return .done
+-      }
++      return .done
+     }
+   }
+ }

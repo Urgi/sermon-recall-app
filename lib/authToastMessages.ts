@@ -1,13 +1,10 @@
-import { getAdminPortalUrl, PASTOR_CONFIRM_IN_BROWSER_MESSAGE } from './auth/adminPortalUrl';
-
 export const EMAIL_SENT_TOAST =
-  'We sent a confirmation link to your email. Open it in this app’s browser flow, then sign in. Check spam if needed.';
+  'We sent a confirmation code to your email. Enter it on the next screen. Check spam if needed.';
 
-export const CONFIRMED_TOAST =
-  'Your email is confirmed. Taking you into the app…';
+export const CONFIRMED_TOAST = 'Your email is confirmed. Welcome to Sermon Recall.';
 
-export const PASSWORD_RESET_SENT_TOAST =
-  'If an account exists for that email, we sent password reset instructions. Check your inbox and spam.';
+export const USE_CODE_NOT_LINK_MESSAGE =
+  'Email links cannot confirm your account. Open the app and enter the confirmation code from your email.';
 
 export function toastFromAuthParams(params: {
   email_sent?: string | string[];
@@ -23,17 +20,17 @@ export function toastFromAuthParams(params: {
     return { message: CONFIRMED_TOAST, variant: 'success' };
   }
   const error = param(params.error);
+  if (error === 'use_code') {
+    return { message: USE_CODE_NOT_LINK_MESSAGE, variant: 'error' };
+  }
   if (error === 'missing_auth_code') {
     return {
-      message: 'This confirmation link is incomplete. Try opening the link from your email again.',
+      message: 'This link is not valid for sign-in. Use the confirmation code from your email in the app.',
       variant: 'error',
     };
   }
   if (error === 'confirmation_failed' || error === 'wrong_client') {
-    return {
-      message: `${PASTOR_CONFIRM_IN_BROWSER_MESSAGE} ${getAdminPortalUrl()}`,
-      variant: 'error',
-    };
+    return { message: USE_CODE_NOT_LINK_MESSAGE, variant: 'error' };
   }
   return null;
 }

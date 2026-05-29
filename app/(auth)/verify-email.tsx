@@ -14,55 +14,67 @@ import {
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
-import { USE_CODE_NOT_LINK_MESSAGE } from '../../lib/authToastMessages';
+import { ensurePublicUserProfile } from '../../lib/auth/ensurePublicProfile';
+import { CONFIRMED_TOAST, USE_CODE_NOT_LINK_MESSAGE } from '../../lib/authToastMessages';
+import { queuePendingToast } from '../../lib/pendingToast';
 import type { RecallionColors } from '../../lib/recallionTheme';
+import { requireSupabase } from '../../lib/supabase';
 
 function param(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
   return value;
 }
 
-export default function LoginScreen() {
-  const params = useLocalSearchParams<{
-    confirmed?: string;
-    error?: string;
-  }>();
-  const linkError = param(params.error);
-  const showUseCodeHint = linkError === 'use_code' || linkError === 'confirmation_failed';
-  const { signIn, resendSignupConfirmation, session, loading } = useAuth();
+export default function VerifyEmailScreen() {
+  const params = useLocalSearchParams<{ email?: string | string[]; error?: string | string[] }>();
+  const initialEmail = param(params.email) ?? '';
+  const linkRejected = param(params.error) === 'use_code';
+  const { verifySignupOtp, resendSignupConfirmation, session, loading } = useAuth();
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(initialEmail);
+  const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [showResend, setShowResend] = useState(false);
   const [resendPending, setResendPending] = useState(false);
   const [resendNotice, setResendNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && session) {
-      const delayMs = params.confirmed === '1' ? 3200 : 0;
-      const id = setTimeout(() => router.replace('/'), delayMs);
-      return () => clearTimeout(id);
+      router.replace('/?confirmed=1');
     }
-  }, [loading, session, params.confirmed]);
+  }, [loading, session]);
 
-  async function onSubmit() {
+  async function onVerify() {
     setError(null);
     setResendNotice(null);
-    setShowResend(false);
-    setSubmitting(true);
-    const { error: err } = await signIn(email.trim(), password);
-    setSubmitting(false);
-    if (err) {
-      setError(err);
-      if (err.toLowerCase().includes('confirm')) {
-        setShowResend(true);
-      }
+    const trimmedEmail = email.trim();
+    const trimmedCode = code.trim();
+    if (!trimmedEmail) {
+      setError('Enter the email you registered with.');
       return;
     }
-    router.replace('/');
+    if (trimmedCode.length < 6) {
+      setError('Enter the confirmation code from your email.');
+      return;
+    }
+    setSubmitting(true);
+    const supabase = requireSupabase();
+    const { error: err } = await verifySignupOtp(trimmedEmail, trimmedCode);
+    if (err) {
+      setSubmitting(false);
+      setError(err);
+      return;
+    }
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.user) {
+      await ensurePublicUserProfile(supabase, session.user);
+    }
+    setSubmitting(false);
+    await queuePendingToast({ variant: 'success', message: CONFIRMED_TOAST });
+    router.replace('/?confirmed=1');
   }
 
   async function onResend() {
@@ -71,9 +83,10 @@ export default function LoginScreen() {
       return;
     }
     setResendPending(true);
+    setResendNotice(null);
     const { error: err } = await resendSignupConfirmation(email.trim());
     setResendPending(false);
-    setResendNotice(err ?? 'Confirmation code sent. Check inbox and spam.');
+    setResendNotice(err ?? 'New code sent. Check your inbox and spam.');
   }
 
   return (
@@ -87,23 +100,15 @@ export default function LoginScreen() {
           style={styles.logo}
           accessibilityLabel="Sermon Recall"
         />
-        <Text style={styles.title}>Sign in</Text>
-        <Text style={styles.hint}>Use the email you registered with.</Text>
+        <Text style={styles.title}>Confirm your email</Text>
+        <Text style={styles.hint}>
+          Enter the confirmation code from your email. Links in that email cannot confirm your
+          account — the code is required.
+        </Text>
 
-        {showUseCodeHint ? (
-          <View style={styles.linkErrorBox} accessibilityRole="alert">
-            <Text style={styles.linkErrorTitle}>Use your confirmation code</Text>
-            <Text style={styles.linkErrorBody}>{USE_CODE_NOT_LINK_MESSAGE}</Text>
-            <Link
-              href={
-                email.trim()
-                  ? `/verify-email?email=${encodeURIComponent(email.trim())}`
-                  : '/verify-email'
-              }
-              style={styles.linkErrorUrl}
-            >
-              Enter confirmation code
-            </Link>
+        {linkRejected ? (
+          <View style={styles.noticeBox} accessibilityRole="alert">
+            <Text style={styles.noticeBoxText}>{USE_CODE_NOT_LINK_MESSAGE}</Text>
           </View>
         ) : null}
 
@@ -119,54 +124,41 @@ export default function LoginScreen() {
         />
         <TextInput
           style={styles.input}
-          placeholder="Password"
+          placeholder="Confirmation code"
           placeholderTextColor={colors.muted}
-          secureTextEntry
-          autoComplete="password"
-          value={password}
-          onChangeText={setPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="number-pad"
+          textContentType="oneTimeCode"
+          autoComplete="one-time-code"
+          maxLength={8}
+          value={code}
+          onChangeText={setCode}
         />
 
-        <Link href="/forgot-password" style={styles.forgotLink}>
-          Forgot password?
-        </Link>
-
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        {showResend ? (
-          <>
-            <Pressable onPress={onResend} disabled={resendPending || submitting}>
-              <Text style={styles.forgotLink}>
-                {resendPending ? 'Sending…' : 'Resend confirmation code'}
-              </Text>
-            </Pressable>
-            <Link
-              href={
-                email.trim()
-                  ? `/verify-email?email=${encodeURIComponent(email.trim())}`
-                  : '/verify-email'
-              }
-              style={styles.forgotLink}
-            >
-              Enter confirmation code
-            </Link>
-          </>
-        ) : null}
         {resendNotice ? <Text style={styles.notice}>{resendNotice}</Text> : null}
 
         <Pressable
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-          onPress={onSubmit}
+          onPress={onVerify}
           disabled={submitting}
         >
           {submitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonLabel}>Continue</Text>
+            <Text style={styles.buttonLabel}>Confirm email</Text>
           )}
         </Pressable>
 
-        <Link href="/register" style={styles.link}>
-          Create an account
+        <Pressable onPress={onResend} disabled={resendPending || submitting}>
+          <Text style={styles.link}>
+            {resendPending ? 'Sending…' : 'Resend confirmation code'}
+          </Text>
+        </Pressable>
+
+        <Link href="/login" style={styles.link}>
+          Back to sign in
         </Link>
       </View>
     </KeyboardAvoidingView>
@@ -190,30 +182,7 @@ function createStyles(c: RecallionColors) {
       marginBottom: 4,
     },
     title: { fontSize: 26, fontWeight: '700', color: c.navy },
-    hint: { fontSize: 15, color: c.muted, marginBottom: 8 },
-    linkErrorBox: {
-      borderWidth: 1,
-      borderColor: 'rgba(248, 113, 113, 0.65)',
-      backgroundColor: '#4a1212',
-      borderRadius: 12,
-      padding: 14,
-      gap: 6,
-    },
-    linkErrorTitle: {
-      fontSize: 15,
-      fontWeight: '700',
-      color: '#fff1f2',
-    },
-    linkErrorBody: {
-      fontSize: 14,
-      lineHeight: 20,
-      color: '#fecaca',
-    },
-    linkErrorUrl: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: '#7dd3fc',
-    },
+    hint: { fontSize: 15, color: c.muted, marginBottom: 8, lineHeight: 22 },
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.borderInput,
@@ -226,7 +195,18 @@ function createStyles(c: RecallionColors) {
     },
     error: { color: '#fca5a5', fontSize: 14 },
     notice: { color: '#86efac', fontSize: 14 },
-    forgotLink: { fontSize: 15, color: c.blue, fontWeight: '600', alignSelf: 'flex-start' },
+    noticeBox: {
+      borderWidth: 1,
+      borderColor: 'rgba(248, 113, 113, 0.65)',
+      backgroundColor: '#4a1212',
+      borderRadius: 12,
+      padding: 14,
+    },
+    noticeBoxText: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: '#fecaca',
+    },
     button: {
       backgroundColor: c.ctaSolid,
       paddingVertical: 14,
@@ -236,6 +216,6 @@ function createStyles(c: RecallionColors) {
     },
     buttonPressed: { opacity: 0.9 },
     buttonLabel: { color: '#fff', fontSize: 17, fontWeight: '600' },
-    link: { marginTop: 16, textAlign: 'center', fontSize: 16, color: c.blue, fontWeight: '600' },
+    link: { marginTop: 8, textAlign: 'center', fontSize: 16, color: c.blue, fontWeight: '600' },
   });
 }

@@ -31,6 +31,7 @@ type AuthContextValue = {
   ) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>;
   resetPasswordForEmail: (email: string) => Promise<{ error: string | null }>;
   resendSignupConfirmation: (email: string) => Promise<{ error: string | null }>;
+  verifySignupOtp: (email: string, token: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   joinChurch: (code: string) => Promise<{ error: string | null }>;
@@ -119,7 +120,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       password,
       options: {
-        emailRedirectTo: authCallbackUrl(),
         data: { full_name: fullName },
       },
     });
@@ -147,7 +147,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email,
-      options: { emailRedirectTo: authCallbackUrl() },
+    });
+    return { error: error ? mapAuthError(error.message) : null };
+  }, []);
+
+  const verifySignupOtp = useCallback(async (email: string, token: string) => {
+    if (!supabase) return { error: 'Supabase is not configured' };
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: token.trim(),
+      type: 'signup',
     });
     return { error: error ? mapAuthError(error.message) : null };
   }, []);
@@ -186,6 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUp,
       resetPasswordForEmail,
       resendSignupConfirmation,
+      verifySignupOtp,
       signOut,
       refreshProfile,
       joinChurch,
@@ -198,6 +208,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUp,
       resetPasswordForEmail,
       resendSignupConfirmation,
+      verifySignupOtp,
       signOut,
       refreshProfile,
       joinChurch,
