@@ -4,7 +4,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DeleteAccountPanel } from '../../components/DeleteAccountPanel';
+import { AppMenu } from '../../components/AppMenu';
 import { DevotionalReminderSettings } from '../../components/DevotionalReminderSettings';
+import { LeaveChurchPanel } from '../../components/LeaveChurchPanel';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
 import type { RecallionColors, ThemePreference } from '../../lib/recallionTheme';
@@ -29,10 +31,15 @@ export default function SettingsScreen() {
         >
           <Text style={styles.backLabel}>← Back</Text>
         </Pressable>
-        <Text style={styles.title}>Settings</Text>
+        <AppMenu />
       </View>
+      <Text style={styles.title}>Settings</Text>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
         {profile?.church_id ? (
           <>
             <Text style={styles.sectionTitle}>Devotional reminders</Text>
@@ -70,6 +77,8 @@ export default function SettingsScreen() {
           );
         })}
 
+        <LeaveChurchPanel />
+
         <DeleteAccountPanel />
       </ScrollView>
     </SafeAreaView>
@@ -79,10 +88,16 @@ export default function SettingsScreen() {
 function createStyles(colors: RecallionColors, resolved: 'light' | 'dark') {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.bgPage },
-    header: { paddingHorizontal: 20, paddingBottom: 8 },
-    backBtn: { alignSelf: 'flex-start', paddingVertical: 8 },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingBottom: 4,
+    },
+    backBtn: { paddingVertical: 8 },
     backLabel: { fontSize: 16, color: colors.blue, fontWeight: '500' },
-    title: { marginTop: 4, fontSize: 28, fontWeight: '700', color: colors.navy },
+    title: { marginTop: 4, paddingHorizontal: 20, fontSize: 28, fontWeight: '700', color: colors.navy },
     scroll: { paddingHorizontal: 20, paddingBottom: 32 },
     sectionTitle: { marginTop: 8, fontSize: 18, fontWeight: '600', color: colors.navy },
     sectionAfterBlock: { marginTop: 28 },

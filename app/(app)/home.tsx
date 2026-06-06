@@ -1,66 +1,147 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Image,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppMenu } from '../../components/AppMenu';
+import { DevotionalNotifyPrompt } from '../../components/DevotionalNotifyPrompt';
+import { HomeStreakBadge } from '../../components/HomeStreakBadge';
+import { StreakCalendarModal } from '../../components/StreakCalendarModal';
+import { StreakCelebration } from '../../components/StreakCelebration';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
-import { DevotionalNotifyPrompt } from '../../components/DevotionalNotifyPrompt';
 import type { RecallionColors } from '../../lib/recallionTheme';
+import {
+  fetchDevotionalStreakStatus,
+  markStreakCelebrationShown,
+  shouldShowStreakCelebration,
+  type DevotionalStreakStatus,
+} from '../../lib/devotionalStreak';
+import {
+  type DevotionalHomeRow,
+  devotionalDisplayTitle,
+  churchDisplayName,
+  formatSermonDate,
+  greetingFirstName,
+  heroStatusLabel,
+  pastSermonProgressLabel,
+  pickHeroAndPastSummaries,
+  type SermonHomeRow,
+  type SermonHomeSummary,
+  summarizeSermonForHome,
+  timeOfDayGreeting,
+} from '../../lib/sermonHomeStatus';
 import { supabase } from '../../lib/supabase';
 
-type SermonListItem = {
-  id: string;
-  title: string;
-  sermon_date: string | null;
-  pastor_name: string | null;
-  status: string;
-  created_at: string;
-};
-
 export default function HomeScreen() {
-  const { session, profile, signOut, loading, refreshProfile } = useAuth();
+  const { session, profile, loading, refreshProfile } = useAuth();
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [sermons, setSermons] = useState<SermonListItem[]>([]);
+  const [summaries, setSummaries] = useState<SermonHomeSummary[]>([]);
   const [loadingSermons, setLoadingSermons] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [streakStatus, setStreakStatus] = useState<DevotionalStreakStatus | null>(null);
+  const [streakLoading, setStreakLoading] = useState(true);
+  const [showStreakCelebration, setShowStreakCelebration] = useState(false);
+  const [showStreakCalendar, setShowStreakCalendar] = useState(false);
+  const [churchTimeZone, setChurchTimeZone] = useState('America/New_York');
 
   const showNotifyPrompt = Boolean(
     profile?.church_id && profile.devotional_notify_prompt_done === false,
   );
 
+  const greeting = useMemo(() => {
+    const name = greetingFirstName(profile?.full_name, session?.user?.email);
+    return `${timeOfDayGreeting()}, ${name}`;
+  }, [profile?.full_name, session?.user?.email]);
+
+  const { hero, past } = useMemo(() => pickHeroAndPastSummaries(summaries), [summaries]);
+
   const loadSermons = useCallback(async () => {
     if (!supabase || !profile?.church_id) {
-      setSermons([]);
+      setSummaries([]);
       setLoadingSermons(false);
       return;
     }
 
-    const { data, error } = await supabase
+    const { data: sermonRows, error } = await supabase
       .from('sermons')
-      .select('id, title, sermon_date, pastor_name, status, created_at, workflow_status')
+      .select('id, title, sermon_date, created_at, churches(name, timezone)')
       .eq('church_id', profile.church_id)
       .eq('workflow_status', 'published')
       .order('created_at', { ascending: false });
 
     if (error) {
       console.warn('[home] sermons', error.message);
-      setSermons([]);
-    } else {
-      setSermons((data as SermonListItem[]) ?? []);
+      setSummaries([]);
+      setLoadingSermons(false);
+      return;
     }
+
+    const sermons = (sermonRows as SermonHomeRow[]) ?? [];
+    if (sermons.length > 0) {
+      const tzRow = sermons[0].churches;
+      const tz = Array.isArray(tzRow) ? tzRow[0]?.timezone : tzRow?.timezone;
+      if (tz) setChurchTimeZone(tz);
+    }
+    if (sermons.length === 0) {
+      setSummaries([]);
+      setLoadingSermons(false);
+      return;
+    }
+
+    const sermonIds = sermons.map((s) => s.id);
+    const { data: devotionalRows } = await supabase
+      .from('devotionals')
+      .select('id, day_number, sermon_id, title')
+      .in('sermon_id', sermonIds)
+      .order('day_number', { ascending: true });
+
+    const devotionals = (devotionalRows as DevotionalHomeRow[]) ?? [];
+    const devotionalsBySermon = new Map<string, DevotionalHomeRow[]>();
+    for (const d of devotionals) {
+      const list = devotionalsBySermon.get(d.sermon_id) ?? [];
+      list.push(d);
+      devotionalsBySermon.set(d.sermon_id, list);
+    }
+
+    const completedByDevotional = new Set<string>();
+    if (session?.user && devotionals.length > 0) {
+      const { data: prog } = await supabase
+        .from('user_progress')
+        .select('devotional_id, completed_at')
+        .eq('user_id', session.user.id)
+        .in(
+          'devotional_id',
+          devotionals.map((d) => d.id),
+        );
+
+      for (const row of prog ?? []) {
+        if (row.completed_at) completedByDevotional.add(row.devotional_id as string);
+      }
+    }
+
+    const nextSummaries = sermons.map((sermon) => {
+      const sermonDevs = devotionalsBySermon.get(sermon.id) ?? [];
+      const completedIds = new Set<string>();
+      for (const d of sermonDevs) {
+        if (completedByDevotional.has(d.id)) completedIds.add(d.id);
+      }
+      return summarizeSermonForHome(sermon, sermonDevs, completedIds);
+    });
+
+    setSummaries(nextSummaries);
     setLoadingSermons(false);
-  }, [profile?.church_id]);
+  }, [profile?.church_id, session?.user?.id]);
 
   useEffect(() => {
     if (!loading && !session) {
@@ -75,11 +156,39 @@ export default function HomeScreen() {
     }
   }, [profile?.church_id, loadSermons]);
 
+  const loadStreak = useCallback(async (opts?: { checkCelebration?: boolean }) => {
+    if (!profile?.church_id || !session?.user?.id) {
+      setStreakStatus(null);
+      setStreakLoading(false);
+      return;
+    }
+    setStreakLoading(true);
+    const status = await fetchDevotionalStreakStatus();
+    setStreakStatus(status);
+    setStreakLoading(false);
+    if (opts?.checkCelebration && status) {
+      const show = await shouldShowStreakCelebration(status, churchTimeZone);
+      if (show) setShowStreakCelebration(true);
+    }
+  }, [profile?.church_id, session?.user?.id, churchTimeZone]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadStreak({ checkCelebration: true });
+    }, [loadStreak]),
+  );
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadSermons();
+    await loadStreak();
     setRefreshing(false);
-  }, [loadSermons]);
+  }, [loadSermons, loadStreak]);
+
+  async function dismissStreakCelebration() {
+    setShowStreakCelebration(false);
+    await markStreakCelebrationShown(churchTimeZone);
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
@@ -90,165 +199,372 @@ export default function HomeScreen() {
           onComplete={() => void refreshProfile()}
         />
       ) : null}
+      {streakStatus?.isActive && streakStatus.streakCount > 0 ? (
+        <StreakCelebration
+          visible={showStreakCelebration}
+          streakCount={streakStatus.streakCount}
+          completedToday={streakStatus.completedToday}
+          onContinue={() => void dismissStreakCelebration()}
+        />
+      ) : null}
+      {profile?.id ? (
+        <StreakCalendarModal
+          visible={showStreakCalendar}
+          userId={profile.id}
+          timeZone={churchTimeZone}
+          streakStatus={streakStatus}
+          onClose={() => setShowStreakCalendar(false)}
+        />
+      ) : null}
+
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Image
-            source={require('../../assets/logo.png')}
-            style={styles.brandMark}
-            accessibilityLabel="Sermon Recall"
+        <Image
+          source={require('../../assets/logo.png')}
+          style={styles.brandMark}
+          accessibilityLabel="Sermon Recall"
+        />
+        <View style={styles.headerRight}>
+          <HomeStreakBadge
+            status={streakStatus}
+            loading={streakLoading}
+            onPress={() => setShowStreakCalendar(true)}
           />
-          <View style={styles.headerTitles}>
-            <Text style={styles.brand}>Sermon Recall</Text>
-            <Text style={styles.sub}>
-              {profile?.full_name?.trim() || session?.user?.email?.split('@')[0]}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.headerActions}>
-          <Pressable
-            style={({ pressed }) => [styles.headerActionBtn, pressed && styles.pressed]}
-            onPress={() => router.push('/settings')}
-          >
-            <Text style={styles.headerActionLabel}>Settings</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.headerActionBtn, pressed && styles.pressed]}
-            onPress={async () => {
-              await signOut();
-              router.replace('/login');
-            }}
-          >
-            <Text style={styles.headerActionLabel}>Sign out</Text>
-          </Pressable>
+          <AppMenu />
         </View>
       </View>
-
-      <Text style={styles.sectionTitle}>Sermons</Text>
-      <Text style={styles.sectionHint}>From your church — open one to see the six-day journey.</Text>
 
       {loadingSermons ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.blue} />
         </View>
       ) : (
-        <FlatList
-          style={styles.list}
-          data={sermons}
-          keyExtractor={(item) => item.id}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
           }
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
+        >
+          <Text style={styles.greeting}>{greeting}</Text>
+
+          {hero ? (
+            <HeroSermonCard summary={hero} styles={styles} />
+          ) : (
             <View style={styles.empty}>
               <Text style={styles.emptyTitle}>No sermons yet</Text>
               <Text style={styles.emptyBody}>
                 When your pastor adds sermons in the admin portal, they will show up here.
               </Text>
             </View>
-          }
-          renderItem={({ item }) => {
-            const st = statusBadge(item.status);
-            return (
-            <Pressable
-              style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-              onPress={() => router.push(`/sermon/${item.id}`)}
-            >
-              <Text style={styles.cardTitle} numberOfLines={2}>
-                {item.title}
-              </Text>
-              <Text style={styles.cardMeta}>
-                {[item.pastor_name, formatDate(item.sermon_date)].filter(Boolean).join(' · ') ||
-                  '—'}
-              </Text>
-              <View style={[styles.badge, st.wrap]}>
-                <Text style={[styles.badgeText, { color: st.text }]}>{item.status}</Text>
+          )}
+
+          {past.length > 0 ? (
+            <>
+              <Text style={styles.pastSectionTitle}>Past sermons</Text>
+              <View style={styles.pastList}>
+                {past.map((item) => (
+                  <PastSermonCard key={item.sermon.id} summary={item} styles={styles} />
+                ))}
               </View>
-            </Pressable>
-            );
-          }}
-        />
+            </>
+          ) : null}
+        </ScrollView>
       )}
     </SafeAreaView>
   );
 }
 
-function formatDate(iso: string | null): string | null {
-  if (!iso) return null;
-  try {
-    const d = new Date(`${iso}T12:00:00`);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  } catch {
-    return iso;
-  }
+function ProgressDots({
+  totalDays,
+  completedCount,
+  styles,
+}: {
+  totalDays: number;
+  completedCount: number;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const segments = Math.max(totalDays, 1);
+  return (
+    <View style={styles.dotsRow}>
+      {Array.from({ length: segments }).map((_, i) => (
+        <View
+          key={i}
+          style={[styles.dot, i < completedCount ? styles.dotDone : styles.dotRest]}
+        />
+      ))}
+    </View>
+  );
 }
 
-function statusBadge(status: string): { wrap: object; text: string } {
-  if (status === 'ready') {
-    return { wrap: { backgroundColor: 'rgba(34,197,94,0.18)' }, text: '#86efac' };
-  }
-  if (status === 'failed') {
-    return { wrap: { backgroundColor: 'rgba(248,113,113,0.15)' }, text: '#fca5a5' };
-  }
-  return { wrap: { backgroundColor: 'rgba(250,204,21,0.12)' }, text: '#fde047' };
+function HeroSermonCard({
+  summary,
+  styles,
+}: {
+  summary: SermonHomeSummary;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const {
+    sermon,
+    devotionals,
+    totalDays,
+    completedCount,
+    nextDevotional,
+    nextIncomplete,
+    allDone,
+  } = summary;
+  const focusDay = nextDevotional ?? nextIncomplete;
+  const dayLabel =
+    totalDays > 0 && focusDay ? `Day ${focusDay.day_number} of ${totalDays}` : null;
+  const readingTitle = devotionalDisplayTitle(focusDay);
+  const { label: statusLabel, tone: statusTone } = heroStatusLabel(summary);
+
+  const meta =
+    [churchDisplayName(sermon.churches), formatSermonDate(sermon.sermon_date)]
+      .filter(Boolean)
+      .join(' · ') || '—';
+
+  const lastDevotional = devotionals[devotionals.length - 1];
+  const showReadingPrimary = Boolean(nextDevotional);
+
+  const readingLabel = "Begin today's reading →";
+  const readingOnPress = nextDevotional
+    ? () => router.push(`/devotional/${nextDevotional.id}`)
+    : undefined;
+
+  return (
+    <View style={styles.heroCard}>
+      <Text style={styles.heroTitle} numberOfLines={3}>
+        {sermon.title}
+      </Text>
+      <Text style={styles.heroMeta}>{meta}</Text>
+
+      {dayLabel ? <Text style={styles.heroDayLabel}>{dayLabel}</Text> : null}
+      {readingTitle ? (
+        <Text style={styles.heroReadingTitle} numberOfLines={2}>
+          {readingTitle}
+        </Text>
+      ) : null}
+
+      {totalDays > 0 ? (
+        <ProgressDots totalDays={totalDays} completedCount={completedCount} styles={styles} />
+      ) : null}
+
+      <Text
+        style={[
+          styles.statusLabel,
+          statusTone === 'action' ? styles.statusAction : styles.statusMuted,
+        ]}
+      >
+        {statusLabel}
+      </Text>
+
+      <View style={styles.heroActions}>
+        {showReadingPrimary ? (
+          <Pressable
+            style={({ pressed }) => [styles.heroCtaPrimary, pressed && styles.heroCtaPressed]}
+            onPress={readingOnPress}
+          >
+            <Text style={styles.heroCtaPrimaryLabel}>{readingLabel}</Text>
+          </Pressable>
+        ) : null}
+
+        <Pressable
+          style={({ pressed }) => [
+            showReadingPrimary ? styles.heroCtaSecondary : styles.heroCtaPrimary,
+            pressed && styles.heroCtaPressed,
+          ]}
+          onPress={() => router.push(`/sermon/${sermon.id}`)}
+        >
+          <Text
+            style={
+              showReadingPrimary ? styles.heroCtaSecondaryLabel : styles.heroCtaPrimaryLabel
+            }
+          >
+            View six-day journey →
+          </Text>
+        </Pressable>
+
+        {!showReadingPrimary && allDone && lastDevotional ? (
+          <Pressable
+            style={({ pressed }) => [styles.heroCtaSecondary, pressed && styles.heroCtaPressed]}
+            onPress={() => router.push(`/devotional/${lastDevotional.id}`)}
+          >
+            <Text style={styles.heroCtaSecondaryLabel}>Review last day →</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function PastSermonCard({
+  summary,
+  styles,
+}: {
+  summary: SermonHomeSummary;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const { sermon } = summary;
+  const progressLabel = pastSermonProgressLabel(summary);
+  const meta =
+    [churchDisplayName(sermon.churches), formatSermonDate(sermon.sermon_date)]
+      .filter(Boolean)
+      .join(' · ') || '—';
+
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.pastCard, pressed && styles.pastCardPressed]}
+      onPress={() => router.push(`/sermon/${sermon.id}`)}
+    >
+      <Text style={styles.pastTitle} numberOfLines={2}>
+        {sermon.title}
+      </Text>
+      <Text style={styles.pastMeta}>{meta}</Text>
+      <Text style={[styles.statusLabel, styles.statusMuted]}>{progressLabel}</Text>
+    </Pressable>
+  );
 }
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bgPage },
-    list: { flex: 1 },
+    scroll: { flex: 1 },
+    scrollContent: { paddingHorizontal: 20, paddingBottom: 32 },
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       paddingHorizontal: 20,
-      paddingBottom: 12,
+      paddingBottom: 8,
     },
-    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 },
+    headerRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
     brandMark: { width: 44, height: 44, borderRadius: 10 },
-    headerTitles: { flex: 1, minWidth: 0 },
-    brand: { fontSize: 26, fontWeight: '600', color: c.navy },
-    sub: { marginTop: 4, fontSize: 15, color: c.muted },
-    headerActions: { flexDirection: 'column', alignItems: 'flex-end', gap: 4 },
-    headerActionBtn: { paddingVertical: 4, paddingHorizontal: 4 },
-    headerActionLabel: { fontSize: 15, color: c.blue, fontWeight: '500' },
-    pressed: { opacity: 0.75 },
-    sectionTitle: {
-      paddingHorizontal: 20,
+    greeting: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: c.navy,
+      letterSpacing: -0.3,
+      marginBottom: 20,
+    },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 48 },
+    heroCard: {
+      backgroundColor: c.bgCard,
+      borderRadius: c.radiusCard,
+      padding: 22,
+      borderWidth: 1,
+      borderColor: c.blue,
+    },
+    heroTitle: {
+      fontSize: 24,
+      fontWeight: '600',
+      color: c.navy,
+      lineHeight: 30,
+      letterSpacing: -0.2,
+    },
+    heroMeta: {
       marginTop: 8,
-      fontSize: 20,
+      fontSize: 14,
+      color: c.muted,
+    },
+    heroDayLabel: {
+      marginTop: 16,
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.blue,
+      letterSpacing: 0.4,
+      textTransform: 'uppercase',
+    },
+    heroReadingTitle: {
+      marginTop: 8,
+      fontSize: 18,
+      fontWeight: '500',
+      color: c.navy,
+      lineHeight: 24,
+    },
+    dotsRow: {
+      flexDirection: 'row',
+      gap: 6,
+      marginTop: 12,
+    },
+    dot: {
+      flex: 1,
+      height: 6,
+      borderRadius: 999,
+    },
+    dotDone: { backgroundColor: c.blue },
+    dotRest: { backgroundColor: c.progressRest },
+    statusLabel: {
+      marginTop: 14,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    statusAction: { color: c.blue },
+    statusMuted: { color: c.muted },
+    heroActions: {
+      marginTop: 18,
+      gap: 10,
+    },
+    heroCtaPrimary: {
+      backgroundColor: c.blue,
+      borderRadius: c.radiusMd,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    heroCtaSecondary: {
+      borderRadius: c.radiusMd,
+      paddingVertical: 14,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: c.borderSubtle,
+      backgroundColor: c.bgWash,
+    },
+    heroCtaDisabled: { opacity: 0.55 },
+    heroCtaPressed: { opacity: 0.92 },
+    heroCtaPrimaryLabel: {
+      color: '#05070a',
+      fontSize: 17,
+      fontWeight: '700',
+    },
+    heroCtaPrimaryLabelDisabled: {
+      color: '#0f172a',
+    },
+    heroCtaSecondaryLabel: {
+      color: c.navy,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    pastSectionTitle: {
+      marginTop: 28,
+      marginBottom: 12,
+      fontSize: 18,
       fontWeight: '600',
       color: c.navy,
     },
-    sectionHint: {
-      paddingHorizontal: 20,
-      marginTop: 6,
-      marginBottom: 12,
-      fontSize: 15,
-      color: c.muted,
-      lineHeight: 21,
-    },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 48 },
-    listContent: { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },
-    card: {
+    pastList: { gap: 12 },
+    pastCard: {
       backgroundColor: c.bgCard,
       borderRadius: c.radiusCard,
       padding: 18,
-      paddingHorizontal: 20,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.borderSubtle,
     },
-    cardPressed: { opacity: 0.95 },
-    cardTitle: { fontSize: 17, fontWeight: '500', color: c.navy },
-    cardMeta: { marginTop: 8, fontSize: 14, color: c.navyMid },
-    badge: {
-      alignSelf: 'flex-start',
-      marginTop: 10,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: 999,
+    pastCardPressed: { opacity: 0.95 },
+    pastTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: c.navy,
+      lineHeight: 26,
     },
-    badgeText: { fontSize: 12, fontWeight: '600', textTransform: 'capitalize' },
+    pastMeta: {
+      marginTop: 6,
+      fontSize: 14,
+      color: c.muted,
+    },
     empty: { paddingVertical: 40, paddingHorizontal: 8 },
     emptyTitle: { fontSize: 18, fontWeight: '600', color: c.navyMid, textAlign: 'center' },
     emptyBody: {

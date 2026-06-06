@@ -45,3 +45,12 @@ export async function createVoicePlaybackUrl(
   if (error || !data?.signedUrl) return null;
   return data.signedUrl;
 }
+
+export async function deleteVoiceCommitment(
+  supabase: SupabaseClient,
+  storagePath: string,
+): Promise<{ error?: string }> {
+  const { error } = await supabase.storage.from(BUCKET).remove([storagePath]);
+  if (error) return { error: error.message };
+  return {};
+}

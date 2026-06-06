@@ -1,16 +1,16 @@
 import { Link, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+
+import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
@@ -39,6 +39,7 @@ export default function LoginScreen() {
   const [showResend, setShowResend] = useState(false);
   const [resendPending, setResendPending] = useState(false);
   const [resendNotice, setResendNotice] = useState<string | null>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (!loading && session) {
@@ -77,10 +78,7 @@ export default function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardFormScreen backgroundColor={colors.bgPage}>
       <View style={styles.card}>
         <Image
           source={require('../../assets/logo.png')}
@@ -116,8 +114,13 @@ export default function LoginScreen() {
           autoComplete="email"
           value={email}
           onChangeText={setEmail}
+          returnKeyType="next"
+          submitBehavior="submit"
+          blurOnSubmit={false}
+          onSubmitEditing={() => passwordRef.current?.focus()}
         />
         <TextInput
+          ref={passwordRef}
           style={styles.input}
           placeholder="Password"
           placeholderTextColor={colors.muted}
@@ -125,6 +128,9 @@ export default function LoginScreen() {
           autoComplete="password"
           value={password}
           onChangeText={setPassword}
+          returnKeyType="done"
+          submitBehavior="submit"
+          onSubmitEditing={() => void onSubmit()}
         />
 
         <Link href="/forgot-password" style={styles.forgotLink}>
@@ -169,18 +175,12 @@ export default function LoginScreen() {
           Create an account
         </Link>
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardFormScreen>
   );
 }
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-    screen: {
-      flex: 1,
-      justifyContent: 'center',
-      padding: 24,
-      backgroundColor: c.bgPage,
-    },
     card: { gap: 12 },
     logo: {
       width: 88,

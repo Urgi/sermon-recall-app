@@ -129,6 +129,9 @@ export function DeleteAccountPanel() {
             autoComplete="email"
             placeholder={accountEmail || 'you@example.com'}
             placeholderTextColor={colors.muted}
+            returnKeyType="done"
+            submitBehavior="submit"
+            onSubmitEditing={() => void onDelete()}
           />
 
           {error ? <Text style={styles.error}>{error}</Text> : null}

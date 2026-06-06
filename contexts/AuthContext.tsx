@@ -35,6 +35,7 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   joinChurch: (code: string) => Promise<{ error: string | null }>;
+  leaveChurch: () => Promise<{ error: string | null }>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -189,6 +190,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [refreshProfile],
   );
 
+  const leaveChurch = useCallback(async () => {
+    if (!supabase) return { error: 'Supabase is not configured' };
+    const { error } = await supabase.rpc('leave_church');
+    if (error) {
+      if (error.message.includes('not_in_church')) {
+        return { error: 'You are not linked to a church.' };
+      }
+      if (error.message.includes('staff_cannot_leave')) {
+        return {
+          error:
+            'Church staff cannot leave from the app. Ask another admin to remove you in the admin portal, or delete your account in Settings.',
+        };
+      }
+      if (error.message.includes('owner_cannot_leave')) {
+        return {
+          error:
+            'Church owners cannot leave from the app. Transfer ownership or delete the church in the admin portal first.',
+        };
+      }
+      return { error: error.message };
+    }
+    await refreshProfile();
+    return { error: null };
+  }, [refreshProfile]);
+
   const value = useMemo(
     () => ({
       session,
@@ -203,6 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signOut,
       refreshProfile,
       joinChurch,
+      leaveChurch,
     }),
     [
       session,
@@ -217,6 +244,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signOut,
       refreshProfile,
       joinChurch,
+      leaveChurch,
     ],
   );
 

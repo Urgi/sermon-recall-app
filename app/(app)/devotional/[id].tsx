@@ -24,13 +24,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { SermonRecallScreenHeader } from '../../../components/SermonRecallScreenHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { accessibleDevotionalIds, buildUnlockContext, nextUnlockedIncompleteDevotional } from '../../../lib/devotionalUnlock';
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
 import type { RecallionColors } from '../../../lib/recallionTheme';
 import { supabase } from '../../../lib/supabase';
 import { touchDevotionalOpen } from '../../../lib/touchDevotionalOpen';
-import { createVoicePlaybackUrl, uploadVoiceCommitment } from '../../../lib/voiceCommitment';
+import { queuePendingToast } from '../../../lib/pendingToast';
+import { createVoicePlaybackUrl, deleteVoiceCommitment, uploadVoiceCommitment } from '../../../lib/voiceCommitment';
 
 /** When the row has no AI `pre_prompt`, we still gate reading with a generic retrieval question. */
 const DEFAULT_PRE_SESSION_PROMPT =
@@ -300,6 +302,53 @@ export default function DevotionalScreen() {
     }
   }
 
+  async function clearVoiceRecording() {
+    if (!supabase || !session?.user || !row) return;
+    setError(null);
+    setVoiceBusy(true);
+    try {
+      voicePlayer.pause();
+      playAfterLoadRef.current = false;
+      const path = effectiveVoicePath;
+      if (path) {
+        const del = await deleteVoiceCommitment(supabase, path);
+        if (del.error) {
+          setError(del.error);
+          return;
+        }
+      }
+      setSessionVoicePath(null);
+      setLocalVoiceUri(null);
+      if (progress?.voice_recording_url?.trim()) {
+        const { error: upErr } = await supabase.from('user_progress').upsert(
+          {
+            user_id: session.user.id,
+            devotional_id: row.id,
+            pre_prompt_response: progress.pre_prompt_response,
+            application_commitment: progress.application_commitment,
+            voice_recording_url: null,
+            completed_at: progress.completed_at,
+          },
+          { onConflict: 'user_id,devotional_id' },
+        );
+        if (upErr) {
+          setError(upErr.message);
+          return;
+        }
+        setProgress((prev) =>
+          prev ? { ...prev, voice_recording_url: null } : prev,
+        );
+      }
+    } finally {
+      setVoiceBusy(false);
+    }
+  }
+
+  async function reRecordVoice() {
+    await clearVoiceRecording();
+    await startVoice();
+  }
+
   async function stopVoiceUpload() {
     if (!supabase || !session?.user || !row) return;
     if (!recorder.isRecording) return;
@@ -462,16 +511,15 @@ export default function DevotionalScreen() {
       setError(upErr.message);
       return;
     }
-    await load({ silent: true });
+    await queuePendingToast({ variant: 'success', message: 'Devotional complete' });
+    router.replace(`/sermon/${row.sermon_id}`);
   }
+
+  const hasVoiceRecording = Boolean(effectiveVoicePath);
 
   const inner = (
     <>
-      <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.back}>← Back</Text>
-        </Pressable>
-      </View>
+      <SermonRecallScreenHeader />
 
       {loading ? (
         <View style={styles.center}>
@@ -531,14 +579,16 @@ export default function DevotionalScreen() {
         </ScrollView>
       ) : needsPreSessionGate ? (
         <ScrollView
-          contentContainerStyle={styles.scrollOuter}
+          style={styles.scrollFill}
+          contentContainerStyle={[styles.scrollOuter, styles.scrollOuterFill]}
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
           }
         >
-          <View style={styles.contentCard}>
+          <View style={[styles.contentCard, styles.contentCardFill]}>
             {sermonTitle ? (
               <View style={styles.sermonHeaderRow}>
                 <View style={styles.sermonMark}>
@@ -578,14 +628,16 @@ export default function DevotionalScreen() {
                 unlock below.
               </Text>
               <TextInput
-                style={styles.input}
+                style={styles.gateInput}
                 placeholder="Your answer"
                 placeholderTextColor={colors.muted}
                 value={gateDraft}
                 onChangeText={setGateDraft}
-                multiline
                 editable={!saving && Boolean(session?.user)}
-                textAlignVertical="top"
+                returnKeyType="done"
+                submitBehavior="submit"
+                blurOnSubmit
+                onSubmitEditing={() => void submitGate()}
               />
               {error ? <Text style={styles.inlineErr}>{error}</Text> : null}
               <Pressable
@@ -605,6 +657,7 @@ export default function DevotionalScreen() {
           contentContainerStyle={styles.scrollOuter}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
           }
@@ -668,11 +721,18 @@ export default function DevotionalScreen() {
             {row.scripture_reference || row.scripture_text ? (
               <View style={styles.scriptureSection}>
                 <View style={styles.scriptureBlock}>
-                  {row.scripture_reference ? (
-                    <Text style={styles.scriptureRef}>{row.scripture_reference}</Text>
-                  ) : null}
                   {row.scripture_text ? (
                     <Text style={styles.scriptureBody}>{row.scripture_text}</Text>
+                  ) : null}
+                  {row.scripture_reference ? (
+                    <Text
+                      style={[
+                        styles.scriptureRef,
+                        row.scripture_text ? styles.scriptureRefAfterBody : null,
+                      ]}
+                    >
+                      {row.scripture_reference}
+                    </Text>
                   ) : null}
                 </View>
               </View>
@@ -699,77 +759,94 @@ export default function DevotionalScreen() {
                 <Ionicons name="flag-outline" size={18} color={colors.blue} />
                 <Text style={styles.commitmentTitle}>Application commitment</Text>
               </View>
-              <Text style={styles.commitmentPrompt}>
-                What&apos;s one concrete step you&apos;re doing or plan to do this week—something
-                specific in real life that connects today&apos;s reading to how you&apos;ll actually
-                live?
-              </Text>
-              <Text style={styles.commitmentHint}>
-                Type below or record a short voice note answering that question. At least one is
-                required to finish the day.
-              </Text>
+              <Text style={styles.commitmentHint}>Type or record your answer below</Text>
               <TextInput
-                style={[styles.input, completed && styles.inputDisabled]}
-                placeholder="e.g. This week I will ___ (who / what / when)."
+                style={[styles.commitmentInput, completed && styles.commitmentInputDisabled]}
+                placeholder="This week I will ..."
                 placeholderTextColor={colors.muted}
                 value={completed ? progress?.application_commitment ?? '' : commitmentDraft}
                 onChangeText={setCommitmentDraft}
                 multiline
                 editable={!completed && !saving && Boolean(session?.user)}
                 textAlignVertical="top"
+                returnKeyType="done"
+                blurOnSubmit
               />
               {!completed && session?.user ? (
                 <View style={[styles.voiceRow, styles.voiceRowAfterInput]}>
-                  <Text style={styles.voiceSectionLabel}>Or record your answer</Text>
                   <View style={styles.voiceButtonsRow}>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.voiceBtnOutline,
-                        recordState.isRecording && styles.voiceBtnDanger,
-                        pressed && styles.primaryBtnPressed,
-                      ]}
-                      onPress={() =>
-                        void (recordState.isRecording ? stopVoiceUpload() : startVoice())
-                      }
-                      disabled={voiceBusy || saving}
-                    >
-                      <View style={styles.voiceBtnInner}>
-                        {!recordState.isRecording ? (
-                          <View style={styles.recDot} />
-                        ) : null}
-                        <Ionicons
-                          name="mic-outline"
-                          size={16}
-                          color={recordState.isRecording ? '#fff' : colors.navyMid}
-                        />
-                        <Text
-                          style={[
-                            styles.voiceBtnOutlineLabel,
-                            recordState.isRecording && styles.voiceBtnDangerLabel,
+                    {hasVoiceRecording && !recordState.isRecording ? (
+                      <>
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.voiceBtnOutline,
+                            pressed && styles.primaryBtnPressed,
                           ]}
+                          onPress={() => void toggleVoicePlayback()}
+                          disabled={voiceBusy}
                         >
-                          {voiceBusy && !recordState.isRecording
-                            ? 'Saving…'
-                            : recordState.isRecording
-                              ? 'Stop & upload'
-                              : 'Record voice note'}
-                        </Text>
-                      </View>
-                    </Pressable>
-                    {effectiveVoicePath ? (
+                          <Text style={styles.voiceBtnOutlineLabel}>
+                            {voicePlayerStatus.playing ? 'Stop playback' : 'Play recording'}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.voiceBtnOutline,
+                            pressed && styles.primaryBtnPressed,
+                          ]}
+                          onPress={() => void reRecordVoice()}
+                          disabled={voiceBusy || saving}
+                        >
+                          <Text style={styles.voiceBtnOutlineLabel}>Re-record</Text>
+                        </Pressable>
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.voiceBtnOutline,
+                            styles.voiceBtnDangerOutline,
+                            pressed && styles.primaryBtnPressed,
+                          ]}
+                          onPress={() => void clearVoiceRecording()}
+                          disabled={voiceBusy || saving}
+                        >
+                          <Text style={styles.voiceBtnDangerOutlineLabel}>Delete</Text>
+                        </Pressable>
+                      </>
+                    ) : (
                       <Pressable
                         style={({ pressed }) => [
                           styles.voiceBtnOutline,
+                          recordState.isRecording && styles.voiceBtnDanger,
                           pressed && styles.primaryBtnPressed,
                         ]}
-                        onPress={() => void toggleVoicePlayback()}
-                        disabled={voiceBusy}
+                        onPress={() =>
+                          void (recordState.isRecording ? stopVoiceUpload() : startVoice())
+                        }
+                        disabled={voiceBusy || saving}
                       >
-                        <Text style={styles.voiceBtnOutlineLabel}>
-                          {voicePlayerStatus.playing ? 'Stop playback' : 'Play recording'}
-                        </Text>
+                        <View style={styles.voiceBtnInner}>
+                          {!recordState.isRecording ? (
+                            <View style={styles.recDot} />
+                          ) : null}
+                          <Ionicons
+                            name="mic-outline"
+                            size={16}
+                            color={recordState.isRecording ? '#fff' : colors.navyMid}
+                          />
+                          <Text
+                            style={[
+                              styles.voiceBtnOutlineLabel,
+                              recordState.isRecording && styles.voiceBtnDangerLabel,
+                            ]}
+                          >
+                            {voiceBusy && !recordState.isRecording
+                              ? 'Saving…'
+                              : recordState.isRecording
+                                ? 'Stop & upload'
+                                : 'Record voice note'}
+                          </Text>
+                        </View>
                       </Pressable>
-                    ) : null}
+                    )}
                   </View>
                 </View>
               ) : null}
@@ -815,11 +892,11 @@ export default function DevotionalScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
         {inner}
       </KeyboardAvoidingView>
@@ -831,18 +908,12 @@ function createStyles(c: RecallionColors) {
   return StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.bgPage },
   flex: { flex: 1 },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingTop: 14,
-    paddingBottom: 8,
-  },
-  back: { fontSize: 14, color: c.blue, fontWeight: '500' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   padBare: { padding: 20, paddingBottom: 48 },
   scrollOuter: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 48 },
+  scrollFill: { flex: 1, backgroundColor: c.bgCard },
+  scrollOuterFill: { flexGrow: 1 },
+  contentCardFill: { flex: 1 },
   contentCard: {
     backgroundColor: c.bgCard,
     borderRadius: c.radiusCard,
@@ -927,6 +998,18 @@ function createStyles(c: RecallionColors) {
     marginBottom: 10,
   },
   gateHint: { fontSize: 14, color: c.muted, lineHeight: 21, marginBottom: 16 },
+  gateInput: {
+    minHeight: 48,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: c.borderInput,
+    borderRadius: c.radiusSm,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    lineHeight: 21,
+    color: c.navy,
+    backgroundColor: c.bgCard,
+  },
   title: {
     fontSize: 24,
     fontWeight: '500',
@@ -980,9 +1063,13 @@ function createStyles(c: RecallionColors) {
     textTransform: 'uppercase',
     marginBottom: 8,
   },
+  scriptureRefAfterBody: {
+    marginBottom: 0,
+    marginTop: 10,
+  },
   scriptureBody: {
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 26,
     color: c.navyMid,
     fontStyle: 'italic',
   },
@@ -1005,25 +1092,38 @@ function createStyles(c: RecallionColors) {
   },
   reflect: { fontSize: 16, lineHeight: 25, color: c.navy },
   commitmentSection: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: c.borderSubtle,
-    paddingHorizontal: 22,
-    paddingTop: 22,
-    paddingBottom: 8,
+    marginHorizontal: 22,
+    marginBottom: 22,
+    padding: 18,
+    backgroundColor: c.bgWash,
+    borderRadius: c.radiusMd,
+    borderLeftWidth: 3,
+    borderLeftColor: c.blue,
   },
   commitmentHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  commitmentTitle: { fontSize: 18, color: c.navy, fontWeight: '500' },
-  commitmentPrompt: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: c.navyMid,
-    marginBottom: 6,
-  },
+  commitmentTitle: { fontSize: 18, color: c.navy, fontWeight: '600' },
   commitmentHint: {
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 20,
-    color: c.muted,
+    color: c.navyMid,
     marginBottom: 14,
+  },
+  commitmentInput: {
+    minHeight: 100,
+    borderWidth: 1,
+    borderColor: c.borderInput,
+    borderRadius: c.radiusSm,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    lineHeight: 22,
+    color: c.navy,
+    backgroundColor: c.bgCard,
+  },
+  commitmentInputDisabled: {
+    backgroundColor: c.bgCard,
+    color: c.navyMid,
+    opacity: 0.92,
   },
   ctaSection: { paddingHorizontal: 22, paddingBottom: 24 },
   primaryBtn: {
@@ -1059,13 +1159,6 @@ function createStyles(c: RecallionColors) {
     alignItems: 'flex-start',
     gap: 8,
     marginBottom: 12,
-  },
-  voiceSectionLabel: {
-    fontSize: 11,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: c.muted,
-    fontWeight: '500',
   },
   voiceButtonsRow: {
     flexDirection: 'row',
@@ -1106,5 +1199,13 @@ function createStyles(c: RecallionColors) {
     borderColor: '#b91c1c',
   },
   voiceBtnDangerLabel: { color: '#fff' },
+  voiceBtnDangerOutline: {
+    borderColor: 'rgba(185,28,28,0.45)',
+  },
+  voiceBtnDangerOutlineLabel: {
+    color: '#b91c1c',
+    fontSize: 14,
+    fontWeight: '500',
+  },
 });
 }

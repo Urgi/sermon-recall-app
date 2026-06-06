@@ -1,15 +1,15 @@
 import { Link, router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+
+import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
@@ -41,6 +41,9 @@ export default function ResetPasswordScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [resendPending, setResendPending] = useState(false);
   const [resendNotice, setResendNotice] = useState<string | null>(null);
+  const codeRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmRef = useRef<TextInput>(null);
 
   async function onResend() {
     if (!email.trim()) {
@@ -101,10 +104,7 @@ export default function ResetPasswordScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardFormScreen backgroundColor={colors.bgPage}>
       <View style={styles.card}>
         <Text style={styles.title}>New password</Text>
         <Text style={styles.hint}>
@@ -128,8 +128,13 @@ export default function ResetPasswordScreen() {
           value={email}
           onChangeText={setEmail}
           editable={!submitting}
+          returnKeyType="next"
+          submitBehavior="submit"
+          blurOnSubmit={false}
+          onSubmitEditing={() => codeRef.current?.focus()}
         />
         <TextInput
+          ref={codeRef}
           style={[styles.input, styles.codeInput]}
           placeholder="Reset code"
           placeholderTextColor={colors.muted}
@@ -142,8 +147,13 @@ export default function ResetPasswordScreen() {
           value={code}
           onChangeText={setCode}
           editable={!submitting}
+          returnKeyType="next"
+          submitBehavior="submit"
+          blurOnSubmit={false}
+          onSubmitEditing={() => passwordRef.current?.focus()}
         />
         <TextInput
+          ref={passwordRef}
           style={styles.input}
           placeholder="New password"
           placeholderTextColor={colors.muted}
@@ -152,8 +162,13 @@ export default function ResetPasswordScreen() {
           value={password}
           onChangeText={setPassword}
           editable={!submitting}
+          returnKeyType="next"
+          submitBehavior="submit"
+          blurOnSubmit={false}
+          onSubmitEditing={() => confirmRef.current?.focus()}
         />
         <TextInput
+          ref={confirmRef}
           style={styles.input}
           placeholder="Confirm password"
           placeholderTextColor={colors.muted}
@@ -162,6 +177,9 @@ export default function ResetPasswordScreen() {
           value={confirm}
           onChangeText={setConfirm}
           editable={!submitting}
+          returnKeyType="done"
+          submitBehavior="submit"
+          onSubmitEditing={() => void onSubmit()}
         />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -187,18 +205,12 @@ export default function ResetPasswordScreen() {
           Back to sign in
         </Link>
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardFormScreen>
   );
 }
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-    screen: {
-      flex: 1,
-      justifyContent: 'center',
-      padding: 24,
-      backgroundColor: c.bgPage,
-    },
     card: { gap: 12 },
     title: { fontSize: 26, fontWeight: '700', color: c.navy },
     hint: { fontSize: 15, color: c.muted, marginBottom: 8, lineHeight: 22 },

@@ -112,3 +112,25 @@ export function nextUnlockedIncompleteDevotional(
   const sorted = [...devotionals].sort((a, b) => a.day_number - b.day_number);
   return sorted.find((d) => !completedIds.has(d.id) && unlockedIds.has(d.id));
 }
+
+/** Calendar days until day `dayNumber` opens (0 = today or already open). */
+export function daysUntilCalendarUnlock(
+  dayNumber: number,
+  anchorYmd: string,
+  todayYmd: string,
+): number {
+  const diff = calendarDiffDays(todayYmd, anchorYmd);
+  return Math.max(0, dayNumber - 1 - diff);
+}
+
+export function formatUnlockRelative(daysUntil: number): string {
+  if (daysUntil <= 0) return 'soon';
+  if (daysUntil === 1) return 'tomorrow';
+  return `in ${daysUntil} days`;
+}
+
+export function formatUnlockLabel(daysUntil: number): string {
+  if (daysUntil <= 0) return 'Unlocks soon';
+  if (daysUntil === 1) return 'Unlocks tomorrow';
+  return `Unlocks in ${daysUntil} days`;
+}

@@ -2,14 +2,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+
+import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
@@ -49,10 +49,7 @@ export default function JoinChurchScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardFormScreen backgroundColor={colors.bgPage}>
       <View style={styles.card}>
         <Text style={styles.title}>Join your church</Text>
         {dissolvedNotice ? (
@@ -73,6 +70,9 @@ export default function JoinChurchScreen() {
           autoCorrect={false}
           value={code}
           onChangeText={setCode}
+          returnKeyType="done"
+          submitBehavior="submit"
+          onSubmitEditing={() => void onSubmit()}
         />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -93,18 +93,12 @@ export default function JoinChurchScreen() {
           <Text style={styles.outlineLabel}>Sign out</Text>
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardFormScreen>
   );
 }
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-    screen: {
-      flex: 1,
-      justifyContent: 'center',
-      padding: 24,
-      backgroundColor: c.bgPage,
-    },
     card: { gap: 12 },
     title: { fontSize: 26, fontWeight: '700', color: c.navy },
     hint: { fontSize: 15, color: c.muted, marginBottom: 8 },

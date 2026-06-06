@@ -1,16 +1,16 @@
 import { Link, router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+
+import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
@@ -26,6 +26,8 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (!loading && session) {
@@ -62,10 +64,7 @@ export default function RegisterScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardFormScreen backgroundColor={colors.bgPage}>
       <View style={styles.card}>
         <Image
           source={require('../../assets/logo.png')}
@@ -81,8 +80,13 @@ export default function RegisterScreen() {
           autoComplete="name"
           value={fullName}
           onChangeText={setFullName}
+          returnKeyType="next"
+          submitBehavior="submit"
+          blurOnSubmit={false}
+          onSubmitEditing={() => emailRef.current?.focus()}
         />
         <TextInput
+          ref={emailRef}
           style={styles.input}
           placeholder="Email"
           placeholderTextColor={colors.muted}
@@ -91,8 +95,13 @@ export default function RegisterScreen() {
           autoComplete="email"
           value={email}
           onChangeText={setEmail}
+          returnKeyType="next"
+          submitBehavior="submit"
+          blurOnSubmit={false}
+          onSubmitEditing={() => passwordRef.current?.focus()}
         />
         <TextInput
+          ref={passwordRef}
           style={styles.input}
           placeholder="Password (8+ characters)"
           placeholderTextColor={colors.muted}
@@ -100,6 +109,9 @@ export default function RegisterScreen() {
           autoComplete="new-password"
           value={password}
           onChangeText={setPassword}
+          returnKeyType="done"
+          submitBehavior="submit"
+          onSubmitEditing={() => void onSubmit()}
         />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -119,18 +131,12 @@ export default function RegisterScreen() {
           Already have an account? Sign in
         </Link>
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardFormScreen>
   );
 }
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-  screen: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: c.bgPage,
-  },
   card: {
     gap: 12,
   },
