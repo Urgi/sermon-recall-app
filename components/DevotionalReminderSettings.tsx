@@ -3,6 +3,10 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { useRecallionTheme } from '../contexts/ThemeContext';
 import { DEVOTIONAL_REMINDER_HOUR_OPTIONS } from '../lib/devotionalReminderOptions';
+import {
+  pushRegistrationHint,
+  registerExpoPushTokenForCurrentUser,
+} from '../lib/registerPushToken';
 import type { RecallionColors } from '../lib/recallionTheme';
 import { supabase } from '../lib/supabase';
 
@@ -44,6 +48,11 @@ export function DevotionalReminderSettings({
     if (upErr) {
       setError(upErr.message);
       return;
+    }
+    if (patch.devotional_notify_enabled !== false) {
+      const push = await registerExpoPushTokenForCurrentUser(userId);
+      const hint = pushRegistrationHint(push);
+      if (hint) setError(hint);
     }
     onUpdated();
   }

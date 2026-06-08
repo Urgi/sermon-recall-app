@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -21,9 +21,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
 import type { RecallionColors } from '../../lib/recallionTheme';
 import {
+  claimStreakCelebrationForToday,
+  fetchChurchTimeZone,
   fetchDevotionalStreakStatus,
-  markStreakCelebrationShown,
-  shouldShowStreakCelebration,
   type DevotionalStreakStatus,
 } from '../../lib/devotionalStreak';
 import {
@@ -54,6 +54,7 @@ export default function HomeScreen() {
   const [showStreakCelebration, setShowStreakCelebration] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
   const [churchTimeZone, setChurchTimeZone] = useState('America/New_York');
+  const streakCelebrationClaimedRef = useRef(false);
 
   const showNotifyPrompt = Boolean(
     profile?.church_id && profile.devotional_notify_prompt_done === false,
@@ -163,14 +164,23 @@ export default function HomeScreen() {
       return;
     }
     setStreakLoading(true);
+    const timeZone = await fetchChurchTimeZone(profile.church_id);
+    setChurchTimeZone(timeZone);
     const status = await fetchDevotionalStreakStatus();
     setStreakStatus(status);
     setStreakLoading(false);
-    if (opts?.checkCelebration && status) {
-      const show = await shouldShowStreakCelebration(status, churchTimeZone);
-      if (show) setShowStreakCelebration(true);
+    if (
+      opts?.checkCelebration &&
+      status &&
+      !streakCelebrationClaimedRef.current
+    ) {
+      const show = await claimStreakCelebrationForToday(status, timeZone);
+      if (show) {
+        streakCelebrationClaimedRef.current = true;
+        setShowStreakCelebration(true);
+      }
     }
-  }, [profile?.church_id, session?.user?.id, churchTimeZone]);
+  }, [profile?.church_id, session?.user?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -185,9 +195,8 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [loadSermons, loadStreak]);
 
-  async function dismissStreakCelebration() {
+  function dismissStreakCelebration() {
     setShowStreakCelebration(false);
-    await markStreakCelebrationShown(churchTimeZone);
   }
 
   return (
@@ -204,7 +213,7 @@ export default function HomeScreen() {
           visible={showStreakCelebration}
           streakCount={streakStatus.streakCount}
           completedToday={streakStatus.completedToday}
-          onContinue={() => void dismissStreakCelebration()}
+          onContinue={dismissStreakCelebration}
         />
       ) : null}
       {profile?.id ? (

@@ -11,6 +11,10 @@ import {
 import { useRecallionTheme } from '../contexts/ThemeContext';
 import type { RecallionColors } from '../lib/recallionTheme';
 import { DEVOTIONAL_REMINDER_HOUR_OPTIONS } from '../lib/devotionalReminderOptions';
+import {
+  pushRegistrationHint,
+  registerExpoPushTokenForCurrentUser,
+} from '../lib/registerPushToken';
 import { supabase } from '../lib/supabase';
 
 type Props = {
@@ -39,6 +43,11 @@ export function DevotionalNotifyPrompt({ visible, userId, onComplete }: Props) {
     if (upErr) {
       setError(upErr.message);
       return;
+    }
+    if (patch.devotional_notify_enabled !== false) {
+      const push = await registerExpoPushTokenForCurrentUser(userId);
+      const hint = pushRegistrationHint(push);
+      if (hint) setError(hint);
     }
     onComplete();
   }
@@ -78,6 +87,8 @@ export function DevotionalNotifyPrompt({ visible, userId, onComplete }: Props) {
             disabled={busy}
             onPress={() =>
               void apply({
+                devotional_notify_hour: null,
+                devotional_notify_enabled: true,
                 devotional_notify_prompt_done: true,
               })
             }

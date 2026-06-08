@@ -11,6 +11,25 @@ export type DevotionalStreakStatus = {
 
 const CELEBRATION_KEY_PREFIX = '@sermon-recall/streak-celebration-shown:';
 
+export async function fetchChurchTimeZone(churchId: string): Promise<string> {
+  if (!supabase) return 'America/New_York';
+  const { data, error } = await supabase
+    .from('churches')
+    .select('timezone')
+    .eq('id', churchId)
+    .maybeSingle();
+  if (error) {
+    console.warn('[streak] church timezone', error.message);
+    return 'America/New_York';
+  }
+  return data?.timezone?.trim() || 'America/New_York';
+}
+
+function celebrationStorageKey(timeZone: string): string {
+  const ymd = localYmdInTimeZone(new Date(), timeZone);
+  return `${CELEBRATION_KEY_PREFIX}${ymd}`;
+}
+
 function parseStatus(raw: unknown): DevotionalStreakStatus {
   const o = raw as Record<string, unknown> | null;
   return {
@@ -35,13 +54,23 @@ export async function shouldShowStreakCelebration(
   timeZone = 'America/New_York',
 ): Promise<boolean> {
   if (!status.isActive || status.streakCount < 1) return false;
-  const ymd = localYmdInTimeZone(new Date(), timeZone);
-  const key = `${CELEBRATION_KEY_PREFIX}${ymd}`;
-  const shown = await AsyncStorage.getItem(key);
+  const shown = await AsyncStorage.getItem(celebrationStorageKey(timeZone));
   return shown !== '1';
 }
 
+/** Mark today's celebration as shown and return whether this call won the once-per-day slot. */
+export async function claimStreakCelebrationForToday(
+  status: DevotionalStreakStatus,
+  timeZone = 'America/New_York',
+): Promise<boolean> {
+  if (!status.isActive || status.streakCount < 1) return false;
+  const key = celebrationStorageKey(timeZone);
+  const shown = await AsyncStorage.getItem(key);
+  if (shown === '1') return false;
+  await AsyncStorage.setItem(key, '1');
+  return true;
+}
+
 export async function markStreakCelebrationShown(timeZone = 'America/New_York'): Promise<void> {
-  const ymd = localYmdInTimeZone(new Date(), timeZone);
-  await AsyncStorage.setItem(`${CELEBRATION_KEY_PREFIX}${ymd}`, '1');
+  await AsyncStorage.setItem(celebrationStorageKey(timeZone), '1');
 }
