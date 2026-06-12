@@ -32,6 +32,7 @@ import type { RecallionColors } from '../../../lib/recallionTheme';
 import { supabase } from '../../../lib/supabase';
 import { touchDevotionalOpen } from '../../../lib/touchDevotionalOpen';
 import { queuePendingToast } from '../../../lib/pendingToast';
+import { fetchScripturePassage, resolveScriptureBody } from '../../../lib/fetchScriptureText';
 import { createVoicePlaybackUrl, deleteVoiceCommitment, uploadVoiceCommitment } from '../../../lib/voiceCommitment';
 
 /** When the row has no AI `pre_prompt`, we still gate reading with a generic retrieval question. */
@@ -96,8 +97,10 @@ export default function DevotionalScreen() {
   const [accessDenied, setAccessDenied] = useState(false);
   const [nextDayHint, setNextDayHint] = useState<number | null>(null);
 
-  const [gateDraft, setGateDraft] = useState('');
+  const [recallDraft, setRecallDraft] = useState('');
   const [commitmentDraft, setCommitmentDraft] = useState('');
+  const [fetchedScriptureText, setFetchedScriptureText] = useState<string | null>(null);
+  const [scriptureLoading, setScriptureLoading] = useState(false);
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [sessionVoicePath, setSessionVoicePath] = useState<string | null>(null);
   /** Local file URI from the last stop — use for playback so we don’t wait on network right after recording. */
@@ -205,7 +208,7 @@ export default function DevotionalScreen() {
     setProgress(progRow);
     setSessionVoicePath(null);
     setLocalVoiceUri(null);
-    setGateDraft('');
+    setRecallDraft(progRow?.pre_prompt_response?.trim() ?? '');
     setCommitmentDraft(progRow?.application_commitment?.trim() ?? '');
 
     const churchTzRow = sm?.churches;
@@ -241,6 +244,38 @@ export default function DevotionalScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const reference = row?.scripture_reference?.trim();
+    const stored = row?.scripture_text?.trim();
+    if (!reference || stored) {
+      setFetchedScriptureText(null);
+      setScriptureLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setScriptureLoading(true);
+    void fetchScripturePassage(reference).then((text) => {
+      if (cancelled) return;
+      setFetchedScriptureText(text);
+      setScriptureLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [row?.scripture_reference, row?.scripture_text]);
+
+  const scriptureBody = useMemo(
+    () => resolveScriptureBody(row?.scripture_text, fetchedScriptureText),
+    [row?.scripture_text, fetchedScriptureText],
+  );
+
+  const savedRecall = progress?.pre_prompt_response?.trim() ?? '';
+  const savedCommitment = progress?.application_commitment?.trim() ?? '';
+  const responsesDirty =
+    recallDraft.trim() !== savedRecall || commitmentDraft.trim() !== savedCommitment;
 
   /** Pastor analytics: member opened the devotional body (after pre-session gate when applicable). */
   useEffect(() => {
@@ -451,68 +486,74 @@ export default function DevotionalScreen() {
     }
   }
 
-  async function submitGate() {
+  async function saveProgressResponses(opts?: { markComplete?: boolean; silent?: boolean }) {
     if (!supabase || !session?.user || !row) return;
-    const text = gateDraft.trim();
-    if (!text) {
+    const recallText = recallDraft.trim();
+    const commitmentText = commitmentDraft.trim();
+    const storedVoice = effectiveVoicePath;
+
+    if (opts?.markComplete) {
+      if (!recallText) {
+        setError('Answer the pre-session retrieval question before completing.');
+        return;
+      }
+      if (!commitmentText && !storedVoice) {
+        setError('Add a written commitment or record a short voice commitment before completing.');
+        return;
+      }
+    }
+
+    setSaving(true);
+    setError(null);
+    const { error: upErr } = await supabase.from('user_progress').upsert(
+      {
+        user_id: session.user.id,
+        devotional_id: row.id,
+        pre_prompt_response: recallText || null,
+        application_commitment: commitmentText || null,
+        voice_recording_url: storedVoice,
+        completed_at: opts?.markComplete
+          ? progress?.completed_at ?? new Date().toISOString()
+          : progress?.completed_at ?? null,
+      },
+      { onConflict: 'user_id,devotional_id' },
+    );
+    setSaving(false);
+    if (upErr) {
+      setError(upErr.message);
+      return;
+    }
+
+    setProgress((prev) => ({
+      pre_prompt_response: recallText || null,
+      application_commitment: commitmentText || null,
+      voice_recording_url: storedVoice,
+      completed_at: opts?.markComplete
+        ? prev?.completed_at ?? new Date().toISOString()
+        : prev?.completed_at ?? null,
+    }));
+
+    if (opts?.markComplete) {
+      await queuePendingToast({ variant: 'success', message: 'Devotional complete' });
+      router.replace(`/sermon/${row.sermon_id}`);
+      return;
+    }
+
+    if (!opts?.silent) {
+      await queuePendingToast({ variant: 'success', message: 'Responses saved' });
+    }
+  }
+
+  async function submitGate() {
+    if (!recallDraft.trim()) {
       setError('Write a short answer to continue.');
       return;
     }
-    setSaving(true);
-    setError(null);
-    const { error: upErr } = await supabase.from('user_progress').upsert(
-      {
-        user_id: session.user.id,
-        devotional_id: row.id,
-        pre_prompt_response: text,
-      },
-      { onConflict: 'user_id,devotional_id' },
-    );
-    setSaving(false);
-    if (upErr) {
-      setError(upErr.message);
-      return;
-    }
-    setProgress((prev) => ({
-      pre_prompt_response: text,
-      application_commitment: prev?.application_commitment ?? null,
-      voice_recording_url: prev?.voice_recording_url ?? null,
-      completed_at: prev?.completed_at ?? null,
-    }));
-    setGateDraft('');
-    await load({ silent: true });
+    await saveProgressResponses({ silent: true });
   }
 
   async function markComplete() {
-    if (!supabase || !session?.user || !row) return;
-    const text = commitmentDraft.trim();
-    const storedVoice = effectiveVoicePath;
-    if (!text && !storedVoice) {
-      setError('Add a written commitment or record a short voice commitment before completing.');
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    const { error: upErr } = await supabase.from('user_progress').upsert(
-      {
-        user_id: session.user.id,
-        devotional_id: row.id,
-        pre_prompt_response: progress?.pre_prompt_response?.trim()
-          ? progress.pre_prompt_response
-          : null,
-        application_commitment: text || null,
-        voice_recording_url: storedVoice,
-        completed_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id,devotional_id' },
-    );
-    setSaving(false);
-    if (upErr) {
-      setError(upErr.message);
-      return;
-    }
-    await queuePendingToast({ variant: 'success', message: 'Devotional complete' });
-    router.replace(`/sermon/${row.sermon_id}`);
+    await saveProgressResponses({ markComplete: true });
   }
 
   const hasVoiceRecording = Boolean(effectiveVoicePath);
@@ -631,8 +672,8 @@ export default function DevotionalScreen() {
                 style={styles.gateInput}
                 placeholder="Your answer"
                 placeholderTextColor={colors.muted}
-                value={gateDraft}
-                onChangeText={setGateDraft}
+                value={recallDraft}
+                onChangeText={setRecallDraft}
                 editable={!saving && Boolean(session?.user)}
                 returnKeyType="done"
                 submitBehavior="submit"
@@ -709,29 +750,42 @@ export default function DevotionalScreen() {
                   <Text style={styles.doneText}>You completed this day.</Text>
                 </View>
               ) : null}
-
-              {progress?.pre_prompt_response?.trim() ? (
-                <View style={styles.recallBox}>
-                  <Text style={styles.recallLabel}>Your recall answer</Text>
-                  <Text style={styles.recallBody}>{progress.pre_prompt_response}</Text>
-                </View>
-              ) : null}
             </View>
 
-            {row.scripture_reference || row.scripture_text ? (
+            <View style={styles.recallSection}>
+              <View style={styles.recallHeader}>
+                <Ionicons name="help-circle-outline" size={16} color={colors.blue} />
+                <Text style={styles.recallLabel}>Pre-session retrieval</Text>
+              </View>
+              <Text style={styles.recallPrompt}>{gatePromptText}</Text>
+              <TextInput
+                style={styles.recallInput}
+                placeholder="Your answer from memory"
+                placeholderTextColor={colors.muted}
+                value={recallDraft}
+                onChangeText={setRecallDraft}
+                multiline
+                editable={!saving && Boolean(session?.user)}
+                textAlignVertical="top"
+              />
+            </View>
+
+            {row.scripture_reference || scriptureBody || scriptureLoading ? (
               <View style={styles.scriptureSection}>
                 <View style={styles.scriptureBlock}>
-                  {row.scripture_text ? (
-                    <Text style={styles.scriptureBody}>{row.scripture_text}</Text>
-                  ) : null}
                   {row.scripture_reference ? (
-                    <Text
-                      style={[
-                        styles.scriptureRef,
-                        row.scripture_text ? styles.scriptureRefAfterBody : null,
-                      ]}
-                    >
-                      {row.scripture_reference}
+                    <Text style={styles.scriptureRef}>{row.scripture_reference}</Text>
+                  ) : null}
+                  {scriptureLoading ? (
+                    <View style={styles.scriptureLoadingRow}>
+                      <ActivityIndicator size="small" color={colors.blue} />
+                      <Text style={styles.scriptureLoadingText}>Loading passage…</Text>
+                    </View>
+                  ) : scriptureBody ? (
+                    <Text style={styles.scriptureBody}>{scriptureBody}</Text>
+                  ) : row.scripture_reference ? (
+                    <Text style={styles.scriptureMissing}>
+                      Full verse text is not available for this reference yet.
                     </Text>
                   ) : null}
                 </View>
@@ -759,20 +813,23 @@ export default function DevotionalScreen() {
                 <Ionicons name="flag-outline" size={18} color={colors.blue} />
                 <Text style={styles.commitmentTitle}>Application commitment</Text>
               </View>
-              <Text style={styles.commitmentHint}>Type or record your answer below</Text>
+              <Text style={styles.commitmentHint}>
+                Type or record your answer below. You can edit this anytime, even after completing
+                the day.
+              </Text>
               <TextInput
-                style={[styles.commitmentInput, completed && styles.commitmentInputDisabled]}
+                style={styles.commitmentInput}
                 placeholder="This week I will ..."
                 placeholderTextColor={colors.muted}
-                value={completed ? progress?.application_commitment ?? '' : commitmentDraft}
+                value={commitmentDraft}
                 onChangeText={setCommitmentDraft}
                 multiline
-                editable={!completed && !saving && Boolean(session?.user)}
+                editable={!saving && Boolean(session?.user)}
                 textAlignVertical="top"
                 returnKeyType="done"
                 blurOnSubmit
               />
-              {!completed && session?.user ? (
+              {session?.user ? (
                 <View style={[styles.voiceRow, styles.voiceRowAfterInput]}>
                   <View style={styles.voiceButtonsRow}>
                     {hasVoiceRecording && !recordState.isRecording ? (
@@ -850,25 +907,27 @@ export default function DevotionalScreen() {
                   </View>
                 </View>
               ) : null}
-              {completed && effectiveVoicePath ? (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.voiceBtnOutline,
-                    styles.voicePlaybackCompleted,
-                    pressed && styles.primaryBtnPressed,
-                  ]}
-                  onPress={() => void toggleVoicePlayback()}
-                  disabled={voiceBusy}
-                >
-                  <Text style={styles.voiceBtnOutlineLabel}>
-                    {voicePlayerStatus.playing ? 'Stop playback' : 'Play voice commitment'}
-                  </Text>
-                </Pressable>
-              ) : null}
             </View>
 
             <View style={styles.ctaSection}>
               {error ? <Text style={styles.inlineErr}>{error}</Text> : null}
+
+              {responsesDirty ? (
+                <Pressable
+                  style={({ pressed }) => [
+                    completed ? styles.primaryBtn : styles.secondaryBtn,
+                    pressed && styles.primaryBtnPressed,
+                  ]}
+                  onPress={() => void saveProgressResponses()}
+                  disabled={saving || !session?.user}
+                >
+                  <Text
+                    style={completed ? styles.primaryBtnLabel : styles.secondaryBtnLabel}
+                  >
+                    {saving ? 'Saving…' : 'Save changes'}
+                  </Text>
+                </Pressable>
+              ) : null}
 
               {!completed ? (
                 <Pressable
@@ -1029,23 +1088,41 @@ function createStyles(c: RecallionColors) {
     borderColor: 'rgba(34,197,94,0.35)',
   },
   doneText: { fontSize: 15, fontWeight: '600', color: '#86efac' },
-  recallBox: {
-    marginTop: 16,
-    padding: 16,
+  recallSection: {
+    marginHorizontal: 22,
+    marginBottom: 18,
+    padding: 18,
     borderRadius: c.radiusMd,
     backgroundColor: c.bgWash,
     borderLeftWidth: 3,
     borderLeftColor: c.blue,
   },
+  recallHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   recallLabel: {
     fontSize: 11,
     fontWeight: '500',
     color: c.blue,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    marginBottom: 8,
   },
-  recallBody: { fontSize: 15, lineHeight: 24, color: c.navyMid },
+  recallPrompt: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: c.navyMid,
+    marginBottom: 12,
+  },
+  recallInput: {
+    minHeight: 88,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: c.borderInput,
+    borderRadius: c.radiusSm,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    lineHeight: 22,
+    color: c.navy,
+    backgroundColor: c.bgCard,
+  },
   scriptureSection: { paddingHorizontal: 22, paddingVertical: 10 },
   scriptureBlock: {
     padding: 16,
@@ -1056,20 +1133,24 @@ function createStyles(c: RecallionColors) {
     borderLeftColor: c.blue,
   },
   scriptureRef: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '600',
     color: c.blue,
-    letterSpacing: 1,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  scriptureRefAfterBody: {
-    marginBottom: 0,
-    marginTop: 10,
+  scriptureLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
   },
+  scriptureLoadingText: { fontSize: 14, color: c.muted },
+  scriptureMissing: { fontSize: 14, lineHeight: 21, color: c.muted, fontStyle: 'italic' },
   scriptureBody: {
-    fontSize: 16,
-    lineHeight: 26,
+    fontSize: 17,
+    lineHeight: 28,
     color: c.navyMid,
     fontStyle: 'italic',
   },
@@ -1120,11 +1201,16 @@ function createStyles(c: RecallionColors) {
     color: c.navy,
     backgroundColor: c.bgCard,
   },
-  commitmentInputDisabled: {
+  secondaryBtn: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: c.borderInput,
     backgroundColor: c.bgCard,
-    color: c.navyMid,
-    opacity: 0.92,
+    paddingVertical: 14,
+    borderRadius: c.radiusMd,
+    alignItems: 'center',
   },
+  secondaryBtnLabel: { color: c.navy, fontSize: 15, fontWeight: '600' },
   ctaSection: { paddingHorizontal: 22, paddingBottom: 24 },
   primaryBtn: {
     marginTop: 16,
