@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
+import { PasswordInput } from '../../components/PasswordInput';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
@@ -119,12 +120,10 @@ export default function LoginScreen() {
           blurOnSubmit={false}
           onSubmitEditing={() => passwordRef.current?.focus()}
         />
-        <TextInput
+        <PasswordInput
           ref={passwordRef}
-          style={styles.input}
           placeholder="Password"
           placeholderTextColor={colors.muted}
-          secureTextEntry
           autoComplete="password"
           value={password}
           onChangeText={setPassword}

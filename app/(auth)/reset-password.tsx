@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
+import { PasswordInput } from '../../components/PasswordInput';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
@@ -152,12 +153,10 @@ export default function ResetPasswordScreen() {
           blurOnSubmit={false}
           onSubmitEditing={() => passwordRef.current?.focus()}
         />
-        <TextInput
+        <PasswordInput
           ref={passwordRef}
-          style={styles.input}
           placeholder="New password"
           placeholderTextColor={colors.muted}
-          secureTextEntry
           autoComplete="new-password"
           value={password}
           onChangeText={setPassword}
@@ -167,12 +166,10 @@ export default function ResetPasswordScreen() {
           blurOnSubmit={false}
           onSubmitEditing={() => confirmRef.current?.focus()}
         />
-        <TextInput
+        <PasswordInput
           ref={confirmRef}
-          style={styles.input}
           placeholder="Confirm password"
           placeholderTextColor={colors.muted}
-          secureTextEntry
           autoComplete="new-password"
           value={confirm}
           onChangeText={setConfirm}
