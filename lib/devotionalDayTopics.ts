@@ -1,7 +1,7 @@
 /** Default six-day journey themes when a devotional has no custom title. */
 export const DEVOTIONAL_DAY_TOPICS: Record<number, string> = {
   1: 'Welcome to the Journey',
-  2: "Elaboration — Going deeper into Sunday's message",
+  2: "Elaboration — Going deeper into Saturday/Sunday's message",
   3: 'Generation — Try to recall before you read',
   4: "Interleaving — Connecting to last week's theme",
   5: 'Reflection — Talk it through in your own words',

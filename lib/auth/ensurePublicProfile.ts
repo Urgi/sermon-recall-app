@@ -14,9 +14,14 @@ export async function ensurePublicUserProfile(
   if (existing) return { ok: true };
 
   const fullName = user.user_metadata?.full_name;
+  const preferredLanguage = user.user_metadata?.preferred_language;
   const { error: insertError } = await supabase.from('users').insert({
     id: user.id,
     full_name: typeof fullName === 'string' && fullName.trim() ? fullName.trim() : null,
+    preferred_language:
+      typeof preferredLanguage === 'string' && ['en', 'es', 'fr'].includes(preferredLanguage)
+        ? preferredLanguage
+        : 'en',
   });
 
   if (insertError) return { ok: false, error: insertError.message };

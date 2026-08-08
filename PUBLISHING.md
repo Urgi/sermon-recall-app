@@ -20,7 +20,7 @@ eas build --platform ios --profile production --auto-submit --non-interactive
 
 Non-interactive `--auto-submit` needs your App Store Connect **Apple ID** (numeric app id) in `eas.json`:
 
-1. Open [App Store Connect](https://appstoreconnect.apple.com/) → **Sermon Recall** (bundle `com.urgimeaso.sermon-recall`).
+1. Open [App Store Connect](https://appstoreconnect.apple.com/) → **Sermon Recall** (bundle `com.faithbasedretention.sermonrecall`).
 2. **App Information** → copy **Apple ID** (e.g. `1234567890`).
 3. Add to `eas.json`:
 

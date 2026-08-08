@@ -15,6 +15,12 @@ import { PasswordInput } from '../../components/PasswordInput';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
+import {
+  APP_LANGUAGES,
+  DEFAULT_APP_LANGUAGE,
+  type AppLanguage,
+  languageOptionLabel,
+} from '../../lib/i18n/languages';
 import { queuePendingToast } from '../../lib/pendingToast';
 import type { RecallionColors } from '../../lib/recallionTheme';
 
@@ -25,6 +31,8 @@ export default function RegisterScreen() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [preferredLanguage, setPreferredLanguage] =
+    useState<AppLanguage>(DEFAULT_APP_LANGUAGE);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const emailRef = useRef<TextInput>(null);
@@ -47,6 +55,7 @@ export default function RegisterScreen() {
       email.trim(),
       password,
       fullName.trim() || undefined,
+      preferredLanguage,
     );
     setSubmitting(false);
     if (err) {
@@ -113,6 +122,29 @@ export default function RegisterScreen() {
           onSubmitEditing={() => void onSubmit()}
         />
 
+        <Text style={styles.fieldLabel}>Preferred language</Text>
+        <Text style={styles.fieldHint}>English, Spanish, or French — change later in Settings.</Text>
+        <View style={styles.languageRow}>
+          {APP_LANGUAGES.map((opt) => {
+            const selected = preferredLanguage === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                onPress={() => setPreferredLanguage(opt.value)}
+                style={({ pressed }) => [
+                  styles.languageChip,
+                  selected && styles.languageChipSelected,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <Text style={[styles.languageChipLabel, selected && styles.languageChipLabelSelected]}>
+                  {languageOptionLabel(opt.value)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Pressable
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
@@ -151,6 +183,45 @@ function createStyles(c: RecallionColors) {
     fontWeight: '700',
     color: c.navy,
     marginBottom: 8,
+  },
+  fieldLabel: {
+    marginTop: 4,
+    fontSize: 14,
+    fontWeight: '600',
+    color: c.navy,
+  },
+  fieldHint: {
+    marginTop: 2,
+    marginBottom: 8,
+    fontSize: 13,
+    color: c.muted,
+    lineHeight: 18,
+  },
+  languageRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  languageChip: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: c.borderInput,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: c.bgCard,
+  },
+  languageChipSelected: {
+    borderColor: c.blue,
+    backgroundColor: 'rgba(14, 165, 233, 0.12)',
+  },
+  languageChipLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: c.navy,
+  },
+  languageChipLabelSelected: {
+    color: c.blue,
+    fontWeight: '600',
   },
   input: {
     borderWidth: StyleSheet.hairlineWidth,

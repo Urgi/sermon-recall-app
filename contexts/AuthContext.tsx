@@ -12,6 +12,7 @@ export type UserProfile = {
   full_name: string | null;
   phone_number: string | null;
   role: string;
+  preferred_language?: string | null;
   devotional_notify_hour?: number | null;
   devotional_notify_enabled?: boolean | null;
   devotional_notify_prompt_done?: boolean | null;
@@ -27,6 +28,7 @@ type AuthContextValue = {
     email: string,
     password: string,
     fullName?: string,
+    preferredLanguage?: string,
   ) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>;
   resetPasswordForEmail: (email: string) => Promise<{ error: string | null }>;
   resendSignupConfirmation: (email: string) => Promise<{ error: string | null }>;
@@ -36,6 +38,7 @@ type AuthContextValue = {
   refreshProfile: () => Promise<void>;
   joinChurch: (code: string) => Promise<{ error: string | null }>;
   leaveChurch: () => Promise<{ error: string | null }>;
+  updatePreferredLanguage: (language: string) => Promise<{ error: string | null }>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -110,25 +113,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error ? mapAuthError(error.message) : null };
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, fullName?: string) => {
-    if (!supabase) return { error: 'Supabase is not configured', needsEmailConfirmation: false };
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-      },
-    });
-    if (error) return { error: mapAuthError(error.message), needsEmailConfirmation: false };
-    if (data.user?.identities?.length === 0) {
-      return {
-        error: mapAuthError('User already registered'),
-        needsEmailConfirmation: false,
-      };
-    }
-    const needsEmailConfirmation = Boolean(data.user && !data.session);
-    return { error: null, needsEmailConfirmation };
-  }, []);
+  const signUp = useCallback(
+    async (email: string, password: string, fullName?: string, preferredLanguage?: string) => {
+      if (!supabase) return { error: 'Supabase is not configured', needsEmailConfirmation: false };
+      const lang =
+        preferredLanguage === 'es' || preferredLanguage === 'fr' || preferredLanguage === 'en'
+          ? preferredLanguage
+          : 'en';
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            preferred_language: lang,
+          },
+        },
+      });
+      if (error) return { error: mapAuthError(error.message), needsEmailConfirmation: false };
+      if (data.user?.identities?.length === 0) {
+        return {
+          error: mapAuthError('User already registered'),
+          needsEmailConfirmation: false,
+        };
+      }
+      const needsEmailConfirmation = Boolean(data.user && !data.session);
+      return { error: null, needsEmailConfirmation };
+    },
+    [],
+  );
 
   const resetPasswordForEmail = useCallback(async (email: string) => {
     if (!supabase) return { error: 'Supabase is not configured' };
@@ -215,6 +228,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   }, [refreshProfile]);
 
+  const updatePreferredLanguage = useCallback(
+    async (language: string) => {
+      if (!supabase) return { error: 'Supabase is not configured' };
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return { error: 'Sign in again to update language.' };
+      const lang = language === 'es' || language === 'fr' || language === 'en' ? language : 'en';
+      const { error } = await supabase
+        .from('users')
+        .update({ preferred_language: lang })
+        .eq('id', user.id);
+      if (error) return { error: error.message };
+      await refreshProfile();
+      return { error: null };
+    },
+    [refreshProfile],
+  );
+
   const value = useMemo(
     () => ({
       session,
@@ -230,6 +262,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshProfile,
       joinChurch,
       leaveChurch,
+      updatePreferredLanguage,
     }),
     [
       session,
@@ -245,6 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshProfile,
       joinChurch,
       leaveChurch,
+      updatePreferredLanguage,
     ],
   );
 

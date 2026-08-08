@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,6 +9,12 @@ import { DevotionalReminderSettings } from '../../components/DevotionalReminderS
 import { LeaveChurchPanel } from '../../components/LeaveChurchPanel';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
+import {
+  APP_LANGUAGES,
+  type AppLanguage,
+  languageOptionLabel,
+  normalizeAppLanguage,
+} from '../../lib/i18n/languages';
 import type { RecallionColors, ThemePreference } from '../../lib/recallionTheme';
 
 const OPTIONS: { value: ThemePreference; label: string; description: string }[] = [
@@ -18,9 +24,22 @@ const OPTIONS: { value: ThemePreference; label: string; description: string }[] 
 ];
 
 export default function SettingsScreen() {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, updatePreferredLanguage } = useAuth();
   const { colors, preference, resolved, setPreference } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors, resolved), [colors, resolved]);
+  const [languagePending, setLanguagePending] = useState(false);
+  const [languageError, setLanguageError] = useState<string | null>(null);
+
+  const selectedLanguage = normalizeAppLanguage(profile?.preferred_language);
+
+  async function onSelectLanguage(value: AppLanguage) {
+    if (value === selectedLanguage || languagePending) return;
+    setLanguageError(null);
+    setLanguagePending(true);
+    const { error } = await updatePreferredLanguage(value);
+    setLanguagePending(false);
+    if (error) setLanguageError(error);
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
@@ -53,8 +72,34 @@ export default function SettingsScreen() {
         ) : null}
 
         <Text style={[styles.sectionTitle, profile?.church_id ? styles.sectionAfterBlock : null]}>
-          Appearance
+          Language
         </Text>
+        <Text style={styles.sectionHint}>
+          Prefer English, Spanish, or French. Church content language is set by your pastor.
+        </Text>
+        {APP_LANGUAGES.map((opt) => {
+          const selected = selectedLanguage === opt.value;
+          return (
+            <Pressable
+              key={opt.value}
+              onPress={() => void onSelectLanguage(opt.value)}
+              disabled={languagePending}
+              style={({ pressed }) => [
+                styles.option,
+                selected && styles.optionSelected,
+                pressed && styles.pressed,
+              ]}
+            >
+              <View style={[styles.radio, selected && styles.radioSelected]} />
+              <View style={styles.optionText}>
+                <Text style={styles.optionLabel}>{languageOptionLabel(opt.value)}</Text>
+              </View>
+            </Pressable>
+          );
+        })}
+        {languageError ? <Text style={styles.error}>{languageError}</Text> : null}
+
+        <Text style={[styles.sectionTitle, styles.sectionAfterBlock]}>Appearance</Text>
         <Text style={styles.sectionHint}>Currently using {resolved} mode on this device.</Text>
         {OPTIONS.map((opt) => {
           const selected = preference === opt.value;
@@ -129,6 +174,7 @@ function createStyles(colors: RecallionColors, resolved: 'light' | 'dark') {
     optionText: { flex: 1 },
     optionLabel: { fontSize: 16, fontWeight: '600', color: colors.navy },
     optionDesc: { marginTop: 4, fontSize: 14, color: colors.muted, lineHeight: 20 },
+    error: { marginBottom: 12, fontSize: 14, color: '#fca5a5' },
     pressed: { opacity: 0.85 },
   });
 }

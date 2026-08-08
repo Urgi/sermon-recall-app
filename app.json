@@ -14,9 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.urgimeaso.sermon-recall",
+      "bundleIdentifier": "com.faithbasedretention.sermonrecall",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "Record a short voice note for your application commitment."
       }
     },
