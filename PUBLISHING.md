@@ -46,6 +46,53 @@ npm run eas:submit:ios
 
 (interactive — signs in with Apple if needed)
 
+## One-time setup: Android Play auto-submit (service account)
+
+EAS reads `mobile/secrets/play-service-account.json` (gitignored) and submits to the **internal** track (`eas.json` → `submit.production.android`).
+
+Use a **Sermon Recall–owned** Google Cloud service account (do not reuse Dubbadhu’s `eas-play-submit@dubbadhuu…`).
+
+### A. Google Cloud
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) → create or select a project (e.g. `sermon-recall`).
+2. **APIs & Services → Library** → enable **Google Play Android Developer API**.
+3. **IAM & Admin → Service Accounts → Create service account**
+   - Name: `eas-play-submit`
+   - ID will look like `eas-play-submit@YOUR_PROJECT.iam.gserviceaccount.com`
+4. Open the service account → **Keys → Add key → Create new key → JSON** → download.
+5. Save the file as:
+
+```text
+mobile/secrets/play-service-account.json
+```
+
+(Replace the old Dubbadhu key if present. Never commit this file.)
+
+### B. Play Console (invite the bot)
+
+1. [Play Console](https://play.google.com/console/) → **Users and permissions → Invite new users**.
+2. Email: the `client_email` from the JSON (e.g. `eas-play-submit@sermon-recall.iam.gserviceaccount.com`).
+3. Role: **Release manager** (or Admin).
+4. App access: **Sermon Recall only**.
+5. Save / send invite (service accounts accept automatically).
+
+### C. Link Play to the GCP project (first time only)
+
+In Play Console → **Setup → API access** (or **Users and permissions → API access**): link the same Google Cloud project, then grant the service account access if the UI asks.
+
+### D. Submit
+
+```bash
+cd mobile
+npx eas-cli submit --platform android --latest --profile production
+```
+
+Or build + submit together once credentials are on the machine / EAS:
+
+```bash
+npx eas-cli build --platform android --profile production --auto-submit
+```
+
 ## Site (admin portal)
 
 Push `main` on `sermon-recall-site`; Vercel deploys automatically. Ensure **Framework Preset = Next.js** in Vercel project settings.

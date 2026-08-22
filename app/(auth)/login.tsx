@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 
 import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
-import { PasswordInput } from '../../components/PasswordInput';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
@@ -23,59 +22,81 @@ function param(value: string | string[] | undefined): string | undefined {
   return value;
 }
 
+type Step = 'email' | 'code';
+
 export default function LoginScreen() {
   const params = useLocalSearchParams<{
     confirmed?: string;
     error?: string;
+    email?: string;
   }>();
   const linkError = param(params.error);
   const showUseCodeHint = linkError === 'use_code' || linkError === 'confirmation_failed';
-  const { signIn, resendSignupConfirmation, session, loading } = useAuth();
+  const { sendEmailOtp, verifyEmailOtp, session, loading, profileLoading } = useAuth();
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [step, setStep] = useState<Step>('email');
+  const [email, setEmail] = useState(param(params.email) ?? '');
+  const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [showResend, setShowResend] = useState(false);
   const [resendPending, setResendPending] = useState(false);
-  const [resendNotice, setResendNotice] = useState<string | null>(null);
-  const passwordRef = useRef<TextInput>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const codeRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    if (!loading && session) {
+    if (!loading && session && !profileLoading) {
       const delayMs = params.confirmed === '1' ? 3200 : 0;
       const id = setTimeout(() => router.replace('/'), delayMs);
       return () => clearTimeout(id);
     }
-  }, [loading, session, params.confirmed]);
+  }, [loading, session, profileLoading, params.confirmed]);
 
-  async function onSubmit() {
+  async function onSendCode() {
     setError(null);
-    setResendNotice(null);
-    setShowResend(false);
+    setNotice(null);
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed) {
+      setError('Enter your email address.');
+      return;
+    }
     setSubmitting(true);
-    const { error: err } = await signIn(email.trim(), password);
+    const { error: err } = await sendEmailOtp(trimmed, { createUser: false });
     setSubmitting(false);
     if (err) {
       setError(err);
-      if (err.toLowerCase().includes('confirm')) {
-        setShowResend(true);
-      }
+      return;
+    }
+    setStep('code');
+    setNotice('Code sent. Check your inbox and spam.');
+    setTimeout(() => codeRef.current?.focus(), 50);
+  }
+
+  async function onVerify() {
+    setError(null);
+    setNotice(null);
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedCode = code.trim();
+    if (trimmedCode.length < 6) {
+      setError('Enter the 6+ digit code from your email.');
+      return;
+    }
+    setSubmitting(true);
+    const { error: err } = await verifyEmailOtp(trimmedEmail, trimmedCode);
+    setSubmitting(false);
+    if (err) {
+      setError(err);
       return;
     }
     router.replace('/');
   }
 
   async function onResend() {
-    if (!email.trim()) {
-      setResendNotice('Enter your email above first.');
-      return;
-    }
     setResendPending(true);
-    const { error: err } = await resendSignupConfirmation(email.trim());
+    setError(null);
+    const { error: err } = await sendEmailOtp(email.trim().toLowerCase(), { createUser: false });
     setResendPending(false);
-    setResendNotice(err ?? 'Confirmation code sent. Check inbox and spam.');
+    setNotice(err ?? 'New code sent. Check inbox and spam.');
   }
 
   return (
@@ -87,88 +108,96 @@ export default function LoginScreen() {
           accessibilityLabel="Sermon Recall"
         />
         <Text style={styles.title}>Sign in</Text>
-        <Text style={styles.hint}>Use the email you registered with.</Text>
+        <Text style={styles.hint}>
+          {step === 'email'
+            ? 'We’ll email you a one-time code — no password needed.'
+            : `Enter the code we sent to ${email.trim().toLowerCase()}.`}
+        </Text>
 
         {showUseCodeHint ? (
           <View style={styles.linkErrorBox} accessibilityRole="alert">
-            <Text style={styles.linkErrorTitle}>Use your confirmation code</Text>
+            <Text style={styles.linkErrorTitle}>Use your email code</Text>
             <Text style={styles.linkErrorBody}>{USE_CODE_NOT_LINK_MESSAGE}</Text>
-            <Link
-              href={
-                email.trim()
-                  ? `/verify-email?email=${encodeURIComponent(email.trim())}`
-                  : '/verify-email'
-              }
-              style={styles.linkErrorUrl}
-            >
-              Enter confirmation code
-            </Link>
           </View>
         ) : null}
 
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor={colors.muted}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-          value={email}
-          onChangeText={setEmail}
-          returnKeyType="next"
-          submitBehavior="submit"
-          blurOnSubmit={false}
-          onSubmitEditing={() => passwordRef.current?.focus()}
-        />
-        <PasswordInput
-          ref={passwordRef}
-          placeholder="Password"
-          placeholderTextColor={colors.muted}
-          autoComplete="password"
-          value={password}
-          onChangeText={setPassword}
-          returnKeyType="done"
-          submitBehavior="submit"
-          onSubmitEditing={() => void onSubmit()}
-        />
-
-        <Link href="/forgot-password" style={styles.forgotLink}>
-          Forgot password?
-        </Link>
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        {showResend ? (
+        {step === 'email' ? (
           <>
-            <Pressable onPress={onResend} disabled={resendPending || submitting}>
-              <Text style={styles.forgotLink}>
-                {resendPending ? 'Sending…' : 'Resend confirmation code'}
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor={colors.muted}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+              value={email}
+              onChangeText={setEmail}
+              returnKeyType="go"
+              submitBehavior="submit"
+              onSubmitEditing={() => void onSendCode()}
+            />
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Pressable
+              style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+              onPress={() => void onSendCode()}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonLabel}>Email me a code</Text>
+              )}
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <TextInput
+              ref={codeRef}
+              style={[styles.input, styles.codeInput]}
+              placeholder="Sign-in code"
+              placeholderTextColor={colors.muted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="numbers-and-punctuation"
+              textContentType="oneTimeCode"
+              autoComplete="one-time-code"
+              maxLength={8}
+              value={code}
+              onChangeText={(t) => setCode(t.replace(/\D/g, ''))}
+              returnKeyType="go"
+              submitBehavior="submit"
+              onSubmitEditing={() => void onVerify()}
+            />
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+            <Pressable
+              style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+              onPress={() => void onVerify()}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonLabel}>Verify & sign in</Text>
+              )}
+            </Pressable>
+            <Pressable onPress={() => void onResend()} disabled={resendPending || submitting}>
+              <Text style={styles.secondaryLink}>
+                {resendPending ? 'Sending…' : 'Resend code'}
               </Text>
             </Pressable>
-            <Link
-              href={
-                email.trim()
-                  ? `/verify-email?email=${encodeURIComponent(email.trim())}`
-                  : '/verify-email'
-              }
-              style={styles.forgotLink}
+            <Pressable
+              onPress={() => {
+                setStep('email');
+                setCode('');
+                setError(null);
+                setNotice(null);
+              }}
             >
-              Enter confirmation code
-            </Link>
+              <Text style={styles.secondaryLink}>Use a different email</Text>
+            </Pressable>
           </>
-        ) : null}
-        {resendNotice ? <Text style={styles.notice}>{resendNotice}</Text> : null}
-
-        <Pressable
-          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-          onPress={onSubmit}
-          disabled={submitting}
-        >
-          {submitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonLabel}>Continue</Text>
-          )}
-        </Pressable>
+        )}
 
         <Link href="/register" style={styles.link}>
           Create an account
@@ -189,7 +218,7 @@ function createStyles(c: RecallionColors) {
       marginBottom: 4,
     },
     title: { fontSize: 26, fontWeight: '700', color: c.navy },
-    hint: { fontSize: 15, color: c.muted, marginBottom: 8 },
+    hint: { fontSize: 15, color: c.muted, marginBottom: 8, lineHeight: 22 },
     linkErrorBox: {
       borderWidth: 1,
       borderColor: 'rgba(248, 113, 113, 0.65)',
@@ -198,21 +227,8 @@ function createStyles(c: RecallionColors) {
       padding: 14,
       gap: 6,
     },
-    linkErrorTitle: {
-      fontSize: 15,
-      fontWeight: '700',
-      color: '#fff1f2',
-    },
-    linkErrorBody: {
-      fontSize: 14,
-      lineHeight: 20,
-      color: '#fecaca',
-    },
-    linkErrorUrl: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: '#7dd3fc',
-    },
+    linkErrorTitle: { fontSize: 15, fontWeight: '700', color: '#fff1f2' },
+    linkErrorBody: { fontSize: 14, lineHeight: 20, color: '#fecaca' },
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.borderInput,
@@ -223,9 +239,13 @@ function createStyles(c: RecallionColors) {
       color: c.navy,
       backgroundColor: c.bgCard,
     },
+    codeInput: {
+      fontSize: 18,
+      letterSpacing: 4,
+      fontVariant: ['tabular-nums'],
+    },
     error: { color: '#fca5a5', fontSize: 14 },
     notice: { color: '#86efac', fontSize: 14 },
-    forgotLink: { fontSize: 15, color: c.blue, fontWeight: '600', alignSelf: 'flex-start' },
     button: {
       backgroundColor: c.ctaSolid,
       paddingVertical: 14,
@@ -235,6 +255,13 @@ function createStyles(c: RecallionColors) {
     },
     buttonPressed: { opacity: 0.9 },
     buttonLabel: { color: '#fff', fontSize: 17, fontWeight: '600' },
+    secondaryLink: {
+      marginTop: 4,
+      textAlign: 'center',
+      fontSize: 15,
+      color: c.blue,
+      fontWeight: '600',
+    },
     link: { marginTop: 16, textAlign: 'center', fontSize: 16, color: c.blue, fontWeight: '600' },
   });
 }

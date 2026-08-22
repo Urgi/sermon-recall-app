@@ -1,4 +1,4 @@
-import { Link, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { AuthBackButtonSlot } from '../../components/AuthBackButton';
 import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,7 +30,7 @@ export default function VerifyEmailScreen() {
   const params = useLocalSearchParams<{ email?: string | string[]; error?: string | string[] }>();
   const initialEmail = param(params.email) ?? '';
   const linkRejected = param(params.error) === 'use_code';
-  const { verifySignupOtp, resendSignupConfirmation, session, loading } = useAuth();
+  const { verifyEmailOtp, sendEmailOtp, session, loading, profileLoading } = useAuth();
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [email, setEmail] = useState(initialEmail);
@@ -41,37 +42,37 @@ export default function VerifyEmailScreen() {
   const codeRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    if (!loading && session) {
+    if (!loading && session && !profileLoading) {
       router.replace('/?confirmed=1');
     }
-  }, [loading, session]);
+  }, [loading, session, profileLoading]);
 
   async function onVerify() {
     setError(null);
     setResendNotice(null);
-    const trimmedEmail = email.trim();
+    const trimmedEmail = email.trim().toLowerCase();
     const trimmedCode = code.trim();
     if (!trimmedEmail) {
-      setError('Enter the email you registered with.');
+      setError('Enter your email address.');
       return;
     }
     if (trimmedCode.length < 6) {
-      setError('Enter the confirmation code from your email.');
+      setError('Enter the code from your email.');
       return;
     }
     setSubmitting(true);
     const supabase = requireSupabase();
-    const { error: err } = await verifySignupOtp(trimmedEmail, trimmedCode);
+    const { error: err } = await verifyEmailOtp(trimmedEmail, trimmedCode);
     if (err) {
       setSubmitting(false);
       setError(err);
       return;
     }
     const {
-      data: { session },
+      data: { session: nextSession },
     } = await supabase.auth.getSession();
-    if (session?.user) {
-      await ensurePublicUserProfile(supabase, session.user);
+    if (nextSession?.user) {
+      await ensurePublicUserProfile(supabase, nextSession.user);
     }
     setSubmitting(false);
     await queuePendingToast({ variant: 'success', message: CONFIRMED_TOAST });
@@ -85,7 +86,7 @@ export default function VerifyEmailScreen() {
     }
     setResendPending(true);
     setResendNotice(null);
-    const { error: err } = await resendSignupConfirmation(email.trim());
+    const { error: err } = await sendEmailOtp(email.trim().toLowerCase(), { createUser: true });
     setResendPending(false);
     setResendNotice(err ?? 'New code sent. Check your inbox and spam.');
   }
@@ -93,15 +94,16 @@ export default function VerifyEmailScreen() {
   return (
     <KeyboardFormScreen backgroundColor={colors.bgPage}>
       <View style={styles.card}>
+        <AuthBackButtonSlot />
         <Image
           source={require('../../assets/logo.png')}
           style={styles.logo}
           accessibilityLabel="Sermon Recall"
         />
-        <Text style={styles.title}>Confirm your email</Text>
+        <Text style={styles.title}>Enter your code</Text>
         <Text style={styles.hint}>
-          Enter the confirmation code from your email. Links in that email cannot confirm your
-          account — the code is required.
+          Enter the one-time code from your email. Links in that email will not sign you in — the
+          code is required.
         </Text>
 
         {linkRejected ? (
@@ -126,18 +128,18 @@ export default function VerifyEmailScreen() {
         />
         <TextInput
           ref={codeRef}
-          style={styles.input}
-          placeholder="Confirmation code"
+          style={[styles.input, styles.codeInput]}
+          placeholder="Code"
           placeholderTextColor={colors.muted}
           autoCapitalize="none"
           autoCorrect={false}
-          keyboardType="number-pad"
+          keyboardType="numbers-and-punctuation"
           textContentType="oneTimeCode"
           autoComplete="one-time-code"
           maxLength={8}
           value={code}
-          onChangeText={setCode}
-          returnKeyType="done"
+          onChangeText={(t) => setCode(t.replace(/\D/g, ''))}
+          returnKeyType="go"
           submitBehavior="submit"
           onSubmitEditing={() => void onVerify()}
         />
@@ -147,25 +149,19 @@ export default function VerifyEmailScreen() {
 
         <Pressable
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-          onPress={onVerify}
+          onPress={() => void onVerify()}
           disabled={submitting}
         >
           {submitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonLabel}>Confirm email</Text>
+            <Text style={styles.buttonLabel}>Verify code</Text>
           )}
         </Pressable>
 
-        <Pressable onPress={onResend} disabled={resendPending || submitting}>
-          <Text style={styles.link}>
-            {resendPending ? 'Sending…' : 'Resend confirmation code'}
-          </Text>
+        <Pressable onPress={() => void onResend()} disabled={resendPending || submitting}>
+          <Text style={styles.link}>{resendPending ? 'Sending…' : 'Resend code'}</Text>
         </Pressable>
-
-        <Link href="/login" style={styles.link}>
-          Back to sign in
-        </Link>
       </View>
     </KeyboardFormScreen>
   );
@@ -193,6 +189,11 @@ function createStyles(c: RecallionColors) {
       color: c.navy,
       backgroundColor: c.bgCard,
     },
+    codeInput: {
+      fontSize: 18,
+      letterSpacing: 4,
+      fontVariant: ['tabular-nums'],
+    },
     error: { color: '#fca5a5', fontSize: 14 },
     notice: { color: '#86efac', fontSize: 14 },
     noticeBox: {
@@ -202,11 +203,7 @@ function createStyles(c: RecallionColors) {
       borderRadius: 12,
       padding: 14,
     },
-    noticeBoxText: {
-      fontSize: 14,
-      lineHeight: 20,
-      color: '#fecaca',
-    },
+    noticeBoxText: { fontSize: 14, lineHeight: 20, color: '#fecaca' },
     button: {
       backgroundColor: c.ctaSolid,
       paddingVertical: 14,

@@ -36,6 +36,10 @@ yarn-error.*
 !.env.example
 .env*.local
 
+# Play / GCP credentials (never commit)
+secrets/
+gen-lang-client*.json
+
 # typescript
 *.tsbuildinfo
 

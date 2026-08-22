@@ -10,17 +10,19 @@ import { supabase } from '../lib/supabase';
 export default function GateScreen() {
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, profileLoading } = useAuth();
 
   if (!supabase) {
     return (
       <View style={styles.center}>
-        <Text style={styles.err}>Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env</Text>
+        <Text style={styles.err}>
+          Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env
+        </Text>
       </View>
     );
   }
 
-  if (loading) {
+  if (loading || (session && profileLoading)) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={colors.blue} />
@@ -32,6 +34,7 @@ export default function GateScreen() {
     return <Redirect href="/login" />;
   }
 
+  // Only after profile has loaded — avoids flashing join-church while profile is null.
   if (!profile?.church_id) {
     return <Redirect href="/join-church" />;
   }
@@ -41,17 +44,17 @@ export default function GateScreen() {
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: c.bgPage,
-  },
-  err: {
-    color: '#b91c1c',
-    textAlign: 'center',
-    fontSize: 15,
-  },
-});
+    center: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
+      backgroundColor: c.bgPage,
+    },
+    err: {
+      color: '#b91c1c',
+      textAlign: 'center',
+      fontSize: 15,
+    },
+  });
 }

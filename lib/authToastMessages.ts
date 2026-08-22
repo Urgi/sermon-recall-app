@@ -1,16 +1,13 @@
 export const EMAIL_SENT_TOAST =
-  'We sent a confirmation code to your email. Enter it on the next screen. Check spam if needed.';
+  'We sent a one-time code to your email. Enter it on the next screen. Check spam if needed.';
 
-export const CONFIRMED_TOAST = 'Your email is confirmed. Welcome to Sermon Recall.';
-
-export const PASSWORD_RESET_SENT_TOAST =
-  'If an account exists for that email, we sent a reset code. Enter it on the next screen. Check spam if needed.';
+export const CONFIRMED_TOAST = 'You’re signed in. Welcome to Sermon Recall.';
 
 export const USE_CODE_NOT_LINK_MESSAGE =
-  'Email links cannot confirm your account. Open the app and enter the confirmation code from your email.';
+  'Email links cannot sign you in. Enter the one-time code from your email instead.';
 
-export const USE_RESET_CODE_NOT_LINK_MESSAGE =
-  'Email links cannot reset your password. Enter the reset code from your email on the reset password screen.';
+/** @deprecated Password reset retired — same copy as USE_CODE_NOT_LINK_MESSAGE. */
+export const USE_RESET_CODE_NOT_LINK_MESSAGE = USE_CODE_NOT_LINK_MESSAGE;
 
 export function toastFromAuthParams(params: {
   email_sent?: string | string[];
@@ -26,20 +23,19 @@ export function toastFromAuthParams(params: {
     return { message: CONFIRMED_TOAST, variant: 'success' };
   }
   const error = param(params.error);
-  if (error === 'use_code') {
+  if (
+    error === 'use_code' ||
+    error === 'reset_use_code' ||
+    error === 'confirmation_failed' ||
+    error === 'wrong_client'
+  ) {
     return { message: USE_CODE_NOT_LINK_MESSAGE, variant: 'error' };
-  }
-  if (error === 'reset_use_code') {
-    return { message: USE_RESET_CODE_NOT_LINK_MESSAGE, variant: 'error' };
   }
   if (error === 'missing_auth_code') {
     return {
-      message: 'This link is not valid for sign-in. Use the confirmation code from your email in the app.',
+      message: 'This link is not valid for sign-in. Use the one-time code from your email in the app.',
       variant: 'error',
     };
-  }
-  if (error === 'confirmation_failed' || error === 'wrong_client') {
-    return { message: USE_CODE_NOT_LINK_MESSAGE, variant: 'error' };
   }
   return null;
 }

@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 
 import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
-import { PasswordInput } from '../../components/PasswordInput';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
@@ -21,56 +20,45 @@ import {
   type AppLanguage,
   languageOptionLabel,
 } from '../../lib/i18n/languages';
-import { queuePendingToast } from '../../lib/pendingToast';
 import type { RecallionColors } from '../../lib/recallionTheme';
 
 export default function RegisterScreen() {
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { signUp, session, loading } = useAuth();
+  const { sendEmailOtp, session, loading, profileLoading } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [preferredLanguage, setPreferredLanguage] =
     useState<AppLanguage>(DEFAULT_APP_LANGUAGE);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const emailRef = useRef<TextInput>(null);
-  const passwordRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    if (!loading && session) {
+    if (!loading && session && !profileLoading) {
       router.replace('/');
     }
-  }, [loading, session]);
+  }, [loading, session, profileLoading]);
 
   async function onSubmit() {
     setError(null);
-    if (password.length < 8) {
-      setError('Use at least 8 characters for the password.');
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) {
+      setError('Enter your email address.');
       return;
     }
     setSubmitting(true);
-    const { error: err, needsEmailConfirmation } = await signUp(
-      email.trim(),
-      password,
-      fullName.trim() || undefined,
+    const { error: err } = await sendEmailOtp(trimmedEmail, {
+      createUser: true,
+      fullName: fullName.trim() || undefined,
       preferredLanguage,
-    );
+    });
     setSubmitting(false);
     if (err) {
       setError(err);
       return;
     }
-    if (needsEmailConfirmation) {
-      router.replace(`/verify-email?email=${encodeURIComponent(email.trim())}`);
-      return;
-    }
-    await queuePendingToast({
-      variant: 'success',
-      message: 'Account created. Taking you into the app…',
-    });
-    router.replace('/');
+    router.replace(`/verify-email?email=${encodeURIComponent(trimmedEmail)}`);
   }
 
   return (
@@ -82,6 +70,7 @@ export default function RegisterScreen() {
           accessibilityLabel="Sermon Recall"
         />
         <Text style={styles.title}>Create account</Text>
+        <Text style={styles.hint}>We’ll email a one-time code to finish signing up.</Text>
 
         <TextInput
           style={styles.input}
@@ -105,19 +94,7 @@ export default function RegisterScreen() {
           autoComplete="email"
           value={email}
           onChangeText={setEmail}
-          returnKeyType="next"
-          submitBehavior="submit"
-          blurOnSubmit={false}
-          onSubmitEditing={() => passwordRef.current?.focus()}
-        />
-        <PasswordInput
-          ref={passwordRef}
-          placeholder="Password (8+ characters)"
-          placeholderTextColor={colors.muted}
-          autoComplete="new-password"
-          value={password}
-          onChangeText={setPassword}
-          returnKeyType="done"
+          returnKeyType="go"
           submitBehavior="submit"
           onSubmitEditing={() => void onSubmit()}
         />
@@ -137,7 +114,9 @@ export default function RegisterScreen() {
                   pressed && styles.buttonPressed,
                 ]}
               >
-                <Text style={[styles.languageChipLabel, selected && styles.languageChipLabelSelected]}>
+                <Text
+                  style={[styles.languageChipLabel, selected && styles.languageChipLabelSelected]}
+                >
                   {languageOptionLabel(opt.value)}
                 </Text>
               </Pressable>
@@ -148,13 +127,13 @@ export default function RegisterScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Pressable
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-          onPress={onSubmit}
+          onPress={() => void onSubmit()}
           disabled={submitting}
         >
           {submitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonLabel}>Sign up</Text>
+            <Text style={styles.buttonLabel}>Email me a code</Text>
           )}
         </Pressable>
 
@@ -168,96 +147,53 @@ export default function RegisterScreen() {
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-  card: {
-    gap: 12,
-  },
-  logo: {
-    width: 88,
-    height: 88,
-    borderRadius: 16,
-    alignSelf: 'center',
-    marginBottom: 4,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: c.navy,
-    marginBottom: 8,
-  },
-  fieldLabel: {
-    marginTop: 4,
-    fontSize: 14,
-    fontWeight: '600',
-    color: c.navy,
-  },
-  fieldHint: {
-    marginTop: 2,
-    marginBottom: 8,
-    fontSize: 13,
-    color: c.muted,
-    lineHeight: 18,
-  },
-  languageRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  languageChip: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: c.borderInput,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: c.bgCard,
-  },
-  languageChipSelected: {
-    borderColor: c.blue,
-    backgroundColor: 'rgba(14, 165, 233, 0.12)',
-  },
-  languageChipLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: c.navy,
-  },
-  languageChipLabelSelected: {
-    color: c.blue,
-    fontWeight: '600',
-  },
-  input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: c.borderInput,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: c.navy,
-    backgroundColor: c.bgCard,
-  },
-  error: {
-    color: '#fca5a5',
-    fontSize: 14,
-  },
-  button: {
-    backgroundColor: c.ctaSolid,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonPressed: {
-    opacity: 0.9,
-  },
-  buttonLabel: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  link: {
-    marginTop: 16,
-    textAlign: 'center',
-    fontSize: 16,
-    color: c.blue,
-    fontWeight: '600',
-  },
-});
+    card: { gap: 12 },
+    logo: {
+      width: 88,
+      height: 88,
+      borderRadius: 16,
+      alignSelf: 'center',
+      marginBottom: 4,
+    },
+    title: { fontSize: 26, fontWeight: '700', color: c.navy, marginBottom: 4 },
+    hint: { fontSize: 15, color: c.muted, marginBottom: 8, lineHeight: 22 },
+    fieldLabel: { marginTop: 4, fontSize: 14, fontWeight: '600', color: c.navy },
+    fieldHint: { marginTop: 2, marginBottom: 8, fontSize: 13, color: c.muted, lineHeight: 18 },
+    languageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    languageChip: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.borderInput,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: c.bgCard,
+    },
+    languageChipSelected: {
+      borderColor: c.blue,
+      backgroundColor: 'rgba(14, 165, 233, 0.12)',
+    },
+    languageChipLabel: { fontSize: 14, fontWeight: '500', color: c.navy },
+    languageChipLabelSelected: { color: c.blue, fontWeight: '600' },
+    input: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.borderInput,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 16,
+      color: c.navy,
+      backgroundColor: c.bgCard,
+    },
+    error: { color: '#fca5a5', fontSize: 14 },
+    button: {
+      backgroundColor: c.ctaSolid,
+      paddingVertical: 14,
+      borderRadius: 12,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonPressed: { opacity: 0.9 },
+    buttonLabel: { color: '#fff', fontSize: 17, fontWeight: '600' },
+    link: { marginTop: 16, textAlign: 'center', fontSize: 16, color: c.blue, fontWeight: '600' },
+  });
 }

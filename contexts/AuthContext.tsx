@@ -13,27 +13,28 @@ export type UserProfile = {
   phone_number: string | null;
   role: string;
   preferred_language?: string | null;
-  devotional_notify_hour?: number | null;
-  devotional_notify_enabled?: boolean | null;
-  devotional_notify_prompt_done?: boolean | null;
   church_dissolved_notice?: string | null;
+  [key: string]: unknown;
 };
 
 type AuthContextValue = {
   session: Session | null;
   profile: UserProfile | null;
+  /** True until the first session bootstrap finishes. */
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (
+  /** True while a signed-in user's profile row is still loading. */
+  profileLoading: boolean;
+  /** Send a one-time sign-in / sign-up code to email (no password). */
+  sendEmailOtp: (
     email: string,
-    password: string,
-    fullName?: string,
-    preferredLanguage?: string,
-  ) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>;
-  resetPasswordForEmail: (email: string) => Promise<{ error: string | null }>;
-  resendSignupConfirmation: (email: string) => Promise<{ error: string | null }>;
-  verifySignupOtp: (email: string, token: string) => Promise<{ error: string | null }>;
-  verifyRecoveryOtp: (email: string, token: string) => Promise<{ error: string | null }>;
+    options?: {
+      fullName?: string;
+      preferredLanguage?: string;
+      /** false = existing accounts only (sign-in). Default true for create-account. */
+      createUser?: boolean;
+    },
+  ) => Promise<{ error: string | null }>;
+  verifyEmailOtp: (email: string, token: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   joinChurch: (code: string) => Promise<{ error: string | null }>;
@@ -47,16 +48,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const loadProfile = useCallback(async (userId: string) => {
-    if (!supabase) return;
+    if (!supabase) {
+      setProfile(null);
+      setProfileLoading(false);
+      return;
+    }
+    setProfileLoading(true);
     const { data, error } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
     if (error) {
       console.warn('[auth] load profile', error.message);
       setProfile(null);
-      return;
+    } else {
+      setProfile(data as UserProfile | null);
     }
-    setProfile(data as UserProfile | null);
+    setProfileLoading(false);
   }, []);
 
   useEffect(() => {
@@ -67,12 +75,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     supabase.auth
       .getSession()
-      .then(({ data: { session: s } }) => {
+      .then(async ({ data: { session: s } }) => {
         setSession(s);
         if (s?.user) {
-          return loadProfile(s.user.id);
+          await loadProfile(s.user.id);
+        } else {
+          setProfile(null);
+          setProfileLoading(false);
         }
-        setProfile(null);
       })
       .finally(() => setLoading(false));
 
@@ -84,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         void loadProfile(s.user.id);
       } else {
         setProfile(null);
+        setProfileLoading(false);
       }
     });
 
@@ -107,73 +118,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => sub.remove();
   }, [session?.user?.id]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    if (!supabase) return { error: 'Supabase is not configured' };
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error ? mapAuthError(error.message) : null };
-  }, []);
+  const sendEmailOtp = useCallback(
+    async (
+      email: string,
+      options?: {
+        fullName?: string;
+        preferredLanguage?: string;
+        createUser?: boolean;
+      },
+    ) => {
+      if (!supabase) return { error: 'Supabase is not configured' };
+      const trimmed = email.trim().toLowerCase();
+      if (!trimmed) return { error: 'Enter your email address.' };
 
-  const signUp = useCallback(
-    async (email: string, password: string, fullName?: string, preferredLanguage?: string) => {
-      if (!supabase) return { error: 'Supabase is not configured', needsEmailConfirmation: false };
+      const createUser = options?.createUser !== false;
       const lang =
-        preferredLanguage === 'es' || preferredLanguage === 'fr' || preferredLanguage === 'en'
-          ? preferredLanguage
+        options?.preferredLanguage === 'es' ||
+        options?.preferredLanguage === 'fr' ||
+        options?.preferredLanguage === 'en'
+          ? options.preferredLanguage
           : 'en';
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email: trimmed,
         options: {
-          data: {
-            full_name: fullName,
-            preferred_language: lang,
-          },
+          shouldCreateUser: createUser,
+          data: createUser
+            ? {
+                full_name: options?.fullName?.trim() || undefined,
+                preferred_language: lang,
+              }
+            : undefined,
         },
       });
-      if (error) return { error: mapAuthError(error.message), needsEmailConfirmation: false };
-      if (data.user?.identities?.length === 0) {
-        return {
-          error: mapAuthError('User already registered'),
-          needsEmailConfirmation: false,
-        };
-      }
-      const needsEmailConfirmation = Boolean(data.user && !data.session);
-      return { error: null, needsEmailConfirmation };
+      return { error: error ? mapAuthError(error.message) : null };
     },
     [],
   );
 
-  const resetPasswordForEmail = useCallback(async (email: string) => {
-    if (!supabase) return { error: 'Supabase is not configured' };
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
-    return { error: error ? mapAuthError(error.message) : null };
-  }, []);
-
-  const verifyRecoveryOtp = useCallback(async (email: string, token: string) => {
+  const verifyEmailOtp = useCallback(async (email: string, token: string) => {
     if (!supabase) return { error: 'Supabase is not configured' };
     const { error } = await supabase.auth.verifyOtp({
-      email: email.trim(),
+      email: email.trim().toLowerCase(),
       token: token.trim(),
-      type: 'recovery',
-    });
-    return { error: error ? mapAuthError(error.message) : null };
-  }, []);
-
-  const resendSignupConfirmation = useCallback(async (email: string) => {
-    if (!supabase) return { error: 'Supabase is not configured' };
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email,
-    });
-    return { error: error ? mapAuthError(error.message) : null };
-  }, []);
-
-  const verifySignupOtp = useCallback(async (email: string, token: string) => {
-    if (!supabase) return { error: 'Supabase is not configured' };
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: token.trim(),
-      type: 'signup',
+      type: 'email',
     });
     return { error: error ? mapAuthError(error.message) : null };
   }, []);
@@ -252,12 +240,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       profile,
       loading,
-      signIn,
-      signUp,
-      resetPasswordForEmail,
-      resendSignupConfirmation,
-      verifySignupOtp,
-      verifyRecoveryOtp,
+      profileLoading,
+      sendEmailOtp,
+      verifyEmailOtp,
       signOut,
       refreshProfile,
       joinChurch,
@@ -268,12 +253,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       profile,
       loading,
-      signIn,
-      signUp,
-      resetPasswordForEmail,
-      resendSignupConfirmation,
-      verifySignupOtp,
-      verifyRecoveryOtp,
+      profileLoading,
+      sendEmailOtp,
+      verifyEmailOtp,
       signOut,
       refreshProfile,
       joinChurch,

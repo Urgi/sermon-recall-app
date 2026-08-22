@@ -4,10 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { useRecallionTheme } from '../../contexts/ThemeContext';
-import {
-  USE_CODE_NOT_LINK_MESSAGE,
-  USE_RESET_CODE_NOT_LINK_MESSAGE,
-} from '../../lib/authToastMessages';
+import { USE_CODE_NOT_LINK_MESSAGE } from '../../lib/authToastMessages';
 import { queuePendingToast } from '../../lib/pendingToast';
 import type { RecallionColors } from '../../lib/recallionTheme';
 import { requireSupabase } from '../../lib/supabase';
@@ -17,7 +14,7 @@ function param(value: string | string[] | undefined): string | undefined {
   return value;
 }
 
-/** Signup and password reset use in-app OTP codes; legacy email links redirect here. */
+/** Email OTP sign-in uses in-app codes; legacy email links land here and are rejected. */
 export default function AuthCallbackScreen() {
   const params = useLocalSearchParams<{
     code?: string | string[];
@@ -34,7 +31,6 @@ export default function AuthCallbackScreen() {
 
     async function run() {
       const supabase = requireSupabase();
-      const next = param(params.next);
       const type = param(params.type);
       const code = param(params.code);
       const tokenHash = param(params.token_hash);
@@ -45,20 +41,18 @@ export default function AuthCallbackScreen() {
         Boolean(code || tokenHash || hasImplicitTokens) ||
         type === 'signup' ||
         type === 'email' ||
-        type === 'recovery';
+        type === 'recovery' ||
+        type === 'magiclink';
 
       if (hasLinkParams) {
         await supabase.auth.signOut();
         if (cancelled) return;
-        const isRecovery = next === 'reset-password' || type === 'recovery';
-        setMessage(isRecovery ? 'Use your reset code' : 'Use your confirmation code');
+        setMessage('Use your email code');
         await queuePendingToast({
           variant: 'error',
-          message: isRecovery ? USE_RESET_CODE_NOT_LINK_MESSAGE : USE_CODE_NOT_LINK_MESSAGE,
+          message: USE_CODE_NOT_LINK_MESSAGE,
         });
-        router.replace(
-          isRecovery ? '/reset-password?error=use_code' : '/verify-email?error=use_code',
-        );
+        router.replace('/login?error=use_code');
         return;
       }
 

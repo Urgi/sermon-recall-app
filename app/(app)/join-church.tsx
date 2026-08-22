@@ -16,7 +16,7 @@ import { useRecallionTheme } from '../../contexts/ThemeContext';
 import type { RecallionColors } from '../../lib/recallionTheme';
 
 export default function JoinChurchScreen() {
-  const { joinChurch, signOut, profile } = useAuth();
+  const { joinChurch, signOut, profile, profileLoading, session } = useAuth();
   const params = useLocalSearchParams<{ code?: string }>();
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -34,7 +34,10 @@ export default function JoinChurchScreen() {
     }
   }, [profile?.church_id]);
 
-  const dissolvedNotice = profile?.church_dissolved_notice?.trim();
+  const dissolvedNotice =
+    typeof profile?.church_dissolved_notice === 'string'
+      ? profile.church_dissolved_notice.trim()
+      : '';
 
   async function onSubmit() {
     setError(null);
@@ -46,6 +49,14 @@ export default function JoinChurchScreen() {
       return;
     }
     router.replace('/home');
+  }
+
+  if (session && profileLoading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={colors.blue} />
+      </View>
+    );
   }
 
   return (
@@ -99,6 +110,12 @@ export default function JoinChurchScreen() {
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
+    loading: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: c.bgPage,
+    },
     card: { gap: 12 },
     title: { fontSize: 26, fontWeight: '700', color: c.navy },
     hint: { fontSize: 15, color: c.muted, marginBottom: 8 },

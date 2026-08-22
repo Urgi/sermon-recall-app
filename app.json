@@ -38,7 +38,11 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ],
-      "package": "com.urgimeaso.sermonrecall"
+      "package": "com.antoineassociates.sermonrecall"
+    },
+    "androidNavigationBar": {
+      "backgroundColor": "#000000",
+      "barStyle": "light-content"
     },
     "plugins": [
       [

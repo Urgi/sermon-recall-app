@@ -30,6 +30,10 @@
       "ios": {
         "appleTeamId": "2ZHV96SMYB",
         "ascAppId": "6798402169"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./secrets/play-service-account.json",
+        "track": "internal"
       }
     }
   }
