@@ -46,6 +46,29 @@ npm run eas:submit:ios
 
 (interactive — signs in with Apple if needed)
 
+## App Store / Play review sign-in
+
+Members sign in with email OTP. Reviewers get a fixed code (no inbox) via env vars baked into production builds:
+
+| Env (EAS production + `mobile/.env`) | Value |
+|----------------------------------------|--------|
+| `EXPO_PUBLIC_APP_REVIEW_EMAIL` | `apple-review@sermonrecall.com` |
+| `EXPO_PUBLIC_APP_REVIEW_CODE` | `482719` |
+
+**App Review Information (Apple):**
+
+- User name: `apple-review@sermonrecall.com`
+- Password: `482719`
+- Notes: Sign in → enter email → **Email me a code** → enter `482719`. Account is on demo church Grace Community with sermon content.
+
+Refresh the Supabase user (password + church join):
+
+```bash
+node mobile/scripts/provision-app-review-account.mjs
+```
+
+(Set `eas secret` / EAS env for the two `EXPO_PUBLIC_*` vars before the next production iOS/Android build.)
+
 ## One-time setup: Android Play auto-submit (service account)
 
 EAS reads `mobile/secrets/play-service-account.json` (gitignored) and submits to the **internal** track (`eas.json` → `submit.production.android`).

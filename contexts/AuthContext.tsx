@@ -2,6 +2,10 @@ import type { Session } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { AppState } from 'react-native';
 
+import {
+  isAppReviewEmail,
+  isAppReviewSignIn,
+} from '../lib/appReviewSignIn';
 import { mapAuthError } from '../lib/auth/mapAuthError';
 import { registerExpoPushTokenForCurrentUser } from '../lib/registerPushToken';
 import { supabase } from '../lib/supabase';
@@ -131,6 +135,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const trimmed = email.trim().toLowerCase();
       if (!trimmed) return { error: 'Enter your email address.' };
 
+      if (isAppReviewEmail(trimmed)) {
+        return { error: null };
+      }
+
       const createUser = options?.createUser !== false;
       const lang =
         options?.preferredLanguage === 'es' ||
@@ -158,9 +166,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const verifyEmailOtp = useCallback(async (email: string, token: string) => {
     if (!supabase) return { error: 'Supabase is not configured' };
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedToken = token.trim();
+
+    if (isAppReviewSignIn(trimmedEmail, trimmedToken)) {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password: trimmedToken,
+      });
+      return { error: error ? mapAuthError(error.message) : null };
+    }
+
     const { error } = await supabase.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token: token.trim(),
+      email: trimmedEmail,
+      token: trimmedToken,
       type: 'email',
     });
     return { error: error ? mapAuthError(error.message) : null };
