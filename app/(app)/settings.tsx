@@ -55,74 +55,77 @@ export default function SettingsScreen() {
       <Text style={styles.title}>Settings</Text>
 
       <ScrollView
+        style={styles.flex}
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets
+        contentInsetAdjustmentBehavior="automatic"
       >
-        {profile?.church_id ? (
-          <>
-            <Text style={styles.sectionTitle}>Devotional reminders</Text>
-            <DevotionalReminderSettings
-              userId={profile.id}
-              notifyHour={profile.devotional_notify_hour}
-              notifyEnabled={profile.devotional_notify_enabled}
-              onUpdated={() => void refreshProfile()}
-            />
-          </>
-        ) : null}
+          {profile?.church_id ? (
+            <>
+              <Text style={styles.sectionTitle}>Devotional reminders</Text>
+              <DevotionalReminderSettings
+                userId={profile.id}
+                notifyHour={profile.devotional_notify_hour}
+                notifyEnabled={profile.devotional_notify_enabled}
+                onUpdated={() => void refreshProfile()}
+              />
+            </>
+          ) : null}
 
-        <Text style={[styles.sectionTitle, profile?.church_id ? styles.sectionAfterBlock : null]}>
-          Language
-        </Text>
-        <Text style={styles.sectionHint}>
-          Prefer English, Spanish, or French. Church content language is set by your pastor.
-        </Text>
-        {APP_LANGUAGES.map((opt) => {
-          const selected = selectedLanguage === opt.value;
-          return (
-            <Pressable
-              key={opt.value}
-              onPress={() => void onSelectLanguage(opt.value)}
-              disabled={languagePending}
-              style={({ pressed }) => [
-                styles.option,
-                selected && styles.optionSelected,
-                pressed && styles.pressed,
-              ]}
-            >
-              <View style={[styles.radio, selected && styles.radioSelected]} />
-              <View style={styles.optionText}>
-                <Text style={styles.optionLabel}>{languageOptionLabel(opt.value)}</Text>
-              </View>
-            </Pressable>
-          );
-        })}
-        {languageError ? <Text style={styles.error}>{languageError}</Text> : null}
+          <Text style={[styles.sectionTitle, profile?.church_id ? styles.sectionAfterBlock : null]}>
+            Language
+          </Text>
+          <Text style={styles.sectionHint}>
+            Prefer English, Spanish, or French. Church content language is set by your pastor.
+          </Text>
+          {APP_LANGUAGES.map((opt) => {
+            const selected = selectedLanguage === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                onPress={() => void onSelectLanguage(opt.value)}
+                disabled={languagePending}
+                style={({ pressed }) => [
+                  styles.option,
+                  selected && styles.optionSelected,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={[styles.radio, selected && styles.radioSelected]} />
+                <View style={styles.optionText}>
+                  <Text style={styles.optionLabel}>{languageOptionLabel(opt.value)}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+          {languageError ? <Text style={styles.error}>{languageError}</Text> : null}
 
-        <Text style={[styles.sectionTitle, styles.sectionAfterBlock]}>Appearance</Text>
-        <Text style={styles.sectionHint}>Currently using {resolved} mode on this device.</Text>
-        {OPTIONS.map((opt) => {
-          const selected = preference === opt.value;
-          return (
-            <Pressable
-              key={opt.value}
-              onPress={() => setPreference(opt.value)}
-              style={({ pressed }) => [
-                styles.option,
-                selected && styles.optionSelected,
-                pressed && styles.pressed,
-              ]}
-            >
-              <View style={[styles.radio, selected && styles.radioSelected]} />
-              <View style={styles.optionText}>
-                <Text style={styles.optionLabel}>{opt.label}</Text>
-                <Text style={styles.optionDesc}>{opt.description}</Text>
-              </View>
-            </Pressable>
-          );
-        })}
+          <Text style={[styles.sectionTitle, styles.sectionAfterBlock]}>Appearance</Text>
+          <Text style={styles.sectionHint}>Currently using {resolved} mode on this device.</Text>
+          {OPTIONS.map((opt) => {
+            const selected = preference === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                onPress={() => setPreference(opt.value)}
+                style={({ pressed }) => [
+                  styles.option,
+                  selected && styles.optionSelected,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={[styles.radio, selected && styles.radioSelected]} />
+                <View style={styles.optionText}>
+                  <Text style={styles.optionLabel}>{opt.label}</Text>
+                  <Text style={styles.optionDesc}>{opt.description}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
 
-        <LeaveChurchPanel />
+          <LeaveChurchPanel />
 
         <DeleteAccountPanel />
       </ScrollView>
@@ -133,6 +136,7 @@ export default function SettingsScreen() {
 function createStyles(colors: RecallionColors, resolved: 'light' | 'dark') {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.bgPage },
+    flex: { flex: 1 },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -142,11 +146,23 @@ function createStyles(colors: RecallionColors, resolved: 'light' | 'dark') {
     },
     backBtn: { paddingVertical: 8 },
     backLabel: { fontSize: 16, color: colors.blue, fontWeight: '500' },
-    title: { marginTop: 4, paddingHorizontal: 20, fontSize: 28, fontWeight: '700', color: colors.navy },
-    scroll: { paddingHorizontal: 20, paddingBottom: 32 },
+    title: {
+      marginTop: 4,
+      paddingHorizontal: 20,
+      fontSize: 28,
+      fontWeight: '700',
+      color: colors.navy,
+    },
+    scroll: { paddingHorizontal: 20, paddingBottom: 64 },
     sectionTitle: { marginTop: 8, fontSize: 18, fontWeight: '600', color: colors.navy },
     sectionAfterBlock: { marginTop: 28 },
-    sectionHint: { marginTop: 6, marginBottom: 16, fontSize: 15, color: colors.muted, lineHeight: 22 },
+    sectionHint: {
+      marginTop: 6,
+      marginBottom: 16,
+      fontSize: 15,
+      color: colors.muted,
+      lineHeight: 22,
+    },
     option: {
       flexDirection: 'row',
       alignItems: 'flex-start',
@@ -160,7 +176,8 @@ function createStyles(colors: RecallionColors, resolved: 'light' | 'dark') {
     },
     optionSelected: {
       borderColor: colors.blue,
-      backgroundColor: resolved === 'light' ? 'rgba(14, 165, 233, 0.08)' : 'rgba(56, 189, 248, 0.1)',
+      backgroundColor:
+        resolved === 'light' ? 'rgba(14, 165, 233, 0.08)' : 'rgba(56, 189, 248, 0.1)',
     },
     radio: {
       marginTop: 3,

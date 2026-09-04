@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
@@ -18,8 +19,8 @@ type Props = {
 };
 
 /**
- * Scroll + keyboard insets for form screens. Avoids the dark gap above the keyboard
- * and keeps inputs visible while typing.
+ * Scroll + keyboard insets for form screens. Uses ScrollView keyboard insets only
+ * (no KeyboardAvoidingView) so iOS does not double-pad and bury the focused field.
  */
 export function KeyboardFormScreen({
   children,
@@ -27,39 +28,51 @@ export function KeyboardFormScreen({
   contentContainerStyle,
   centerContent = true,
 }: Props) {
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardOpen(true),
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardOpen(false),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor }]} edges={['top', 'left', 'right']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+      <ScrollView
+        style={[styles.scroll, { backgroundColor }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          centerContent && !keyboardOpen && styles.scrollContentCenter,
+          contentContainerStyle,
+        ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        automaticallyAdjustKeyboardInsets
+        contentInsetAdjustmentBehavior="automatic"
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          style={[styles.scroll, { backgroundColor }]}
-          contentContainerStyle={[
-            styles.scrollContent,
-            centerContent && styles.scrollContentCenter,
-            contentContainerStyle,
-          ]}
-          keyboardShouldPersistTaps="handled"
-          automaticallyAdjustKeyboardInsets
-          showsVerticalScrollIndicator={false}
-        >
-          {children}
-        </ScrollView>
-      </KeyboardAvoidingView>
+        {children}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  flex: { flex: 1 },
   scroll: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
     padding: 24,
-    paddingBottom: 32,
+    paddingBottom: 48,
   },
   scrollContentCenter: {
     justifyContent: 'center',

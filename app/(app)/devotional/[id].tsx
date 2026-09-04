@@ -12,8 +12,6 @@ import { useCallback, useEffect, useRef, useState , useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -107,6 +105,8 @@ export default function DevotionalScreen() {
   const [localVoiceUri, setLocalVoiceUri] = useState<string | null>(null);
   const playAfterLoadRef = useRef(false);
   const playbackFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contentScrollRef = useRef<ScrollView>(null);
+  const gateScrollRef = useRef<ScrollView>(null);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recordState = useAudioRecorderState(recorder, 400);
@@ -620,10 +620,13 @@ export default function DevotionalScreen() {
         </ScrollView>
       ) : needsPreSessionGate ? (
         <ScrollView
+          ref={gateScrollRef}
           style={styles.scrollFill}
-          contentContainerStyle={[styles.scrollOuter, styles.scrollOuterFill]}
+          contentContainerStyle={[styles.scrollOuter, styles.scrollOuterFill, { paddingBottom: 120 }]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           automaticallyAdjustKeyboardInsets
+          contentInsetAdjustmentBehavior="automatic"
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
@@ -678,6 +681,9 @@ export default function DevotionalScreen() {
                 returnKeyType="done"
                 submitBehavior="submit"
                 blurOnSubmit
+                onFocus={() => {
+                  setTimeout(() => gateScrollRef.current?.scrollToEnd({ animated: true }), 100);
+                }}
                 onSubmitEditing={() => void submitGate()}
               />
               {error ? <Text style={styles.inlineErr}>{error}</Text> : null}
@@ -695,10 +701,13 @@ export default function DevotionalScreen() {
         </ScrollView>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.scrollOuter}
+          ref={contentScrollRef}
+          contentContainerStyle={[styles.scrollOuter, { paddingBottom: 120 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           automaticallyAdjustKeyboardInsets
+          contentInsetAdjustmentBehavior="automatic"
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
           }
@@ -767,6 +776,9 @@ export default function DevotionalScreen() {
                 multiline
                 editable={!saving && Boolean(session?.user)}
                 textAlignVertical="top"
+                onFocus={() => {
+                  setTimeout(() => contentScrollRef.current?.scrollToEnd({ animated: true }), 100);
+                }}
               />
             </View>
 
@@ -828,6 +840,9 @@ export default function DevotionalScreen() {
                 textAlignVertical="top"
                 returnKeyType="done"
                 blurOnSubmit
+                onFocus={() => {
+                  setTimeout(() => contentScrollRef.current?.scrollToEnd({ animated: true }), 120);
+                }}
               />
               {session?.user ? (
                 <View style={[styles.voiceRow, styles.voiceRowAfterInput]}>
@@ -952,13 +967,7 @@ export default function DevotionalScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
-      >
-        {inner}
-      </KeyboardAvoidingView>
+      {inner}
     </SafeAreaView>
   );
 }

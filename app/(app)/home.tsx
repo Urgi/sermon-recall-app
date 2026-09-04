@@ -184,8 +184,10 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      // Reload sermons + progress when returning from a completed day.
+      void loadSermons();
       void loadStreak({ checkCelebration: true });
-    }, [loadStreak]),
+    }, [loadSermons, loadStreak]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -336,7 +338,8 @@ function HeroSermonCard({
   const lastDevotional = devotionals[devotionals.length - 1];
   const showReadingPrimary = Boolean(nextDevotional);
 
-  const readingLabel = "Begin today's reading →";
+  const readingLabel =
+    completedCount > 0 ? "Continue today's reading →" : "Begin today's reading →";
   const readingOnPress = nextDevotional
     ? () => router.push(`/devotional/${nextDevotional.id}`)
     : undefined;
@@ -344,7 +347,7 @@ function HeroSermonCard({
   return (
     <View style={styles.heroCard}>
       <Text style={styles.heroTitle} numberOfLines={3}>
-        {sermon.title}
+        {sermon.title?.trim() || 'Untitled sermon'}
       </Text>
       <Text style={styles.heroMeta}>{meta}</Text>
 
@@ -427,7 +430,7 @@ function PastSermonCard({
       onPress={() => router.push(`/sermon/${sermon.id}`)}
     >
       <Text style={styles.pastTitle} numberOfLines={2}>
-        {sermon.title}
+        {sermon.title?.trim() || 'Untitled sermon'}
       </Text>
       <Text style={styles.pastMeta}>{meta}</Text>
       <Text style={[styles.statusLabel, styles.statusMuted]}>{progressLabel}</Text>
