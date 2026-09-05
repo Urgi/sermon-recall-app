@@ -127,11 +127,38 @@ export function devotionalDisplayTitle(next?: NextDevotionalHome | null): string
   return `Day ${next.day_number}`;
 }
 
-/** Avoid showing seed/junk titles like literal "title" in the UI. */
-export function displaySermonTitle(raw: string | null | undefined): string {
+/** Short date for graceful title fallbacks, e.g. "Sep 1". */
+export function formatSermonDateShort(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  try {
+    const d = new Date(`${iso}T12:00:00`);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Avoid showing seed/junk titles like literal "title" in the UI.
+ * Prefer a date-based fallback over "Untitled sermon".
+ */
+export function displaySermonTitle(
+  raw: string | null | undefined,
+  sermonDate?: string | null,
+): string {
   const trimmed = raw?.trim();
-  if (!trimmed || isPlaceholderTitle(trimmed)) return 'Untitled sermon';
-  return trimmed;
+  if (trimmed && !isPlaceholderTitle(trimmed)) return trimmed;
+  const short = formatSermonDateShort(sermonDate);
+  if (short) {
+    try {
+      const d = new Date(`${sermonDate}T12:00:00`);
+      const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
+      return `${weekday} Sermon · ${short}`;
+    } catch {
+      return `Sermon · ${short}`;
+    }
+  }
+  return 'Sermon';
 }
 
 function isPlaceholderTitle(title: string): boolean {

@@ -8,8 +8,8 @@ import type { RecallionColors } from '../lib/recallionTheme';
 
 export function LeaveChurchPanel() {
   const { profile, leaveChurch } = useAuth();
-  const { colors, resolved } = useRecallionTheme();
-  const styles = useMemo(() => createStyles(colors, resolved), [colors, resolved]);
+  const { colors } = useRecallionTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [pending, setPending] = useState(false);
 
   const canLeave = Boolean(profile?.church_id && profile.role === 'member');
@@ -43,46 +43,39 @@ export function LeaveChurchPanel() {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>Church membership</Text>
+      <Text style={styles.title}>Leave church</Text>
       <Text style={styles.hint}>
-        Leave your current church if you need to join a different one. You can rejoin anytime with a
-        new church code.
+        Join another church using a new code. Your past progress stays on your account.
       </Text>
       <Pressable
-        style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}
         onPress={onLeavePress}
         disabled={pending}
+        accessibilityRole="button"
       >
         {pending ? (
-          <ActivityIndicator color={resolved === 'light' ? '#b91c1c' : '#f87171'} />
+          <ActivityIndicator color={colors.blue} />
         ) : (
-          <Text style={styles.buttonLabel}>Leave church</Text>
+          <Text style={styles.linkLabel}>Leave church →</Text>
         )}
       </Pressable>
     </View>
   );
 }
 
-function createStyles(c: RecallionColors, resolved: 'light' | 'dark') {
-  const light = resolved === 'light';
+function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-    wrap: { marginTop: 28 },
-    title: { fontSize: 18, fontWeight: '700', color: c.navy },
-    hint: { marginTop: 6, fontSize: 15, color: c.muted, lineHeight: 22 },
-    button: {
-      marginTop: 14,
-      paddingVertical: 14,
-      borderRadius: 50,
-      borderWidth: 1.5,
-      borderColor: light ? '#b91c1c' : 'rgba(248, 113, 113, 0.55)',
-      backgroundColor: light ? '#ffffff' : 'transparent',
-      alignItems: 'center',
+    wrap: {
+      paddingVertical: 4,
+      marginBottom: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.borderSubtle,
+      paddingBottom: 18,
     },
-    pressed: { opacity: 0.85 },
-    buttonLabel: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: light ? '#b91c1c' : '#fca5a5',
-    },
+    title: { fontSize: 17, fontWeight: '600', color: c.navy },
+    hint: { marginTop: 6, fontSize: 14, color: c.muted, lineHeight: 21 },
+    linkRow: { marginTop: 12, alignSelf: 'flex-start', paddingVertical: 4 },
+    pressed: { opacity: 0.75 },
+    linkLabel: { fontSize: 15, fontWeight: '600', color: c.blue },
   });
 }

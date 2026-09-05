@@ -1,32 +1,48 @@
 import { router } from 'expo-router';
 import { useMemo } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useRecallionTheme } from '../contexts/ThemeContext';
 import type { RecallionColors } from '../lib/recallionTheme';
 
-/** Back control + brand mark for sermon and devotional reading screens. */
-export function SermonRecallScreenHeader() {
+type Props = {
+  /** Label after the arrow, e.g. "Back" or a truncated sermon title. */
+  backLabel?: string;
+  /** Right-side meta, e.g. "Day 3 of 6". */
+  trailing?: string | null;
+  onBack?: () => void;
+};
+
+/** Compact stack header — back + optional day/progress label (no brand wordmark). */
+export function SermonRecallScreenHeader({
+  backLabel = 'Back',
+  trailing,
+  onBack,
+}: Props) {
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.wrap}>
-      <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-        <Text style={styles.back}>← Back</Text>
+      <Pressable
+        onPress={onBack ?? (() => router.back())}
+        hitSlop={12}
+        style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+        accessibilityRole="button"
+        accessibilityLabel={`Go back${backLabel !== 'Back' ? `: ${backLabel}` : ''}`}
+      >
+        <Text style={styles.backArrow}>←</Text>
+        <Text style={styles.backLabel} numberOfLines={1}>
+          {backLabel}
+        </Text>
       </Pressable>
-      <View style={styles.brandRow}>
-        <Image
-          source={require('../assets/logo.png')}
-          style={styles.mark}
-          accessibilityLabel=""
-          importantForAccessibility="no"
-        />
-        <View style={styles.wordmark} accessibilityRole="header">
-          <Text style={styles.sermon}>Sermon</Text>
-          <Text style={styles.recall}>Recall</Text>
-        </View>
-      </View>
+      {trailing ? (
+        <Text style={styles.trailing} numberOfLines={1}>
+          {trailing}
+        </Text>
+      ) : (
+        <View style={styles.trailingSpacer} />
+      )}
     </View>
   );
 }
@@ -34,46 +50,40 @@ export function SermonRecallScreenHeader() {
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
     wrap: {
-      paddingHorizontal: 18,
-      paddingTop: 10,
-      paddingBottom: 14,
-    },
-    backBtn: {
-      alignSelf: 'flex-start',
-      marginBottom: 14,
-    },
-    back: {
-      fontSize: 14,
-      color: c.blue,
-      fontWeight: '500',
-    },
-    brandRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'space-between',
       gap: 12,
+      paddingHorizontal: 16,
+      paddingTop: 6,
+      paddingBottom: 10,
     },
-    mark: {
-      width: 46,
-      height: 46,
-      borderRadius: 11,
-    },
-    wordmark: {
+    backBtn: {
       flexDirection: 'row',
-      alignItems: 'baseline',
-      gap: 5,
+      alignItems: 'center',
+      gap: 6,
+      flexShrink: 1,
+      maxWidth: '62%',
+      paddingVertical: 4,
     },
-    sermon: {
-      fontSize: 24,
-      fontWeight: '600',
-      color: c.navy,
-      letterSpacing: -0.4,
-    },
-    recall: {
-      fontSize: 24,
-      fontWeight: '600',
+    backArrow: {
+      fontSize: 17,
       color: c.blue,
-      letterSpacing: -0.4,
+      fontWeight: '600',
     },
+    backLabel: {
+      fontSize: 15,
+      color: c.navyMid,
+      fontWeight: '500',
+      flexShrink: 1,
+    },
+    trailing: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.muted,
+      flexShrink: 0,
+    },
+    trailingSpacer: { width: 8 },
+    pressed: { opacity: 0.75 },
   });
 }

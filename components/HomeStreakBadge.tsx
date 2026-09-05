@@ -19,9 +19,7 @@ export function HomeStreakBadge({ status, loading, onPress }: Props) {
   if (loading) {
     return (
       <View style={styles.wrap} accessibilityLabel="Loading streak">
-        <View style={styles.iconShell}>
-          <Ionicons name="book-outline" size={16} color={colors.muted} />
-        </View>
+        <Ionicons name="flame-outline" size={15} color={colors.muted} />
         <Text style={styles.mutedText}>—</Text>
       </View>
     );
@@ -33,16 +31,24 @@ export function HomeStreakBadge({ status, loading, onPress }: Props) {
 
   const label = active
     ? completedToday
-      ? `${count} day${count === 1 ? '' : 's'}`
-      : `${count} day${count === 1 ? '' : 's'} · today`
+      ? `${count}-day streak`
+      : `${count}-day streak · today`
     : 'Start streak';
+
+  const a11y = active
+    ? `${count}-day streak${completedToday ? '' : ', keep it going today'}`
+    : 'Start your streak today';
 
   const content = (
     <>
-      <View style={[styles.iconShell, active && styles.iconShellActive]}>
-        <Ionicons name="book" size={16} color={active ? colors.blue : colors.muted} />
-      </View>
-      <Text style={[styles.count, active ? styles.countActive : styles.countIdle]}>{label}</Text>
+      <Ionicons
+        name={active ? 'flame' : 'flame-outline'}
+        size={15}
+        color={active ? colors.blue : colors.muted}
+      />
+      <Text style={[styles.count, active ? styles.countActive : styles.countIdle]} numberOfLines={1}>
+        {label}
+      </Text>
     </>
   );
 
@@ -56,7 +62,7 @@ export function HomeStreakBadge({ status, loading, onPress }: Props) {
           pressed && styles.wrapPressed,
         ]}
         accessibilityRole="button"
-        accessibilityLabel={active ? `${count} day streak, open calendar` : 'Start your streak, open calendar'}
+        accessibilityLabel={`${a11y}, open calendar`}
       >
         {content}
       </Pressable>
@@ -66,7 +72,7 @@ export function HomeStreakBadge({ status, loading, onPress }: Props) {
   return (
     <View
       style={[styles.wrap, active ? styles.wrapActive : styles.wrapIdle]}
-      accessibilityLabel={active ? `${count} day streak` : 'Start your streak today'}
+      accessibilityLabel={a11y}
     >
       {content}
     </View>
@@ -80,30 +86,19 @@ function createStyles(c: RecallionColors) {
       alignItems: 'center',
       gap: 6,
       paddingHorizontal: 10,
-      paddingVertical: 6,
+      paddingVertical: 7,
       borderRadius: 999,
-      borderWidth: 1,
-      maxWidth: 148,
+      borderWidth: StyleSheet.hairlineWidth,
+      maxWidth: 168,
     },
     wrapPressed: { opacity: 0.85 },
     wrapActive: {
       backgroundColor: c.accentSoft,
-      borderColor: c.blue,
+      borderColor: c.borderSubtle,
     },
     wrapIdle: {
       backgroundColor: c.bgCard,
       borderColor: c.borderSubtle,
-    },
-    iconShell: {
-      width: 26,
-      height: 26,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: c.bgWash,
-    },
-    iconShellActive: {
-      backgroundColor: c.bgCard,
     },
     count: {
       fontSize: 13,
@@ -111,7 +106,7 @@ function createStyles(c: RecallionColors) {
       flexShrink: 1,
     },
     countActive: {
-      color: c.blue,
+      color: c.navy,
     },
     countIdle: {
       color: c.muted,

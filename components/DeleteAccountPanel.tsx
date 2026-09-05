@@ -110,17 +110,18 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
     <View style={styles.wrap} ref={formRef} collapsable={false}>
       <Text style={styles.title}>Delete account</Text>
       <Text style={styles.hint}>
-        Permanently remove your profile, progress, and sign-in. This cannot be undone.
+        Permanently remove your profile, progress, and sign-in.
       </Text>
 
       {!open ? (
         <Pressable
-          style={({ pressed }) => [styles.outlineBtn, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}
           onPress={() => setOpen(true)}
           disabled={loadingPreview}
+          accessibilityRole="button"
         >
-          <Text style={styles.outlineLabel}>
-            {loadingPreview ? 'Loading…' : 'Delete my account'}
+          <Text style={styles.linkLabel}>
+            {loadingPreview ? 'Loading…' : 'Delete account →'}
           </Text>
         </Pressable>
       ) : (
@@ -132,7 +133,7 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
                 You are the only pastor for {preview.church_name ?? 'your church'}. Deleting your
                 account removes the church from Sermon Recall, including sermons and devotionals.
                 {preview.other_member_count > 0
-                  ? ` ${preview.other_member_count} member(s) will need to join another church. They will be told that ${preview.church_name ?? 'their church'} has ended its use of Sermon Recall on this platform.`
+                  ? ` ${preview.other_member_count} member(s) will need to join another church.`
                   : ''}
               </Text>
             </View>
@@ -201,47 +202,31 @@ function createStyles(c: RecallionColors, resolved: 'light' | 'dark') {
   const light = resolved === 'light';
   return StyleSheet.create({
     wrap: {
-      marginTop: 28,
-      marginBottom: 24,
-      padding: 16,
-      borderRadius: c.radiusMd,
-      borderWidth: 1.5,
-      borderColor: light ? 'rgba(185, 28, 28, 0.35)' : 'rgba(248, 113, 113, 0.35)',
-      backgroundColor: light ? '#fff5f5' : 'rgba(127, 29, 29, 0.2)',
+      paddingVertical: 4,
+      marginBottom: 8,
     },
     title: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: light ? '#991b1b' : '#fecaca',
+      fontSize: 17,
+      fontWeight: '600',
+      color: c.navy,
     },
     hint: {
-      marginTop: 8,
+      marginTop: 6,
       fontSize: 14,
-      color: light ? '#7f1d1d' : c.muted,
-      lineHeight: 20,
-      opacity: light ? 0.9 : 1,
+      color: c.muted,
+      lineHeight: 21,
     },
-    outlineBtn: {
-      marginTop: 12,
-      paddingVertical: 12,
-      alignItems: 'center',
-      borderRadius: c.radiusMd,
-      borderWidth: 1.5,
-      borderColor: light ? '#b91c1c' : 'rgba(248, 113, 113, 0.5)',
-      backgroundColor: light ? '#ffffff' : 'transparent',
+    linkRow: { marginTop: 12, alignSelf: 'flex-start', paddingVertical: 4 },
+    linkLabel: {
+      color: light ? '#b91c1c' : '#f87171',
+      fontSize: 15,
+      fontWeight: '600',
     },
-    outlineLabel: {
-      color: light ? '#b91c1c' : '#fca5a5',
-      fontSize: 16,
-      fontWeight: '700',
-    },
-    form: { marginTop: 12, gap: 12 },
+    form: { marginTop: 14, gap: 12 },
     warnBox: {
       padding: 12,
       borderRadius: c.radiusMd,
-      borderWidth: 1,
-      borderColor: light ? 'rgba(180, 83, 9, 0.45)' : 'rgba(251, 191, 36, 0.4)',
-      backgroundColor: light ? '#fffbeb' : 'rgba(120, 53, 15, 0.25)',
+      backgroundColor: light ? '#fffbeb' : 'rgba(120, 53, 15, 0.22)',
     },
     warnTitle: {
       fontWeight: '700',
@@ -265,16 +250,16 @@ function createStyles(c: RecallionColors, resolved: 'light' | 'dark') {
     },
     checkboxOn: { backgroundColor: c.blue, borderColor: c.blue },
     checkLabel: { flex: 1, fontSize: 14, color: c.navy, lineHeight: 20 },
-    inputLabel: { fontSize: 14, color: light ? '#7f1d1d' : c.muted, fontWeight: '600' },
+    inputLabel: { fontSize: 14, color: c.muted, fontWeight: '600' },
     input: {
       borderWidth: 1,
-      borderColor: light ? 'rgba(185, 28, 28, 0.35)' : 'rgba(248, 113, 113, 0.4)',
+      borderColor: c.borderInput,
       borderRadius: c.radiusMd,
       paddingHorizontal: 14,
       paddingVertical: 12,
       fontSize: 16,
       color: c.navy,
-      backgroundColor: c.bgCard,
+      backgroundColor: c.bgWash,
     },
     error: { color: light ? '#b91c1c' : '#fca5a5', fontSize: 14, fontWeight: '600' },
     dangerBtn: {

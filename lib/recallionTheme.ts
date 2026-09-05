@@ -43,11 +43,12 @@ export type RecallionColors = {
 
 const dark: RecallionColors = {
   bgPage: '#05070a',
-  bgWash: '#020617',
+  bgWash: '#0d131c',
   bgCard: '#0a0f18',
   bgGradient: ['#05070a', '#05070a', '#05070a'],
-  borderSubtle: 'rgba(56, 189, 248, 0.12)',
-  borderInput: 'rgba(56, 189, 248, 0.22)',
+  /** Neutral borders — cyan reserved for CTAs / progress / focus. */
+  borderSubtle: 'rgba(148, 163, 184, 0.12)',
+  borderInput: 'rgba(148, 163, 184, 0.22)',
   navy: '#f8fafc',
   navyMid: '#cbd5e1',
   blue: '#38bdf8',

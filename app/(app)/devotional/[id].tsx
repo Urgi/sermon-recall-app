@@ -22,10 +22,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { JourneyProgressBar } from '../../../components/JourneyProgressBar';
+import { ScreenBackdrop } from '../../../components/ScreenBackdrop';
 import { SermonRecallScreenHeader } from '../../../components/SermonRecallScreenHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { accessibleDevotionalIds, buildUnlockContext, nextUnlockedIncompleteDevotional } from '../../../lib/devotionalUnlock';
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
+import { typeScale } from '../../../lib/designTokens';
 import type { RecallionColors } from '../../../lib/recallionTheme';
 import { displaySermonTitle } from '../../../lib/sermonHomeStatus';
 import { supabase } from '../../../lib/supabase';
@@ -89,12 +92,14 @@ export default function DevotionalScreen() {
   const [sermonTitle, setSermonTitle] = useState<string | null>(null);
   const [sermonDate, setSermonDate] = useState<string | null>(null);
   const [totalDays, setTotalDays] = useState(0);
+  const [siblingCompletedCount, setSiblingCompletedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accessDenied, setAccessDenied] = useState(false);
   const [nextDayHint, setNextDayHint] = useState<number | null>(null);
+  const [showRecallQuestion, setShowRecallQuestion] = useState(false);
 
   const [recallDraft, setRecallDraft] = useState('');
   const [commitmentDraft, setCommitmentDraft] = useState('');
@@ -171,13 +176,13 @@ export default function DevotionalScreen() {
     ]);
 
     const sm = s as SermonTiny | null;
-    setSermonTitle(sm?.title ? displaySermonTitle(sm.title) : null);
-    setSermonDate(sm?.sermon_date ?? null);
-    setTotalDays(countRes.count ?? 0);
-
     const siblingList =
       (sibs as { id: string; day_number: number }[] | null)?.filter(Boolean) ?? [];
     const siblingIds = siblingList.map((x) => x.id);
+
+    setSermonTitle(sm ? displaySermonTitle(sm.title, sm.sermon_date) : null);
+    setSermonDate(sm?.sermon_date ?? null);
+    setTotalDays(countRes.count ?? siblingList.length);
 
     const completedIds = new Set<string>();
     let progRow: ProgressRow | null = null;
@@ -193,6 +198,8 @@ export default function DevotionalScreen() {
         if (p.completed_at) completedIds.add(p.devotional_id as string);
       }
 
+      setSiblingCompletedCount(completedIds.size);
+
       const { data: mine } = await supabase
         .from('user_progress')
         .select('pre_prompt_response, application_commitment, voice_recording_url, completed_at')
@@ -203,6 +210,8 @@ export default function DevotionalScreen() {
       if (mine) {
         progRow = mine as ProgressRow;
       }
+    } else {
+      setSiblingCompletedCount(0);
     }
 
     setProgress(progRow);
@@ -556,11 +565,23 @@ export default function DevotionalScreen() {
     await saveProgressResponses({ markComplete: true });
   }
 
+
   const hasVoiceRecording = Boolean(effectiveVoicePath);
+  const dayTrailing =
+    row && totalDays > 0 ? `Day ${row.day_number} of ${totalDays}` : null;
+  const dayHeroTitle = row
+    ? row.title?.trim()
+      ? `Day ${row.day_number} — ${row.title.trim()}`
+      : `Day ${row.day_number}`
+    : '';
+  const progressCurrentDay = row && !completed ? row.day_number : null;
 
   const inner = (
     <>
-      <SermonRecallScreenHeader />
+      <SermonRecallScreenHeader
+        backLabel={sermonTitle ? sermonTitle : 'Back'}
+        trailing={dayTrailing}
+      />
 
       {loading ? (
         <View style={styles.center}>
@@ -576,47 +597,28 @@ export default function DevotionalScreen() {
         </View>
       ) : accessDenied ? (
         <ScrollView contentContainerStyle={styles.scrollOuter} showsVerticalScrollIndicator={false}>
-          <View style={styles.contentCard}>
-            {sermonTitle ? (
-              <View style={styles.sermonHeaderRow}>
-                <View style={styles.sermonMark}>
-                  <Text style={styles.sermonMarkText}>SR</Text>
-                </View>
-                <View style={styles.sermonHeaderText}>
-                  <Text style={styles.sermonKicker} numberOfLines={1}>
-                    {formatSermonKicker(sermonDate) ?? 'Sermon'}
-                  </Text>
-                  <Text style={styles.sermonTitleLine} numberOfLines={2}>
-                    {sermonTitle}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-            <View style={styles.cardSection}>
-              <Text style={styles.lockTitle}>This day is locked</Text>
-              <Text style={styles.lockBody}>
-                During the six-day window after the sermon date, each day opens on its matching
-                calendar day (your church&apos;s time zone). After those six days, every day unlocks
-                so you can catch up in any order.
-              </Text>
-              {nextDayHint != null ? (
-                <Text style={styles.lockHint}>
-                  Open Day {nextDayHint} from this sermon first — you can still do earlier days if
-                  they are open for you.
-                </Text>
-              ) : (
-                <Text style={styles.lockHint}>
-                  Go back to the sermon list to open a day that is available today.
-                </Text>
-              )}
-              <Pressable
-                style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
-                onPress={() => router.back()}
-              >
-                <Text style={styles.primaryBtnLabel}>Back to sermon</Text>
-              </Pressable>
-            </View>
-          </View>
+          <Text style={styles.lockTitle}>This day is locked</Text>
+          <Text style={styles.lockBody}>
+            During the six-day window after the sermon date, each day opens on its matching calendar
+            day (your church&apos;s time zone). After those six days, every day unlocks so you can
+            catch up in any order.
+          </Text>
+          {nextDayHint != null ? (
+            <Text style={styles.lockHint}>
+              Open Day {nextDayHint} from this sermon first — you can still do earlier days if they
+              are open for you.
+            </Text>
+          ) : (
+            <Text style={styles.lockHint}>
+              Go back to the sermon list to open a day that is available today.
+            </Text>
+          )}
+          <Pressable
+            style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.primaryBtnLabel}>Back to sermon</Text>
+          </Pressable>
         </ScrollView>
       ) : needsPreSessionGate ? (
         <ScrollView
@@ -631,80 +633,56 @@ export default function DevotionalScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
           }
         >
-          <View style={styles.contentCard}>
-            {sermonTitle ? (
-              <View style={styles.sermonHeaderRow}>
-                <View style={styles.sermonMark}>
-                  <Text style={styles.sermonMarkText}>SR</Text>
-                </View>
-                <View style={styles.sermonHeaderText}>
-                  <Text style={styles.sermonKicker} numberOfLines={1}>
-                    {formatSermonKicker(sermonDate) ?? 'Sermon'}
-                  </Text>
-                  <Text style={styles.sermonTitleLine} numberOfLines={2}>
-                    {sermonTitle}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-            <View style={styles.cardHero}>
-              <View style={styles.dayProgressRow}>
-                <Text style={styles.dayOfCaps}>
-                  Day {row.day_number} of {totalDays || '—'}
-                </Text>
-                <View style={styles.segmentRow}>
-                  {Array.from({ length: Math.max(totalDays, 1) }).map((_, i) => (
-                    <View
-                      key={i}
-                      style={[
-                        styles.segment,
-                        i < row.day_number ? styles.segmentActive : styles.segmentIdle,
-                      ]}
-                    />
-                  ))}
-                </View>
-              </View>
-              <Text style={styles.gateKicker}>Pre-session retrieval</Text>
-              <Text style={styles.gatePrompt}>{gatePromptText}</Text>
-              <Text style={styles.gateHint}>
-                Write a short answer from memory. Today&apos;s reading unlocks next.
-              </Text>
-              <TextInput
-                style={styles.gateInput}
-                placeholder="Your answer"
-                placeholderTextColor={colors.muted}
-                value={recallDraft}
-                onChangeText={setRecallDraft}
-                editable={!saving && Boolean(session?.user)}
-                multiline
-                textAlignVertical="top"
-                autoCorrect
-                returnKeyType="done"
-                blurOnSubmit
-                onSubmitEditing={() => void submitGate()}
-              />
-              {error ? <Text style={styles.inlineErr}>{error}</Text> : null}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.primaryBtn,
-                  (!recallDraft.trim() || saving || !session?.user) && styles.primaryBtnDisabled,
-                  pressed && recallDraft.trim() && !saving && styles.primaryBtnPressed,
-                ]}
-                onPress={() => void submitGate()}
-                disabled={saving || !session?.user || !recallDraft.trim()}
-              >
-                <Text
-                  style={[
-                    styles.primaryBtnLabel,
-                    (!recallDraft.trim() || saving || !session?.user) &&
-                      styles.primaryBtnLabelDisabled,
-                  ]}
-                >
-                  {saving ? 'Saving…' : 'Continue'}
-                </Text>
-              </Pressable>
-            </View>
+          <Text style={styles.dayOfCaps}>
+            Day {row.day_number} of {totalDays || '—'}
+          </Text>
+          <View style={styles.progressInline}>
+            <JourneyProgressBar
+              totalDays={Math.max(totalDays, 1)}
+              completedCount={siblingCompletedCount}
+              currentDayNumber={row.day_number}
+              size="thin"
+            />
           </View>
+          <Text style={styles.gateKicker}>Pre-session recall</Text>
+          <Text style={styles.gatePrompt}>{gatePromptText}</Text>
+          <Text style={styles.gateHint}>
+            Write a short answer from memory. Today&apos;s reading unlocks next.
+          </Text>
+          <TextInput
+            style={styles.gateInput}
+            placeholder="Your answer"
+            placeholderTextColor={colors.muted}
+            value={recallDraft}
+            onChangeText={setRecallDraft}
+            editable={!saving && Boolean(session?.user)}
+            multiline
+            textAlignVertical="top"
+            autoCorrect
+            returnKeyType="done"
+            blurOnSubmit
+            onSubmitEditing={() => void submitGate()}
+          />
+          {error ? <Text style={styles.inlineErr}>{error}</Text> : null}
+          <Pressable
+            style={({ pressed }) => [
+              styles.primaryBtn,
+              (!recallDraft.trim() || saving || !session?.user) && styles.primaryBtnDisabled,
+              pressed && recallDraft.trim() && !saving && styles.primaryBtnPressed,
+            ]}
+            onPress={() => void submitGate()}
+            disabled={saving || !session?.user || !recallDraft.trim()}
+          >
+            <Text
+              style={[
+                styles.primaryBtnLabel,
+                (!recallDraft.trim() || saving || !session?.user) &&
+                  styles.primaryBtnLabelDisabled,
+              ]}
+            >
+              {saving ? 'Saving…' : 'Continue to reading'}
+            </Text>
+          </Pressable>
         </ScrollView>
       ) : (
         <ScrollView
@@ -719,253 +697,223 @@ export default function DevotionalScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
           }
         >
-          <View style={styles.contentCard}>
-            {sermonTitle ? (
-              <View style={styles.sermonHeaderRow}>
-                <View style={styles.sermonMark}>
-                  <Text style={styles.sermonMarkText}>SR</Text>
-                </View>
-                <View style={styles.sermonHeaderText}>
-                  <Text style={styles.sermonKicker} numberOfLines={1}>
-                    {formatSermonKicker(sermonDate) ?? 'Sermon'}
-                  </Text>
-                  <Text style={styles.sermonTitleLine} numberOfLines={2}>
-                    {sermonTitle}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
+          <Text style={styles.dayOfCaps}>
+            Day {row.day_number} of {totalDays || '—'}
+          </Text>
+          <View style={styles.progressInline}>
+            <JourneyProgressBar
+              totalDays={Math.max(totalDays, 1)}
+              completedCount={siblingCompletedCount}
+              currentDayNumber={progressCurrentDay}
+              size="thin"
+            />
+          </View>
 
-            <View style={styles.cardHero}>
-              <View style={styles.dayProgressRow}>
-                <Text style={styles.dayOfCaps}>
-                  Day {row.day_number} of {totalDays || '—'}
-                </Text>
-                <View style={styles.segmentRow}>
-                  {Array.from({ length: Math.max(totalDays, 1) }).map((_, i) => (
-                    <View
-                      key={i}
-                      style={[
-                        styles.segment,
-                        i < row.day_number ? styles.segmentActive : styles.segmentIdle,
-                      ]}
-                    />
-                  ))}
-                </View>
-              </View>
-              <Text style={styles.title}>
-                {row.title ? row.title : `Day ${row.day_number}`}
+          <Text style={styles.title}>{dayHeroTitle}</Text>
+          <View style={styles.readTimeRow}>
+            <Ionicons name="time-outline" size={14} color={colors.muted} />
+            <Text style={styles.min}>{row.estimated_minutes} min read</Text>
+          </View>
+
+          {completed ? (
+            <View style={styles.doneBanner}>
+              <Text style={styles.doneText}>You completed this day.</Text>
+            </View>
+          ) : null}
+
+          {savedRecall || recallDraft.trim() ? (
+            <View style={styles.recallSummary}>
+              <Text style={styles.recallSummaryTitle}>✓ Your pre-session recall</Text>
+              <Text
+                style={styles.recallSummaryAnswer}
+                {...(showRecallQuestion ? {} : { numberOfLines: 3 })}
+              >
+                “{recallDraft.trim() || savedRecall}”
               </Text>
-              <View style={styles.readTimeRow}>
-                <Ionicons name="time-outline" size={14} color={colors.muted} />
-                <Text style={styles.min}>{row.estimated_minutes} min read</Text>
-              </View>
-
-              {completed ? (
-                <View style={styles.doneBanner}>
-                  <Text style={styles.doneText}>You completed this day.</Text>
-                </View>
+              {showRecallQuestion ? (
+                <Text style={styles.recallSummaryPrompt}>{gatePromptText}</Text>
+              ) : null}
+              <Pressable
+                onPress={() => setShowRecallQuestion((v) => !v)}
+                hitSlop={8}
+                style={styles.recallToggle}
+              >
+                <Text style={styles.recallToggleLabel}>
+                  {showRecallQuestion ? 'Hide question' : 'View question'}
+                </Text>
+              </Pressable>
+              {!completed ? (
+                <TextInput
+                  style={styles.recallEditInput}
+                  placeholder="Edit your answer"
+                  placeholderTextColor={colors.muted}
+                  value={recallDraft}
+                  onChangeText={setRecallDraft}
+                  multiline
+                  editable={!saving && Boolean(session?.user)}
+                  textAlignVertical="top"
+                />
               ) : null}
             </View>
+          ) : null}
 
-            <View style={styles.recallSection}>
-              <View style={styles.recallHeader}>
-                <Ionicons name="help-circle-outline" size={16} color={colors.blue} />
-                <Text style={styles.recallLabel}>Pre-session retrieval</Text>
-              </View>
-              <Text style={styles.recallPrompt}>{gatePromptText}</Text>
-              <TextInput
-                style={styles.recallInput}
-                placeholder="Your answer from memory"
-                placeholderTextColor={colors.muted}
-                value={recallDraft}
-                onChangeText={setRecallDraft}
-                multiline
-                editable={!saving && Boolean(session?.user)}
-                textAlignVertical="top"
-                onFocus={() => {
-                  setTimeout(() => contentScrollRef.current?.scrollToEnd({ animated: true }), 100);
-                }}
-              />
+          {row.scripture_reference || scriptureBody || scriptureLoading ? (
+            <View style={styles.scriptureBlock}>
+              {row.scripture_reference ? (
+                <Text style={styles.scriptureRef}>{row.scripture_reference}</Text>
+              ) : null}
+              {scriptureLoading ? (
+                <View style={styles.scriptureLoadingRow}>
+                  <ActivityIndicator size="small" color={colors.blue} />
+                  <Text style={styles.scriptureLoadingText}>Loading passage…</Text>
+                </View>
+              ) : scriptureBody ? (
+                <Text style={styles.scriptureBody}>{scriptureBody}</Text>
+              ) : row.scripture_reference ? (
+                <Text style={styles.scriptureMissing}>
+                  Full verse text is not available for this reference yet.
+                </Text>
+              ) : null}
             </View>
+          ) : null}
 
-            {row.scripture_reference || scriptureBody || scriptureLoading ? (
-              <View style={styles.scriptureSection}>
-                <View style={styles.scriptureBlock}>
-                  {row.scripture_reference ? (
-                    <Text style={styles.scriptureRef}>{row.scripture_reference}</Text>
-                  ) : null}
-                  {scriptureLoading ? (
-                    <View style={styles.scriptureLoadingRow}>
-                      <ActivityIndicator size="small" color={colors.blue} />
-                      <Text style={styles.scriptureLoadingText}>Loading passage…</Text>
-                    </View>
-                  ) : scriptureBody ? (
-                    <Text style={styles.scriptureBody}>{scriptureBody}</Text>
-                  ) : row.scripture_reference ? (
-                    <Text style={styles.scriptureMissing}>
-                      Full verse text is not available for this reference yet.
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-            ) : null}
+          {row.main_content ? <Text style={styles.body}>{row.main_content}</Text> : null}
 
-            {row.main_content ? (
-              <View style={styles.bodySection}>
-                <Text style={styles.body}>{row.main_content}</Text>
-              </View>
-            ) : null}
+          {row.reflection_question ? (
+            <View style={styles.reflectSection}>
+              <Text style={styles.reflectLabel}>Reflection</Text>
+              <Text style={styles.reflect}>{row.reflection_question}</Text>
+            </View>
+          ) : null}
 
-            {row.reflection_question ? (
-              <View style={styles.reflectSection}>
-                <View style={styles.reflectHeader}>
-                  <Ionicons name="bulb-outline" size={16} color={colors.blue} />
-                  <Text style={styles.reflectLabel}>Reflection</Text>
-                </View>
-                <Text style={styles.reflect}>{row.reflection_question}</Text>
-              </View>
-            ) : null}
-
-            <View style={styles.commitmentSection}>
-              <View style={styles.commitmentHeader}>
-                <Ionicons name="flag-outline" size={18} color={colors.blue} />
-                <Text style={styles.commitmentTitle}>Application commitment</Text>
-              </View>
-              <Text style={styles.commitmentHint}>
-                Type or record your answer below. You can edit this anytime, even after completing
-                the day.
-              </Text>
-              <TextInput
-                style={styles.commitmentInput}
-                placeholder="This week I will ..."
-                placeholderTextColor={colors.muted}
-                value={commitmentDraft}
-                onChangeText={setCommitmentDraft}
-                multiline
-                editable={!saving && Boolean(session?.user)}
-                textAlignVertical="top"
-                returnKeyType="done"
-                blurOnSubmit
-                onFocus={() => {
-                  setTimeout(() => contentScrollRef.current?.scrollToEnd({ animated: true }), 120);
-                }}
-              />
-              {session?.user ? (
-                <View style={[styles.voiceRow, styles.voiceRowAfterInput]}>
-                  <View style={styles.voiceButtonsRow}>
-                    {hasVoiceRecording && !recordState.isRecording ? (
-                      <>
-                        <Pressable
-                          style={({ pressed }) => [
-                            styles.voiceBtnOutline,
-                            pressed && styles.primaryBtnPressed,
-                          ]}
-                          onPress={() => void toggleVoicePlayback()}
-                          disabled={voiceBusy}
-                        >
-                          <Text style={styles.voiceBtnOutlineLabel}>
-                            {voicePlayerStatus.playing ? 'Stop playback' : 'Play recording'}
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          style={({ pressed }) => [
-                            styles.voiceBtnOutline,
-                            pressed && styles.primaryBtnPressed,
-                          ]}
-                          onPress={() => void reRecordVoice()}
-                          disabled={voiceBusy || saving}
-                        >
-                          <Text style={styles.voiceBtnOutlineLabel}>Re-record</Text>
-                        </Pressable>
-                        <Pressable
-                          style={({ pressed }) => [
-                            styles.voiceBtnOutline,
-                            styles.voiceBtnDangerOutline,
-                            pressed && styles.primaryBtnPressed,
-                          ]}
-                          onPress={() => void clearVoiceRecording()}
-                          disabled={voiceBusy || saving}
-                        >
-                          <Text style={styles.voiceBtnDangerOutlineLabel}>Delete</Text>
-                        </Pressable>
-                      </>
-                    ) : (
+          <View style={styles.commitmentSection}>
+            <Text style={styles.commitmentTitle}>Application commitment</Text>
+            <Text style={styles.commitmentHint}>This week I will…</Text>
+            <TextInput
+              style={styles.commitmentInput}
+              placeholder="This week I will ..."
+              placeholderTextColor={colors.muted}
+              value={commitmentDraft}
+              onChangeText={setCommitmentDraft}
+              multiline
+              editable={!saving && Boolean(session?.user)}
+              textAlignVertical="top"
+              returnKeyType="done"
+              blurOnSubmit
+              onFocus={() => {
+                setTimeout(() => contentScrollRef.current?.scrollToEnd({ animated: true }), 120);
+              }}
+            />
+            {session?.user ? (
+              <View style={[styles.voiceRow, styles.voiceRowAfterInput]}>
+                <View style={styles.voiceButtonsRow}>
+                  {hasVoiceRecording && !recordState.isRecording ? (
+                    <>
                       <Pressable
                         style={({ pressed }) => [
                           styles.voiceBtnOutline,
-                          recordState.isRecording && styles.voiceBtnDanger,
                           pressed && styles.primaryBtnPressed,
                         ]}
-                        onPress={() =>
-                          void (recordState.isRecording ? stopVoiceUpload() : startVoice())
-                        }
+                        onPress={() => void toggleVoicePlayback()}
+                        disabled={voiceBusy}
+                      >
+                        <Text style={styles.voiceBtnOutlineLabel}>
+                          {voicePlayerStatus.playing ? 'Stop playback' : 'Play recording'}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.voiceBtnOutline,
+                          pressed && styles.primaryBtnPressed,
+                        ]}
+                        onPress={() => void reRecordVoice()}
                         disabled={voiceBusy || saving}
                       >
-                        <View style={styles.voiceBtnInner}>
-                          {!recordState.isRecording ? (
-                            <View style={styles.recDot} />
-                          ) : null}
-                          <Ionicons
-                            name="mic-outline"
-                            size={16}
-                            color={recordState.isRecording ? '#fff' : colors.navyMid}
-                          />
-                          <Text
-                            style={[
-                              styles.voiceBtnOutlineLabel,
-                              recordState.isRecording && styles.voiceBtnDangerLabel,
-                            ]}
-                          >
-                            {voiceBusy && !recordState.isRecording
-                              ? 'Saving…'
-                              : recordState.isRecording
-                                ? 'Stop & upload'
-                                : 'Record voice note'}
-                          </Text>
-                        </View>
+                        <Text style={styles.voiceBtnOutlineLabel}>Re-record</Text>
                       </Pressable>
-                    )}
-                  </View>
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.voiceBtnOutline,
+                          styles.voiceBtnDangerOutline,
+                          pressed && styles.primaryBtnPressed,
+                        ]}
+                        onPress={() => void clearVoiceRecording()}
+                        disabled={voiceBusy || saving}
+                      >
+                        <Text style={styles.voiceBtnDangerOutlineLabel}>Delete</Text>
+                      </Pressable>
+                    </>
+                  ) : (
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.voiceBtnOutline,
+                        recordState.isRecording && styles.voiceBtnDanger,
+                        pressed && styles.primaryBtnPressed,
+                      ]}
+                      onPress={() =>
+                        void (recordState.isRecording ? stopVoiceUpload() : startVoice())
+                      }
+                      disabled={voiceBusy || saving}
+                    >
+                      <View style={styles.voiceBtnInner}>
+                        {!recordState.isRecording ? <View style={styles.recDot} /> : null}
+                        <Ionicons
+                          name="mic-outline"
+                          size={16}
+                          color={recordState.isRecording ? '#fff' : colors.muted}
+                        />
+                        <Text
+                          style={[
+                            styles.voiceBtnOutlineLabel,
+                            recordState.isRecording && styles.voiceBtnDangerLabel,
+                          ]}
+                        >
+                          {voiceBusy && !recordState.isRecording
+                            ? 'Saving…'
+                            : recordState.isRecording
+                              ? 'Stop & upload'
+                              : 'Voice note'}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  )}
                 </View>
-              ) : null}
-            </View>
+              </View>
+            ) : null}
+          </View>
 
-            <View style={styles.ctaSection}>
-              {error ? <Text style={styles.inlineErr}>{error}</Text> : null}
+          <View style={styles.ctaSection}>
+            {error ? <Text style={styles.inlineErr}>{error}</Text> : null}
 
-              {responsesDirty ? (
-                <Pressable
-                  style={({ pressed }) => [
-                    completed ? styles.primaryBtn : styles.secondaryBtn,
-                    pressed && styles.primaryBtnPressed,
-                  ]}
-                  onPress={() => void saveProgressResponses()}
-                  disabled={saving || !session?.user}
-                >
-                  <Text
-                    style={completed ? styles.primaryBtnLabel : styles.secondaryBtnLabel}
-                  >
-                    {saving ? 'Saving…' : 'Save changes'}
+            {responsesDirty ? (
+              <Pressable
+                style={({ pressed }) => [
+                  completed ? styles.primaryBtn : styles.secondaryBtn,
+                  pressed && styles.primaryBtnPressed,
+                ]}
+                onPress={() => void saveProgressResponses()}
+                disabled={saving || !session?.user}
+              >
+                <Text style={completed ? styles.primaryBtnLabel : styles.secondaryBtnLabel}>
+                  {saving ? 'Saving…' : 'Save changes'}
+                </Text>
+              </Pressable>
+            ) : null}
+
+            {!completed ? (
+              <Pressable
+                style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
+                onPress={() => void markComplete()}
+                disabled={saving || !session?.user}
+              >
+                <View style={styles.primaryBtnInner}>
+                  <Ionicons name="checkmark" size={18} color="#fff" />
+                  <Text style={styles.primaryBtnLabel}>
+                    {saving ? 'Saving…' : 'Mark day complete'}
                   </Text>
-                </Pressable>
-              ) : null}
-
-              {!completed ? (
-                <Pressable
-                  style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
-                  onPress={() => void markComplete()}
-                  disabled={saving || !session?.user}
-                >
-                  <View style={styles.primaryBtnInner}>
-                    <Ionicons name="checkmark" size={18} color="#fff" />
-                    <Text style={styles.primaryBtnLabel}>
-                      {saving ? 'Saving…' : 'Mark day complete'}
-                    </Text>
-                  </View>
-                </Pressable>
-              ) : null}
-            </View>
+                </View>
+              </Pressable>
+            ) : null}
           </View>
         </ScrollView>
       )}
@@ -973,348 +921,263 @@ export default function DevotionalScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      {inner}
-    </SafeAreaView>
+    <ScreenBackdrop>
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+        {inner}
+      </SafeAreaView>
+    </ScreenBackdrop>
   );
 }
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-  safe: { flex: 1, backgroundColor: c.bgPage },
-  flex: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  padBare: { padding: 20, paddingBottom: 48 },
-  scrollOuter: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 48 },
-  scrollFill: { flex: 1, backgroundColor: c.bgCard },
-  contentCard: {
-    backgroundColor: c.bgCard,
-    borderRadius: c.radiusCard,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: c.borderSubtle,
-    overflow: 'hidden',
-  },
-  sermonHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: c.borderSubtle,
-  },
-  sermonMark: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
-    backgroundColor: c.brandMarkBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sermonMarkText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: c.brandMarkText,
-    letterSpacing: -0.3,
-  },
-  sermonHeaderText: { flex: 1, minWidth: 0 },
-  sermonKicker: {
-    fontSize: 11,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    color: c.muted,
-    fontWeight: '500',
-  },
-  sermonTitleLine: {
-    fontSize: 15,
-    color: c.navy,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  cardSection: { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 24 },
-  cardHero: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 8 },
-  dayProgressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 10,
-  },
-  dayOfCaps: {
-    fontSize: 11,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: c.blue,
-    fontWeight: '500',
-  },
-  segmentRow: { flex: 1, flexDirection: 'row', gap: 4 },
-  segment: { height: 3, flex: 1, borderRadius: 2 },
-  segmentActive: { backgroundColor: c.blue },
-  segmentIdle: { backgroundColor: c.progressRest },
-  err: { color: '#b91c1c', fontSize: 16 },
-  inlineErr: { color: '#b91c1c', fontSize: 14, marginBottom: 12 },
-  lockTitle: { fontSize: 22, fontWeight: '600', color: c.navy, marginBottom: 10 },
-  lockBody: { fontSize: 16, lineHeight: 24, color: c.navyMid, marginBottom: 12 },
-  lockHint: { fontSize: 16, fontWeight: '600', color: c.blue, marginBottom: 20 },
-  gateKicker: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: c.blue,
-    textTransform: 'uppercase',
-    letterSpacing: 1.4,
-    marginBottom: 10,
-  },
-  gatePrompt: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: c.navy,
-    lineHeight: 28,
-    marginBottom: 10,
-  },
-  gateHint: { fontSize: 15, color: c.muted, lineHeight: 22, marginBottom: 16 },
-  gateInput: {
-    minHeight: 110,
-    borderWidth: 1,
-    borderColor: c.borderInput,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0,
-    color: c.navy,
-    backgroundColor: c.bgWash,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '500',
-    color: c.navy,
-    lineHeight: 30,
-    marginBottom: 8,
-    letterSpacing: -0.2,
-  },
-  readTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  min: { fontSize: 13, color: c.muted },
-  doneBanner: {
-    marginTop: 16,
-    padding: 12,
-    borderRadius: c.radiusSm,
-    backgroundColor: 'rgba(34,197,94,0.12)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(34,197,94,0.35)',
-  },
-  doneText: { fontSize: 15, fontWeight: '600', color: '#86efac' },
-  recallSection: {
-    marginHorizontal: 22,
-    marginBottom: 18,
-    padding: 18,
-    borderRadius: c.radiusMd,
-    backgroundColor: c.bgWash,
-    borderLeftWidth: 3,
-    borderLeftColor: c.blue,
-  },
-  recallHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  recallLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: c.blue,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  recallPrompt: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: c.navyMid,
-    marginBottom: 12,
-  },
-  recallInput: {
-    minHeight: 88,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: c.borderInput,
-    borderRadius: c.radiusSm,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    lineHeight: 22,
-    color: c.navy,
-    backgroundColor: c.bgCard,
-  },
-  scriptureSection: { paddingHorizontal: 22, paddingVertical: 10 },
-  scriptureBlock: {
-    padding: 16,
-    paddingHorizontal: 18,
-    backgroundColor: c.bgWash,
-    borderRadius: c.radiusMd,
-    borderLeftWidth: 3,
-    borderLeftColor: c.blue,
-  },
-  scriptureRef: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: c.blue,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 12,
-  },
-  scriptureLoadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-  },
-  scriptureLoadingText: { fontSize: 14, color: c.muted },
-  scriptureMissing: { fontSize: 14, lineHeight: 21, color: c.muted, fontStyle: 'italic' },
-  scriptureBody: {
-    fontSize: 17,
-    lineHeight: 28,
-    color: c.navyMid,
-    fontStyle: 'italic',
-  },
-  bodySection: { paddingHorizontal: 22, paddingTop: 4, paddingBottom: 20 },
-  body: { fontSize: 16, lineHeight: 27, color: c.navyMid },
-  reflectSection: {
-    marginHorizontal: 22,
-    marginBottom: 22,
-    padding: 18,
-    backgroundColor: c.bgWash,
-    borderRadius: c.radiusMd,
-  },
-  reflectHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  reflectLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: c.blue,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  reflect: { fontSize: 16, lineHeight: 25, color: c.navy },
-  commitmentSection: {
-    marginHorizontal: 22,
-    marginBottom: 22,
-    padding: 18,
-    backgroundColor: c.bgWash,
-    borderRadius: c.radiusMd,
-    borderLeftWidth: 3,
-    borderLeftColor: c.blue,
-  },
-  commitmentHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  commitmentTitle: { fontSize: 18, color: c.navy, fontWeight: '600' },
-  commitmentHint: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: c.navyMid,
-    marginBottom: 14,
-  },
-  commitmentInput: {
-    minHeight: 100,
-    borderWidth: 1,
-    borderColor: c.borderInput,
-    borderRadius: c.radiusSm,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    lineHeight: 22,
-    color: c.navy,
-    backgroundColor: c.bgCard,
-  },
-  secondaryBtn: {
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: c.borderInput,
-    backgroundColor: c.bgCard,
-    paddingVertical: 14,
-    borderRadius: c.radiusMd,
-    alignItems: 'center',
-  },
-  secondaryBtnLabel: { color: c.navy, fontSize: 15, fontWeight: '600' },
-  ctaSection: { paddingHorizontal: 22, paddingBottom: 24 },
-  primaryBtn: {
-    marginTop: 16,
-    backgroundColor: c.ctaSolid,
-    paddingVertical: 15,
-    borderRadius: 50,
-    alignItems: 'center',
-    minHeight: 52,
-    justifyContent: 'center',
-  },
-  primaryBtnDisabled: {
-    backgroundColor: c.bgCard,
-    borderWidth: 1,
-    borderColor: c.borderInput,
-  },
-  primaryBtnInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    justifyContent: 'center',
-  },
-  primaryBtnPressed: { opacity: 0.9 },
-  primaryBtnLabel: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  primaryBtnLabelDisabled: { color: c.muted },
-  input: {
-    minHeight: 100,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: c.borderInput,
-    borderRadius: c.radiusSm,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    fontSize: 14,
-    lineHeight: 21,
-    color: c.navy,
-    backgroundColor: c.bgCard,
-  },
-  inputDisabled: { backgroundColor: c.bgWash, color: c.navyMid },
-  voiceRow: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 12,
-  },
-  voiceButtonsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    alignItems: 'center',
-  },
-  voiceRowAfterInput: {
-    marginTop: 14,
-    marginBottom: 0,
-  },
-  voicePlaybackCompleted: {
-    alignSelf: 'flex-start',
-    marginTop: 14,
-  },
-  voiceBtnOutline: {
-    backgroundColor: c.bgCard,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: c.borderInput,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: c.radiusSm,
-  },
-  voiceBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  recDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: c.ctaSolid,
-  },
-  voiceBtnOutlineLabel: {
-    color: c.navyMid,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  voiceBtnDanger: {
-    backgroundColor: '#b91c1c',
-    borderColor: '#b91c1c',
-  },
-  voiceBtnDangerLabel: { color: '#fff' },
-  voiceBtnDangerOutline: {
-    borderColor: 'rgba(185,28,28,0.45)',
-  },
-  voiceBtnDangerOutlineLabel: {
-    color: '#b91c1c',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-});
+    safe: { flex: 1, backgroundColor: c.bgPage },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    padBare: { padding: 20, paddingBottom: 48 },
+    scrollOuter: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 48 },
+    scrollFill: { flex: 1 },
+    progressInline: { marginTop: 10, marginBottom: 18, alignSelf: 'stretch' },
+    dayOfCaps: {
+      ...typeScale.kicker,
+      color: c.muted,
+    },
+    err: { color: '#b91c1c', fontSize: 16 },
+    inlineErr: { color: '#b91c1c', fontSize: 14, marginBottom: 12 },
+    lockTitle: { ...typeScale.dayTitle, color: c.navy, marginBottom: 10 },
+    lockBody: { fontSize: 16, lineHeight: 24, color: c.navyMid, marginBottom: 12 },
+    lockHint: { fontSize: 15, fontWeight: '600', color: c.navyMid, marginBottom: 20 },
+    gateKicker: {
+      ...typeScale.kicker,
+      color: c.muted,
+      marginBottom: 10,
+    },
+    gatePrompt: {
+      ...typeScale.question,
+      color: c.navy,
+      marginBottom: 10,
+    },
+    gateHint: { fontSize: 15, color: c.muted, lineHeight: 22, marginBottom: 16 },
+    gateInput: {
+      minHeight: 110,
+      borderWidth: 1,
+      borderColor: c.borderInput,
+      borderRadius: 14,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      fontSize: 17,
+      lineHeight: 26,
+      color: c.navy,
+      backgroundColor: c.bgWash,
+    },
+    title: {
+      ...typeScale.dayTitle,
+      color: c.navy,
+      marginBottom: 8,
+    },
+    readTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+    min: { ...typeScale.meta, color: c.muted },
+    doneBanner: {
+      marginTop: 12,
+      marginBottom: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: c.radiusSm,
+      backgroundColor: 'rgba(34,197,94,0.12)',
+    },
+    doneText: { fontSize: 14, fontWeight: '600', color: '#86efac' },
+    recallSummary: {
+      marginTop: 16,
+      marginBottom: 8,
+      paddingVertical: 12,
+      gap: 6,
+    },
+    recallSummaryTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.navyMid,
+    },
+    recallSummaryAnswer: {
+      fontSize: 15,
+      lineHeight: 22,
+      color: c.navy,
+      fontStyle: 'italic',
+    },
+    recallSummaryPrompt: {
+      marginTop: 6,
+      fontSize: 14,
+      lineHeight: 21,
+      color: c.muted,
+    },
+    recallToggle: { alignSelf: 'flex-start', paddingVertical: 2 },
+    recallToggleLabel: { fontSize: 14, fontWeight: '600', color: c.blue },
+    recallEditInput: {
+      marginTop: 8,
+      minHeight: 64,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.borderSubtle,
+      paddingVertical: 8,
+      fontSize: 15,
+      lineHeight: 22,
+      color: c.navy,
+    },
+    scriptureBlock: {
+      marginTop: 20,
+      marginBottom: 8,
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+      backgroundColor: c.bgWash,
+      borderRadius: c.radiusMd,
+    },
+    scriptureRef: {
+      ...typeScale.metaSm,
+      color: c.muted,
+      marginBottom: 10,
+      textTransform: 'uppercase',
+    },
+    scriptureLoadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 8,
+    },
+    scriptureLoadingText: { fontSize: 14, color: c.muted },
+    scriptureMissing: { fontSize: 14, lineHeight: 21, color: c.muted, fontStyle: 'italic' },
+    scriptureBody: {
+      fontSize: 18,
+      lineHeight: 30,
+      color: c.navyMid,
+      fontStyle: 'italic',
+    },
+    body: {
+      marginTop: 18,
+      ...typeScale.body,
+      color: c.navyMid,
+    },
+    reflectSection: {
+      marginTop: 28,
+      marginBottom: 8,
+      paddingTop: 20,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.borderSubtle,
+    },
+    reflectLabel: {
+      ...typeScale.kicker,
+      color: c.muted,
+      marginBottom: 10,
+    },
+    reflect: {
+      ...typeScale.question,
+      color: c.navy,
+    },
+    commitmentSection: {
+      marginTop: 28,
+      marginBottom: 8,
+      paddingTop: 20,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.borderSubtle,
+    },
+    commitmentTitle: {
+      ...typeScale.sectionTitle,
+      color: c.navy,
+      marginBottom: 6,
+    },
+    commitmentHint: {
+      fontSize: 15,
+      lineHeight: 22,
+      color: c.muted,
+      marginBottom: 12,
+    },
+    commitmentInput: {
+      minHeight: 96,
+      borderBottomWidth: 1.5,
+      borderBottomColor: c.borderInput,
+      paddingVertical: 10,
+      fontSize: 17,
+      lineHeight: 26,
+      color: c.navy,
+    },
+    secondaryBtn: {
+      marginTop: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.borderSubtle,
+      backgroundColor: c.bgWash,
+      paddingVertical: 14,
+      borderRadius: 50,
+      alignItems: 'center',
+    },
+    secondaryBtnLabel: { color: c.navy, fontSize: 15, fontWeight: '600' },
+    ctaSection: { marginTop: 8, paddingBottom: 24 },
+    primaryBtn: {
+      marginTop: 16,
+      backgroundColor: c.ctaSolid,
+      paddingVertical: 15,
+      borderRadius: 50,
+      alignItems: 'center',
+      minHeight: 52,
+      justifyContent: 'center',
+    },
+    primaryBtnDisabled: {
+      backgroundColor: c.bgWash,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.borderSubtle,
+    },
+    primaryBtnInner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      justifyContent: 'center',
+    },
+    primaryBtnPressed: { opacity: 0.9 },
+    primaryBtnLabel: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    primaryBtnLabelDisabled: { color: c.muted },
+    voiceRow: {
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      gap: 8,
+      marginBottom: 12,
+    },
+    voiceButtonsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      alignItems: 'center',
+    },
+    voiceRowAfterInput: {
+      marginTop: 14,
+      marginBottom: 0,
+    },
+    voiceBtnOutline: {
+      backgroundColor: 'transparent',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.borderSubtle,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: c.radiusSm,
+    },
+    voiceBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    recDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: c.ctaSolid,
+    },
+    voiceBtnOutlineLabel: {
+      color: c.muted,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    voiceBtnDanger: {
+      backgroundColor: '#b91c1c',
+      borderColor: '#b91c1c',
+    },
+    voiceBtnDangerLabel: { color: '#fff' },
+    voiceBtnDangerOutline: {
+      borderColor: 'rgba(185,28,28,0.35)',
+    },
+    voiceBtnDangerOutlineLabel: {
+      color: '#b91c1c',
+      fontSize: 14,
+      fontWeight: '500',
+    },
+  });
 }

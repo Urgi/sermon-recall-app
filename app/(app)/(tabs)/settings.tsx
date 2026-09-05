@@ -317,7 +317,7 @@ export default function SettingsScreen() {
       <SettingsPanelModal
         visible={panel === 'account'}
         title="Manage account"
-        subtitle="Leave your church or permanently delete your Sermon Recall account."
+        subtitle="Church membership and account deletion."
         onClose={() => setPanel(null)}
       >
         <LeaveChurchPanel />
@@ -408,7 +408,7 @@ function createStyles(colors: RecallionColors, resolved: 'light' | 'dark') {
       letterSpacing: -0.3,
     },
     profileEmail: { marginTop: 4, fontSize: 15, color: colors.muted },
-    profileChurch: { marginTop: 10, fontSize: 15, fontWeight: '600', color: colors.blue },
+    profileChurch: { marginTop: 10, fontSize: 15, fontWeight: '600', color: colors.navyMid },
     profileRole: { marginTop: 4, fontSize: 13, color: colors.muted },
     joinLink: {
       marginTop: 12,

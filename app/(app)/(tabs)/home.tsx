@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DevotionalNotifyPrompt } from '../../../components/DevotionalNotifyPrompt';
 import { HomeStreakBadge } from '../../../components/HomeStreakBadge';
+import { JourneyProgressBar } from '../../../components/JourneyProgressBar';
 import { ScreenBackdrop } from '../../../components/ScreenBackdrop';
 import { StreakCalendarModal } from '../../../components/StreakCalendarModal';
 import { StreakCelebration } from '../../../components/StreakCelebration';
@@ -263,7 +264,10 @@ export default function HomeScreen() {
           <Text style={styles.greeting}>{greeting}</Text>
 
           {hero ? (
-            <HeroSermonCard summary={hero} styles={styles} />
+            <>
+              <Text style={styles.sectionTitle}>Current journey</Text>
+              <HeroSermonCard summary={hero} styles={styles} />
+            </>
           ) : (
             <View style={styles.empty}>
               <Text style={styles.emptyTitle}>No sermons yet</Text>
@@ -275,7 +279,7 @@ export default function HomeScreen() {
 
           {past.length > 0 ? (
             <>
-              <Text style={styles.pastSectionTitle}>Past sermons</Text>
+              <Text style={styles.pastSectionTitle}>Previous sermons</Text>
               <View style={styles.pastList}>
                 {past.map((item) => (
                   <PastSermonCard key={item.sermon.id} summary={item} styles={styles} />
@@ -287,28 +291,6 @@ export default function HomeScreen() {
       )}
     </SafeAreaView>
     </ScreenBackdrop>
-  );
-}
-
-function ProgressDots({
-  totalDays,
-  completedCount,
-  styles,
-}: {
-  totalDays: number;
-  completedCount: number;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  const segments = Math.max(totalDays, 1);
-  return (
-    <View style={styles.dotsRow}>
-      {Array.from({ length: segments }).map((_, i) => (
-        <View
-          key={i}
-          style={[styles.dot, i < completedCount ? styles.dotDone : styles.dotRest]}
-        />
-      ))}
-    </View>
   );
 }
 
@@ -333,6 +315,8 @@ function HeroSermonCard({
     totalDays > 0 && focusDay ? `Day ${focusDay.day_number} of ${totalDays}` : null;
   const readingTitle = devotionalDisplayTitle(focusDay);
   const { label: statusLabel, tone: statusTone } = heroStatusLabel(summary);
+  const currentDayNumber =
+    !allDone && nextDevotional ? nextDevotional.day_number : null;
 
   const meta =
     [churchDisplayName(sermon.churches), formatSermonDate(sermon.sermon_date)]
@@ -357,71 +341,77 @@ function HeroSermonCard({
 
   return (
     <View style={styles.heroCard}>
-      <View style={styles.heroAccent} />
       <View style={styles.heroInner}>
-      <Text style={styles.heroTitle} numberOfLines={3}>
-        {displaySermonTitle(sermon.title)}
-      </Text>
-      <Text style={styles.heroMeta}>{meta}</Text>
-
-      {dayLabel ? <Text style={styles.heroDayLabel}>{dayLabel}</Text> : null}
-      {readingTitle ? (
-        <Text style={styles.heroReadingTitle} numberOfLines={2}>
-          {readingTitle}
+        <Text style={styles.heroTitle} numberOfLines={3}>
+          {displaySermonTitle(sermon.title, sermon.sermon_date)}
         </Text>
-      ) : null}
+        <Text style={styles.heroMeta}>{meta}</Text>
 
-      {totalDays > 0 ? (
-        <ProgressDots totalDays={totalDays} completedCount={completedCount} styles={styles} />
-      ) : null}
-
-      {/* Skip redundant status when the primary CTA already says continue/begin. */}
-      {!showReadingPrimary ? (
-        <Text
-          style={[
-            styles.statusLabel,
-            statusTone === 'action' ? styles.statusAction : styles.statusMuted,
-          ]}
-        >
-          {statusLabel}
-        </Text>
-      ) : null}
-
-      <View style={styles.heroActions}>
-        {showReadingPrimary ? (
-          <Pressable
-            style={({ pressed }) => [styles.heroCtaPrimary, pressed && styles.heroCtaPressed]}
-            onPress={readingOnPress}
-          >
-            <Text style={styles.heroCtaPrimaryLabel}>{readingLabel}</Text>
-          </Pressable>
-        ) : null}
-
-        <Pressable
-          style={({ pressed }) => [
-            showReadingPrimary ? styles.heroCtaSecondary : styles.heroCtaPrimary,
-            pressed && styles.heroCtaPressed,
-          ]}
-          onPress={() => router.push(`/sermon/${sermon.id}`)}
-        >
-          <Text
-            style={
-              showReadingPrimary ? styles.heroCtaSecondaryLabel : styles.heroCtaPrimaryLabel
-            }
-          >
-            View six-day journey →
+        {dayLabel ? <Text style={styles.heroDayLabel}>{dayLabel}</Text> : null}
+        {readingTitle ? (
+          <Text style={styles.heroReadingTitle} numberOfLines={2}>
+            {readingTitle}
           </Text>
-        </Pressable>
-
-        {!showReadingPrimary && allDone && lastDevotional ? (
-          <Pressable
-            style={({ pressed }) => [styles.heroCtaSecondary, pressed && styles.heroCtaPressed]}
-            onPress={() => router.push(`/devotional/${lastDevotional.id}`)}
-          >
-            <Text style={styles.heroCtaSecondaryLabel}>Review last day →</Text>
-          </Pressable>
         ) : null}
-      </View>
+
+        {totalDays > 0 ? (
+          <View style={styles.progressWrap}>
+            <JourneyProgressBar
+              totalDays={totalDays}
+              completedCount={completedCount}
+              currentDayNumber={currentDayNumber}
+            />
+          </View>
+        ) : null}
+
+        {!showReadingPrimary ? (
+          <Text
+            style={[
+              styles.statusLabel,
+              statusTone === 'action' ? styles.statusAction : styles.statusMuted,
+            ]}
+          >
+            {statusLabel}
+          </Text>
+        ) : null}
+
+        <View style={styles.heroActions}>
+          {showReadingPrimary ? (
+            <Pressable
+              style={({ pressed }) => [styles.heroCtaPrimary, pressed && styles.heroCtaPressed]}
+              onPress={readingOnPress}
+            >
+              <Text style={styles.heroCtaPrimaryLabel}>{readingLabel}</Text>
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            style={({ pressed }) => [
+              showReadingPrimary ? styles.heroTextLink : styles.heroCtaPrimary,
+              pressed && styles.heroCtaPressed,
+            ]}
+            onPress={() => router.push(`/sermon/${sermon.id}`)}
+          >
+            <Text
+              style={
+                showReadingPrimary ? styles.heroTextLinkLabel : styles.heroCtaPrimaryLabel
+              }
+            >
+              {showReadingPrimary
+                ? `View all ${totalDays || 6} days →`
+                : 'View six-day journey →'}
+            </Text>
+          </Pressable>
+
+          {!showReadingPrimary && allDone && lastDevotional ? (
+            <Pressable
+              style={({ pressed }) => [styles.heroTextLink, pressed && styles.heroCtaPressed]}
+              onPress={() => router.push(`/devotional/${lastDevotional.id}`)}
+            >
+              <Text style={styles.heroTextLinkLabel}>Review last day →</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
     </View>
   );
@@ -447,7 +437,7 @@ function PastSermonCard({
       onPress={() => router.push(`/sermon/${sermon.id}`)}
     >
       <Text style={styles.pastTitle} numberOfLines={2}>
-        {displaySermonTitle(sermon.title)}
+        {displaySermonTitle(sermon.title, sermon.sermon_date)}
       </Text>
       <Text style={styles.pastMeta}>{meta}</Text>
       <Text style={[styles.statusLabel, styles.statusMuted]}>{progressLabel}</Text>
@@ -488,8 +478,16 @@ function createStyles(c: RecallionColors) {
       fontWeight: '700',
       color: c.navy,
       letterSpacing: -0.4,
-      marginBottom: 22,
+      marginBottom: 18,
       lineHeight: 36,
+    },
+    sectionTitle: {
+      marginBottom: 10,
+      fontSize: 12,
+      fontWeight: '700',
+      color: c.muted,
+      letterSpacing: 1.1,
+      textTransform: 'uppercase',
     },
     center: {
       flex: 1,
@@ -501,14 +499,10 @@ function createStyles(c: RecallionColors) {
     heroCard: {
       backgroundColor: c.bgCard,
       borderRadius: c.radiusCard,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.borderSubtle,
       overflow: 'hidden',
       ...elevation,
-    },
-    heroAccent: {
-      height: 4,
-      backgroundColor: c.heroAccent,
     },
     heroInner: {
       padding: 22,
@@ -529,7 +523,7 @@ function createStyles(c: RecallionColors) {
       marginTop: 16,
       fontSize: 12,
       fontWeight: '700',
-      color: c.blue,
+      color: c.muted,
       letterSpacing: 1.2,
       textTransform: 'uppercase',
     },
@@ -540,18 +534,9 @@ function createStyles(c: RecallionColors) {
       color: c.navy,
       lineHeight: 24,
     },
-    dotsRow: {
-      flexDirection: 'row',
-      gap: 6,
+    progressWrap: {
       marginTop: 14,
     },
-    dot: {
-      flex: 1,
-      height: 7,
-      borderRadius: 999,
-    },
-    dotDone: { backgroundColor: c.blue },
-    dotRest: { backgroundColor: c.progressRest },
     statusLabel: {
       marginTop: 14,
       fontSize: 15,
@@ -561,41 +546,34 @@ function createStyles(c: RecallionColors) {
     statusMuted: { color: c.muted },
     heroActions: {
       marginTop: 20,
-      gap: 10,
+      gap: 4,
     },
     heroCtaPrimary: {
       backgroundColor: c.ctaSolid,
       borderRadius: 50,
       paddingVertical: 15,
       alignItems: 'center',
+      marginBottom: 8,
     },
-    heroCtaSecondary: {
-      borderRadius: 50,
-      paddingVertical: 14,
+    heroTextLink: {
+      paddingVertical: 10,
       alignItems: 'center',
-      borderWidth: 1,
-      borderColor: c.borderSubtle,
-      backgroundColor: c.bgWash,
     },
-    heroCtaDisabled: { opacity: 0.55 },
     heroCtaPressed: { opacity: 0.92 },
     heroCtaPrimaryLabel: {
       color: '#fff',
       fontSize: 16,
       fontWeight: '700',
     },
-    heroCtaPrimaryLabelDisabled: {
-      color: '#0f172a',
-    },
-    heroCtaSecondaryLabel: {
-      color: c.navy,
+    heroTextLinkLabel: {
+      color: c.blue,
       fontSize: 15,
       fontWeight: '600',
     },
     pastSectionTitle: {
       marginTop: 28,
       marginBottom: 12,
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '700',
       color: c.muted,
       letterSpacing: 1.1,
@@ -612,10 +590,10 @@ function createStyles(c: RecallionColors) {
     },
     pastCardPressed: { opacity: 0.95 },
     pastTitle: {
-      fontSize: 20,
+      fontSize: 18,
       fontWeight: '600',
       color: c.navy,
-      lineHeight: 26,
+      lineHeight: 24,
     },
     pastMeta: {
       marginTop: 6,

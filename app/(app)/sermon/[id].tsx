@@ -11,9 +11,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { JourneyProgressBar } from '../../../components/JourneyProgressBar';
+import { ScreenBackdrop } from '../../../components/ScreenBackdrop';
 import { SermonRecallScreenHeader } from '../../../components/SermonRecallScreenHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
+import { typeScale } from '../../../lib/designTokens';
 import { devotionalDayHeading, devotionalTopic } from '../../../lib/devotionalDayTopics';
 import {
   accessibleDevotionalIds,
@@ -69,32 +72,10 @@ function formatCompletedDate(iso: string | null): string | null {
   if (!iso) return null;
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   } catch {
     return null;
   }
-}
-
-function ProgressDots({
-  totalDays,
-  completedCount,
-  styles,
-}: {
-  totalDays: number;
-  completedCount: number;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  const segments = Math.max(totalDays, 1);
-  return (
-    <View style={styles.dotsRow}>
-      {Array.from({ length: segments }).map((_, i) => (
-        <View
-          key={i}
-          style={[styles.dot, i < completedCount ? styles.dotDone : styles.dotRest]}
-        />
-      ))}
-    </View>
-  );
 }
 
 export default function SermonDetailScreen() {
@@ -210,8 +191,12 @@ export default function SermonDetailScreen() {
   );
 
   const nextUpDevotional = nextDevotional ?? nextLockedDevotional;
+  const currentDayNumber = !allDone && nextDevotional ? nextDevotional.day_number : null;
 
   const preachedLabel = sermon ? formatPreachedDate(sermon.sermon_date) : null;
+  const titleDisplay = sermon
+    ? displaySermonTitle(sermon.title, sermon.sermon_date)
+    : 'Sermon';
 
   function unlockDaysFor(dayNumber: number): number {
     if (!unlockCtx) return 0;
@@ -242,39 +227,37 @@ export default function SermonDetailScreen() {
   const cta = ctaConfig();
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
-      <SermonRecallScreenHeader />
+    <ScreenBackdrop>
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+        <SermonRecallScreenHeader backLabel="Back" />
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.blue} />
-        </View>
-      ) : error || !sermon ? (
-        <View style={styles.padBare}>
-          <Text style={styles.err}>{error ?? 'Not found.'}</Text>
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.scrollOuter}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
-          }
-        >
-          <View style={styles.contentCard}>
-            <View style={styles.cardHero}>
-              <Text style={styles.title}>{displaySermonTitle(sermon.title)}</Text>
-              {sermon.pastor_name ? <Text style={styles.meta}>{sermon.pastor_name}</Text> : null}
-              {preachedLabel ? <Text style={styles.preached}>{preachedLabel}</Text> : null}
-            </View>
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.blue} />
+          </View>
+        ) : error || !sermon ? (
+          <View style={styles.padBare}>
+            <Text style={styles.err}>{error ?? 'Not found.'}</Text>
+          </View>
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.scrollOuter}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
+            }
+          >
+            <Text style={styles.title}>{titleDisplay}</Text>
+            {sermon.pastor_name ? <Text style={styles.meta}>{sermon.pastor_name}</Text> : null}
+            {preachedLabel ? <Text style={styles.preached}>{preachedLabel}</Text> : null}
 
             {totalDays > 0 ? (
-              <View style={styles.progressBanner}>
+              <View style={styles.progressBlock}>
                 <Text style={styles.progressTitle}>Your progress</Text>
-                <ProgressDots
+                <JourneyProgressBar
                   totalDays={totalDays}
                   completedCount={completedCount}
-                  styles={styles}
+                  currentDayNumber={currentDayNumber}
                 />
                 {nextUpDevotional ? (
                   <Text style={styles.nextUp}>
@@ -305,132 +288,103 @@ export default function SermonDetailScreen() {
               </Pressable>
             ) : null}
 
-            <View style={styles.journeySection}>
-              <Text style={styles.section}>Six-day journey</Text>
-              {devotionals.length === 0 ? (
-                <Text style={styles.muted}>
-                  Daily devotionals will appear here once they are published for this sermon.
-                </Text>
-              ) : (
-                <View style={styles.list}>
-                  {devotionals.map((d) => {
-                    const done = completedIds.has(d.id);
-                    const unlocked = unlockedIds.has(d.id);
-                    const isNext = unlocked && !done && nextDevotional?.id === d.id;
-                    const progress = progressByDevotional.get(d.id);
-                    const commitment = progress?.application_commitment?.trim();
-                    const completedLabel = formatCompletedDate(progress?.completed_at ?? null);
-                    const daysUntil = unlockDaysFor(d.day_number);
+            <Text style={styles.section}>Six-day journey</Text>
+            {devotionals.length === 0 ? (
+              <Text style={styles.muted}>
+                Daily devotionals will appear here once they are published for this sermon.
+              </Text>
+            ) : (
+              <View style={styles.list}>
+                {devotionals.map((d) => {
+                  const done = completedIds.has(d.id);
+                  const unlocked = unlockedIds.has(d.id);
+                  const isNext = unlocked && !done && nextDevotional?.id === d.id;
+                  const progress = progressByDevotional.get(d.id);
+                  const commitment = progress?.application_commitment?.trim();
+                  const completedLabel = formatCompletedDate(progress?.completed_at ?? null);
+                  const daysUntil = unlockDaysFor(d.day_number);
 
-                    return (
-                      <Pressable
-                        key={d.id}
-                        disabled={!unlocked && !done}
-                        style={({ pressed }) => [
-                          styles.row,
-                          unlocked && isNext && styles.rowCurrent,
-                          !unlocked && !done && styles.rowLocked,
-                          pressed && (unlocked || done) && styles.rowPressed,
-                        ]}
-                        onPress={() => (unlocked || done) && router.push(`/devotional/${d.id}`)}
-                      >
-                        <View style={styles.rowTop}>
+                  return (
+                    <Pressable
+                      key={d.id}
+                      disabled={!unlocked && !done}
+                      style={({ pressed }) => [
+                        styles.row,
+                        done && styles.rowDone,
+                        unlocked && isNext && styles.rowCurrent,
+                        !unlocked && !done && styles.rowLocked,
+                        pressed && (unlocked || done) && styles.rowPressed,
+                      ]}
+                      onPress={() => (unlocked || done) && router.push(`/devotional/${d.id}`)}
+                    >
+                      <View style={styles.rowMain}>
+                        <View style={styles.rowTextCol}>
                           <Text style={[styles.dayHeading, !unlocked && !done && styles.dayMuted]}>
+                            {done ? '✓ ' : ''}
                             {devotionalDayHeading(d.day_number, d.title)}
                           </Text>
-                          {isNext ? (
-                            <View style={styles.pillNext}>
-                              <Text style={styles.pillNextText}>Current</Text>
-                            </View>
-                          ) : null}
-                        </View>
-
-                        {done ? (
-                          <>
-                            {completedLabel ? (
-                              <Text style={styles.completedMeta}>Completed {completedLabel}</Text>
-                            ) : (
-                              <Text style={styles.completedMeta}>Completed</Text>
-                            )}
-                            {commitment ? (
-                              <Text style={styles.commitmentSnippet} numberOfLines={2}>
-                                You committed: “{commitment}”
+                          {done ? (
+                            <>
+                              <Text style={styles.completedMeta}>
+                                Completed{completedLabel ? ` ${completedLabel}` : ''}
                               </Text>
-                            ) : null}
-                            <Text style={styles.reviewLink}>Review →</Text>
-                          </>
-                        ) : unlocked ? (
-                          <Text style={styles.rowSub}>{d.estimated_minutes} min read</Text>
-                        ) : (
-                          <Text style={styles.rowUnlock}>{formatUnlockLabel(daysUntil)}</Text>
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          </View>
-        </ScrollView>
-      )}
-    </SafeAreaView>
+                              {commitment ? (
+                                <Text style={styles.commitmentSnippet} numberOfLines={1}>
+                                  “{commitment}”
+                                </Text>
+                              ) : null}
+                            </>
+                          ) : unlocked ? (
+                            <Text style={styles.rowSub}>
+                              {isNext ? 'Current · ' : ''}
+                              {d.estimated_minutes} min read
+                            </Text>
+                          ) : (
+                            <Text style={styles.rowUnlock}>{formatUnlockLabel(daysUntil)}</Text>
+                          )}
+                        </View>
+                        {done || unlocked ? (
+                          <Text style={styles.rowChevron}>{done ? 'Review' : 'Open'} →</Text>
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </ScreenBackdrop>
   );
 }
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-  safe: { flex: 1, backgroundColor: c.bgPage },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    safe: { flex: 1, backgroundColor: c.bgPage },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     padBare: { padding: 20, paddingBottom: 40 },
-    scrollOuter: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 40 },
-    contentCard: {
-      backgroundColor: c.bgCard,
-      borderRadius: c.radiusCard,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: c.borderSubtle,
-      overflow: 'hidden',
-    },
-    cardHero: { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 8 },
+    scrollOuter: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 40 },
     err: { color: '#b91c1c', fontSize: 16 },
-    title: { fontSize: 24, fontWeight: '500', color: c.navy, letterSpacing: -0.2 },
-    meta: { marginTop: 8, fontSize: 14, color: c.navyMid },
+    title: { ...typeScale.dayTitle, color: c.navy },
+    meta: { marginTop: 8, fontSize: 15, color: c.navyMid },
     preached: { marginTop: 4, fontSize: 14, color: c.muted },
-    progressBanner: {
-      marginHorizontal: 22,
-      marginBottom: 12,
-      padding: 16,
-      borderRadius: c.radiusMd,
-      backgroundColor: c.bgWash,
-      borderLeftWidth: 3,
-      borderLeftColor: c.blue,
+    progressBlock: {
+      marginTop: 22,
+      marginBottom: 8,
+      gap: 12,
     },
     progressTitle: {
-      fontSize: 11,
-      fontWeight: '500',
-      color: c.blue,
-      letterSpacing: 1,
-      textTransform: 'uppercase',
-      marginBottom: 12,
+      ...typeScale.kicker,
+      color: c.muted,
     },
-    dotsRow: {
-      flexDirection: 'row',
-      gap: 6,
-    },
-    dot: {
-      flex: 1,
-      height: 8,
-      borderRadius: 999,
-    },
-    dotDone: { backgroundColor: c.blue },
-    dotRest: { backgroundColor: c.progressRest },
     nextUp: {
-      marginTop: 14,
       fontSize: 15,
       color: c.navyMid,
       lineHeight: 22,
     },
     heroCta: {
-      marginHorizontal: 22,
+      marginTop: 12,
       marginBottom: 8,
       backgroundColor: c.ctaSolid,
       borderRadius: 50,
@@ -439,8 +393,8 @@ function createStyles(c: RecallionColors) {
     },
     heroCtaDisabled: {
       backgroundColor: c.bgWash,
-      borderWidth: 1,
-      borderColor: c.borderInput,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.borderSubtle,
     },
     heroCtaPressed: { opacity: 0.92 },
     heroCtaLabel: {
@@ -452,77 +406,74 @@ function createStyles(c: RecallionColors) {
       color: c.muted,
       fontWeight: '500',
     },
-    journeySection: { paddingHorizontal: 22, paddingBottom: 24, paddingTop: 8 },
     section: {
-      marginTop: 8,
+      marginTop: 24,
       marginBottom: 12,
-      fontSize: 16,
-      fontWeight: '500',
-      color: c.navy,
+      ...typeScale.kicker,
+      color: c.muted,
     },
     muted: { fontSize: 15, color: c.muted, lineHeight: 22 },
-    list: { gap: 10 },
+    list: { gap: 8 },
     row: {
-      backgroundColor: c.bgCard,
       borderRadius: c.radiusMd,
-      padding: 16,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      backgroundColor: c.bgCard,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.borderSubtle,
     },
+    rowDone: {
+      paddingVertical: 10,
+      backgroundColor: 'transparent',
+      borderColor: 'transparent',
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.borderSubtle,
+      borderRadius: 0,
+      paddingHorizontal: 2,
+    },
     rowCurrent: {
       borderColor: c.blue,
-      borderWidth: 1,
-      backgroundColor: c.bgWash,
+      borderWidth: 1.5,
+      backgroundColor: c.accentSoft,
     },
     rowLocked: {
-      opacity: 0.72,
-      backgroundColor: c.bgWash,
+      opacity: 0.65,
+      backgroundColor: 'transparent',
     },
     rowPressed: { opacity: 0.92 },
-    rowTop: {
+    rowMain: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       gap: 10,
     },
+    rowTextCol: { flex: 1, minWidth: 0 },
     dayHeading: {
-      flex: 1,
       fontSize: 15,
       fontWeight: '600',
       color: c.navy,
-      lineHeight: 21,
+      lineHeight: 20,
     },
     dayMuted: { color: c.muted },
-    pillNext: {
-      backgroundColor: c.bgWash,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 999,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: c.blue,
-    },
-    pillNextText: { fontSize: 12, fontWeight: '600', color: c.blue },
-    rowSub: { marginTop: 8, fontSize: 13, color: c.muted },
-    rowUnlock: { marginTop: 8, fontSize: 13, color: c.muted, fontWeight: '500' },
+    rowSub: { marginTop: 3, fontSize: 13, color: c.muted },
+    rowUnlock: { marginTop: 3, fontSize: 13, color: c.muted, fontWeight: '500' },
     completedMeta: {
-      marginTop: 8,
-      fontSize: 13,
+      marginTop: 2,
+      fontSize: 12,
       color: c.muted,
       fontWeight: '500',
     },
     commitmentSnippet: {
-      marginTop: 6,
-      fontSize: 14,
+      marginTop: 3,
+      fontSize: 13,
       color: c.navyMid,
-      lineHeight: 20,
+      lineHeight: 18,
       fontStyle: 'italic',
     },
-    reviewLink: {
-      marginTop: 10,
-      fontSize: 15,
+    rowChevron: {
+      fontSize: 13,
       fontWeight: '600',
       color: c.blue,
-      alignSelf: 'flex-start',
+      flexShrink: 0,
     },
   });
 }
