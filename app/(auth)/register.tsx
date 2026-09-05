@@ -1,4 +1,4 @@
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -62,19 +62,21 @@ export default function RegisterScreen() {
   }
 
   return (
-    <KeyboardFormScreen backgroundColor={colors.bgPage}>
+    <KeyboardFormScreen backgroundColor={colors.bgPage} centerContent={false}>
       <View style={styles.card}>
         <Image
           source={require('../../assets/logo.png')}
           style={styles.logo}
           accessibilityLabel="Sermon Recall"
         />
+        <Text style={styles.kicker}>Get started</Text>
         <Text style={styles.title}>Create account</Text>
         <Text style={styles.hint}>We’ll email a one-time code to finish signing up.</Text>
 
+        <Text style={styles.fieldLabel}>Full name</Text>
         <TextInput
           style={styles.input}
-          placeholder="Full name (optional)"
+          placeholder="Optional"
           placeholderTextColor={colors.muted}
           autoComplete="name"
           value={fullName}
@@ -84,10 +86,11 @@ export default function RegisterScreen() {
           blurOnSubmit={false}
           onSubmitEditing={() => emailRef.current?.focus()}
         />
+        <Text style={styles.fieldLabel}>Email</Text>
         <TextInput
           ref={emailRef}
           style={styles.input}
-          placeholder="Email"
+          placeholder="Email address"
           placeholderTextColor={colors.muted}
           autoCapitalize="none"
           keyboardType="email-address"
@@ -126,20 +129,37 @@ export default function RegisterScreen() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Pressable
-          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          style={({ pressed }) => [
+            styles.button,
+            (!email.trim() || submitting) && styles.buttonDisabled,
+            pressed && email.trim() && !submitting && styles.buttonPressed,
+          ]}
           onPress={() => void onSubmit()}
-          disabled={submitting}
+          disabled={!email.trim() || submitting}
         >
           {submitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonLabel}>Email me a code</Text>
+            <Text
+              style={[
+                styles.buttonLabel,
+                (!email.trim() || submitting) && styles.buttonLabelDisabled,
+              ]}
+            >
+              Email me a code
+            </Text>
           )}
         </Pressable>
 
-        <Link href="/login" style={styles.link}>
-          Already have an account? Sign in
-        </Link>
+        <Pressable
+          onPress={() => router.push('/login')}
+          style={styles.signupRow}
+          accessibilityRole="button"
+          accessibilityLabel="Sign in"
+        >
+          <Text style={styles.signupPrompt}>Already have an account? </Text>
+          <Text style={styles.signupLink}>Sign in</Text>
+        </Pressable>
       </View>
     </KeyboardFormScreen>
   );
@@ -147,21 +167,35 @@ export default function RegisterScreen() {
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-    card: { gap: 12 },
+    card: { gap: 0, alignSelf: 'stretch' },
     logo: {
-      width: 88,
-      height: 88,
+      width: 72,
+      height: 72,
       borderRadius: 16,
-      alignSelf: 'center',
-      marginBottom: 4,
+      alignSelf: 'flex-start',
+      marginBottom: 20,
     },
-    title: { fontSize: 26, fontWeight: '700', color: c.navy, marginBottom: 4 },
-    hint: { fontSize: 15, color: c.muted, marginBottom: 8, lineHeight: 22 },
-    fieldLabel: { marginTop: 4, fontSize: 14, fontWeight: '600', color: c.navy },
-    fieldHint: { marginTop: 2, marginBottom: 8, fontSize: 13, color: c.muted, lineHeight: 18 },
-    languageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    kicker: {
+      fontSize: 12,
+      letterSpacing: 1.6,
+      textTransform: 'uppercase',
+      color: c.blue,
+      fontWeight: '600',
+      marginBottom: 10,
+    },
+    title: {
+      fontSize: 32,
+      fontWeight: '700',
+      color: c.navy,
+      marginBottom: 10,
+      lineHeight: 38,
+    },
+    hint: { fontSize: 16, color: c.muted, marginBottom: 28, lineHeight: 24 },
+    fieldLabel: { fontSize: 13, fontWeight: '600', color: c.navy, marginBottom: 8 },
+    fieldHint: { marginBottom: 10, fontSize: 13, color: c.muted, lineHeight: 18 },
+    languageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
     languageChip: {
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: c.borderInput,
       borderRadius: 10,
       paddingHorizontal: 12,
@@ -175,25 +209,42 @@ function createStyles(c: RecallionColors) {
     languageChipLabel: { fontSize: 14, fontWeight: '500', color: c.navy },
     languageChipLabelSelected: { color: c.blue, fontWeight: '600' },
     input: {
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: c.borderInput,
-      borderRadius: 12,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      minHeight: 56,
       fontSize: 16,
       color: c.navy,
       backgroundColor: c.bgCard,
+      marginBottom: 16,
     },
-    error: { color: '#fca5a5', fontSize: 14 },
+    error: { color: '#fca5a5', fontSize: 14, marginBottom: 12 },
     button: {
       backgroundColor: c.ctaSolid,
-      paddingVertical: 14,
-      borderRadius: 12,
+      paddingVertical: 16,
+      borderRadius: 50,
       alignItems: 'center',
-      marginTop: 8,
+      justifyContent: 'center',
+      minHeight: 54,
+    },
+    buttonDisabled: {
+      backgroundColor: c.bgCard,
+      borderWidth: 1,
+      borderColor: c.borderInput,
     },
     buttonPressed: { opacity: 0.9 },
-    buttonLabel: { color: '#fff', fontSize: 17, fontWeight: '600' },
-    link: { marginTop: 16, textAlign: 'center', fontSize: 16, color: c.blue, fontWeight: '600' },
+    buttonLabel: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    buttonLabelDisabled: { color: c.muted },
+    signupRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: 28,
+      paddingVertical: 8,
+      flexWrap: 'wrap',
+    },
+    signupPrompt: { color: c.muted, fontSize: 15 },
+    signupLink: { color: c.navy, fontSize: 15, fontWeight: '600' },
   });
 }

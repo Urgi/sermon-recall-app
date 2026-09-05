@@ -1,12 +1,15 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  findNodeHandle,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View,
+  type ScrollView,
 } from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -19,7 +22,12 @@ import {
 } from '../lib/accountDeletion';
 import type { RecallionColors } from '../lib/recallionTheme';
 
-export function DeleteAccountPanel() {
+type Props = {
+  /** Parent Settings ScrollView — keep confirm field + delete button above the keyboard. */
+  scrollRef?: React.RefObject<ScrollView | null>;
+};
+
+export function DeleteAccountPanel({ scrollRef }: Props) {
   const { session, signOut } = useAuth();
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -31,6 +39,7 @@ export function DeleteAccountPanel() {
   const [churchAck, setChurchAck] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const formRef = useRef<View>(null);
 
   const loadPreview = useCallback(async () => {
     if (!session?.access_token) return;
@@ -41,11 +50,34 @@ export function DeleteAccountPanel() {
     setAccountEmail(email ?? session.user.email ?? '');
     if (err) setError(err);
     setLoadingPreview(false);
-  }, [session?.access_token]);
+  }, [session?.access_token, session?.user.email]);
 
   useEffect(() => {
     void loadPreview();
   }, [loadPreview]);
+
+  function scrollFormIntoView() {
+    const parent = scrollRef?.current;
+    const child = formRef.current;
+    if (!parent || !child) {
+      parent?.scrollToEnd({ animated: true });
+      return;
+    }
+    const childNode = findNodeHandle(child);
+    const parentNode = findNodeHandle(parent);
+    if (!childNode || !parentNode) {
+      parent.scrollToEnd({ animated: true });
+      return;
+    }
+    UIManager.measureLayout(
+      childNode,
+      parentNode,
+      () => parent.scrollToEnd({ animated: true }),
+      (_x, y) => {
+        parent.scrollTo({ y: Math.max(0, y - 16), animated: true });
+      },
+    );
+  }
 
   async function onDelete() {
     if (!session) return;
@@ -75,7 +107,7 @@ export function DeleteAccountPanel() {
   }
 
   return (
-    <View style={styles.wrap}>
+    <View style={styles.wrap} ref={formRef} collapsable={false}>
       <Text style={styles.title}>Delete account</Text>
       <Text style={styles.hint}>
         Permanently remove your profile, progress, and sign-in. This cannot be undone.
@@ -107,10 +139,7 @@ export function DeleteAccountPanel() {
           ) : null}
 
           {preview?.will_delete_church ? (
-            <Pressable
-              style={styles.checkRow}
-              onPress={() => setChurchAck((v) => !v)}
-            >
+            <Pressable style={styles.checkRow} onPress={() => setChurchAck((v) => !v)}>
               <View style={[styles.checkbox, churchAck && styles.checkboxOn]} />
               <Text style={styles.checkLabel}>
                 I understand members will lose access to this church on Sermon Recall.
@@ -131,6 +160,10 @@ export function DeleteAccountPanel() {
             placeholderTextColor={colors.muted}
             returnKeyType="done"
             submitBehavior="submit"
+            onFocus={() => {
+              setTimeout(scrollFormIntoView, 100);
+              setTimeout(scrollFormIntoView, 350);
+            }}
             onSubmitEditing={() => void onDelete()}
           />
 
@@ -168,6 +201,7 @@ function createStyles(c: RecallionColors) {
   return StyleSheet.create({
     wrap: {
       marginTop: 28,
+      marginBottom: 24,
       padding: 16,
       borderRadius: c.radiusMd,
       borderWidth: 1,

@@ -91,19 +91,26 @@ export default function VerifyEmailScreen() {
     setResendNotice(err ?? 'New code sent. Check your inbox and spam.');
   }
 
+  const codeReady = code.trim().length >= 6 && email.trim().length > 0;
+  const showEmailField = !initialEmail;
+
   return (
-    <KeyboardFormScreen backgroundColor={colors.bgPage}>
+    <KeyboardFormScreen backgroundColor={colors.bgPage} centerContent={false}>
       <View style={styles.card}>
-        <AuthBackButtonSlot />
+        <AuthBackButtonSlot href="/register" label="Back" />
+
         <Image
           source={require('../../assets/logo.png')}
           style={styles.logo}
           accessibilityLabel="Sermon Recall"
         />
+
+        <Text style={styles.kicker}>Verification</Text>
         <Text style={styles.title}>Enter your code</Text>
-        <Text style={styles.hint}>
-          Enter the one-time code from your email. Links in that email will not sign you in — the
-          code is required.
+        <Text style={styles.subtitle}>
+          {email.trim()
+            ? `We sent a code to ${email.trim().toLowerCase()}.`
+            : 'Enter the one-time code from your email.'}
         </Text>
 
         {linkRejected ? (
@@ -112,55 +119,71 @@ export default function VerifyEmailScreen() {
           </View>
         ) : null}
 
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor={colors.muted}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-          value={email}
-          onChangeText={setEmail}
-          returnKeyType="next"
-          submitBehavior="submit"
-          blurOnSubmit={false}
-          onSubmitEditing={() => codeRef.current?.focus()}
-        />
+        {showEmailField ? (
+          <>
+            <Text style={styles.fieldLabel}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Email address"
+              placeholderTextColor={colors.muted}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+              value={email}
+              onChangeText={setEmail}
+              returnKeyType="next"
+              submitBehavior="submit"
+              blurOnSubmit={false}
+              onSubmitEditing={() => codeRef.current?.focus()}
+            />
+          </>
+        ) : null}
+
         <TextInput
           ref={codeRef}
           style={[styles.input, styles.codeInput]}
-          placeholder="Code"
+          placeholder="000000"
           placeholderTextColor={colors.muted}
           autoCapitalize="none"
           autoCorrect={false}
-          keyboardType="numbers-and-punctuation"
+          keyboardType="number-pad"
           textContentType="oneTimeCode"
           autoComplete="one-time-code"
           maxLength={8}
           value={code}
           onChangeText={(t) => setCode(t.replace(/\D/g, ''))}
-          returnKeyType="go"
-          submitBehavior="submit"
-          onSubmitEditing={() => void onVerify()}
+          autoFocus={!showEmailField}
         />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {resendNotice ? <Text style={styles.notice}>{resendNotice}</Text> : null}
 
         <Pressable
-          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          style={({ pressed }) => [
+            styles.button,
+            (!codeReady || submitting) && styles.buttonDisabled,
+            pressed && codeReady && !submitting && styles.buttonPressed,
+          ]}
           onPress={() => void onVerify()}
-          disabled={submitting}
+          disabled={!codeReady || submitting}
         >
           {submitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonLabel}>Verify code</Text>
+            <Text
+              style={[styles.buttonLabel, (!codeReady || submitting) && styles.buttonLabelDisabled]}
+            >
+              Verify code
+            </Text>
           )}
         </Pressable>
 
-        <Pressable onPress={() => void onResend()} disabled={resendPending || submitting}>
-          <Text style={styles.link}>{resendPending ? 'Sending…' : 'Resend code'}</Text>
+        <Pressable
+          onPress={() => void onResend()}
+          disabled={resendPending || submitting}
+          style={styles.linkButton}
+        >
+          <Text style={styles.linkText}>{resendPending ? 'Sending…' : 'Resend code'}</Text>
         </Pressable>
       </View>
     </KeyboardFormScreen>
@@ -169,50 +192,97 @@ export default function VerifyEmailScreen() {
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-    card: { gap: 12 },
+    card: { gap: 0, alignSelf: 'stretch' },
     logo: {
-      width: 88,
-      height: 88,
+      width: 72,
+      height: 72,
       borderRadius: 16,
-      alignSelf: 'center',
-      marginBottom: 4,
+      alignSelf: 'flex-start',
+      marginBottom: 20,
     },
-    title: { fontSize: 26, fontWeight: '700', color: c.navy },
-    hint: { fontSize: 15, color: c.muted, marginBottom: 8, lineHeight: 22 },
+    kicker: {
+      fontSize: 12,
+      letterSpacing: 1.6,
+      textTransform: 'uppercase',
+      color: c.blue,
+      fontWeight: '600',
+      marginBottom: 10,
+    },
+    title: {
+      fontSize: 32,
+      fontWeight: '700',
+      color: c.navy,
+      marginBottom: 10,
+      lineHeight: 38,
+    },
+    subtitle: {
+      fontSize: 16,
+      color: c.muted,
+      marginBottom: 28,
+      lineHeight: 24,
+    },
+    fieldLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.navy,
+      marginBottom: 8,
+    },
     input: {
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: c.borderInput,
-      borderRadius: 12,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      minHeight: 56,
       fontSize: 16,
       color: c.navy,
       backgroundColor: c.bgCard,
+      marginBottom: 16,
     },
     codeInput: {
-      fontSize: 18,
-      letterSpacing: 4,
+      fontSize: 28,
+      fontWeight: '600',
+      letterSpacing: 8,
+      textAlign: 'center',
       fontVariant: ['tabular-nums'],
+      paddingVertical: 18,
     },
-    error: { color: '#fca5a5', fontSize: 14 },
-    notice: { color: '#86efac', fontSize: 14 },
+    error: { color: '#fca5a5', fontSize: 14, marginBottom: 12, marginTop: -8 },
+    notice: { color: '#86efac', fontSize: 14, marginBottom: 12, marginTop: -8 },
     noticeBox: {
       borderWidth: 1,
       borderColor: 'rgba(248, 113, 113, 0.65)',
       backgroundColor: '#4a1212',
-      borderRadius: 12,
+      borderRadius: 14,
       padding: 14,
+      marginBottom: 20,
     },
     noticeBoxText: { fontSize: 14, lineHeight: 20, color: '#fecaca' },
     button: {
       backgroundColor: c.ctaSolid,
-      paddingVertical: 14,
-      borderRadius: 12,
+      paddingVertical: 16,
+      borderRadius: 50,
       alignItems: 'center',
-      marginTop: 8,
+      justifyContent: 'center',
+      minHeight: 54,
+    },
+    buttonDisabled: {
+      backgroundColor: c.bgCard,
+      borderWidth: 1,
+      borderColor: c.borderInput,
     },
     buttonPressed: { opacity: 0.9 },
-    buttonLabel: { color: '#fff', fontSize: 17, fontWeight: '600' },
-    link: { marginTop: 8, textAlign: 'center', fontSize: 16, color: c.blue, fontWeight: '600' },
+    buttonLabel: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    buttonLabelDisabled: { color: c.muted },
+    linkButton: {
+      marginTop: 8,
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    linkText: {
+      color: c.blue,
+      fontSize: 15,
+      fontWeight: '500',
+      textAlign: 'center',
+    },
   });
 }

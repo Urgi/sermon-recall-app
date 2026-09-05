@@ -105,7 +105,12 @@ export function heroStatusLabel(summary: SermonHomeSummary): {
 } {
   if (summary.totalDays === 0) return { label: 'Coming soon', tone: 'muted' };
   if (summary.allDone) return { label: 'Completed', tone: 'muted' };
-  if (summary.nextDevotional) return { label: "Today's reading", tone: 'action' };
+  if (summary.nextDevotional) {
+    return {
+      label: `Day ${summary.nextDevotional.day_number} ready`,
+      tone: 'action',
+    };
+  }
   return { label: 'Opens on the calendar', tone: 'muted' };
 }
 
@@ -118,8 +123,20 @@ export function pastSermonProgressLabel(summary: SermonHomeSummary): string {
 export function devotionalDisplayTitle(next?: NextDevotionalHome | null): string | null {
   if (!next) return null;
   const trimmed = next.title?.trim();
-  if (trimmed) return trimmed;
+  if (trimmed && !isPlaceholderTitle(trimmed)) return trimmed;
   return `Day ${next.day_number}`;
+}
+
+/** Avoid showing seed/junk titles like literal "title" in the UI. */
+export function displaySermonTitle(raw: string | null | undefined): string {
+  const trimmed = raw?.trim();
+  if (!trimmed || isPlaceholderTitle(trimmed)) return 'Untitled sermon';
+  return trimmed;
+}
+
+function isPlaceholderTitle(title: string): boolean {
+  const n = title.trim().toLowerCase();
+  return n === 'title' || n === 'untitled' || n === 'n/a' || n === 'null' || n === 'undefined';
 }
 
 export function timeOfDayGreeting(now = new Date()): string {

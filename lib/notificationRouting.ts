@@ -25,8 +25,14 @@ function routeFromNotificationData(data: PushData | undefined): void {
     return;
   }
 
-  if (data.kind === 'new_devotionals' && data.sermonId) {
-    router.push(`/sermon/${data.sermonId}`);
+  if (data.kind === 'new_devotionals') {
+    if (typeof data.devotionalId === 'string' && data.devotionalId.length > 0) {
+      router.push(`/devotional/${data.devotionalId}`);
+      return;
+    }
+    if (data.sermonId) {
+      router.push(`/sermon/${data.sermonId}`);
+    }
     return;
   }
 

@@ -27,6 +27,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { accessibleDevotionalIds, buildUnlockContext, nextUnlockedIncompleteDevotional } from '../../../lib/devotionalUnlock';
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
 import type { RecallionColors } from '../../../lib/recallionTheme';
+import { displaySermonTitle } from '../../../lib/sermonHomeStatus';
 import { supabase } from '../../../lib/supabase';
 import { touchDevotionalOpen } from '../../../lib/touchDevotionalOpen';
 import { queuePendingToast } from '../../../lib/pendingToast';
@@ -106,7 +107,6 @@ export default function DevotionalScreen() {
   const playAfterLoadRef = useRef(false);
   const playbackFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentScrollRef = useRef<ScrollView>(null);
-  const gateScrollRef = useRef<ScrollView>(null);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recordState = useAudioRecorderState(recorder, 400);
@@ -171,7 +171,7 @@ export default function DevotionalScreen() {
     ]);
 
     const sm = s as SermonTiny | null;
-    setSermonTitle(sm?.title ?? null);
+    setSermonTitle(sm?.title ? displaySermonTitle(sm.title) : null);
     setSermonDate(sm?.sermon_date ?? null);
     setTotalDays(countRes.count ?? 0);
 
@@ -620,9 +620,8 @@ export default function DevotionalScreen() {
         </ScrollView>
       ) : needsPreSessionGate ? (
         <ScrollView
-          ref={gateScrollRef}
           style={styles.scrollFill}
-          contentContainerStyle={[styles.scrollOuter, styles.scrollOuterFill, { paddingBottom: 120 }]}
+          contentContainerStyle={[styles.scrollOuter, { paddingBottom: 32 }]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
           automaticallyAdjustKeyboardInsets
@@ -632,7 +631,7 @@ export default function DevotionalScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
           }
         >
-          <View style={[styles.contentCard, styles.contentCardFill]}>
+          <View style={styles.contentCard}>
             {sermonTitle ? (
               <View style={styles.sermonHeaderRow}>
                 <View style={styles.sermonMark}>
@@ -668,8 +667,7 @@ export default function DevotionalScreen() {
               <Text style={styles.gateKicker}>Pre-session retrieval</Text>
               <Text style={styles.gatePrompt}>{gatePromptText}</Text>
               <Text style={styles.gateHint}>
-                Answer from memory first — then today&apos;s reading, reflection, and commitment will
-                unlock below.
+                Write a short answer from memory. Today&apos;s reading unlocks next.
               </Text>
               <TextInput
                 style={styles.gateInput}
@@ -678,22 +676,31 @@ export default function DevotionalScreen() {
                 value={recallDraft}
                 onChangeText={setRecallDraft}
                 editable={!saving && Boolean(session?.user)}
+                multiline
+                textAlignVertical="top"
+                autoCorrect
                 returnKeyType="done"
-                submitBehavior="submit"
                 blurOnSubmit
-                onFocus={() => {
-                  setTimeout(() => gateScrollRef.current?.scrollToEnd({ animated: true }), 100);
-                }}
                 onSubmitEditing={() => void submitGate()}
               />
               {error ? <Text style={styles.inlineErr}>{error}</Text> : null}
               <Pressable
-                style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
+                style={({ pressed }) => [
+                  styles.primaryBtn,
+                  (!recallDraft.trim() || saving || !session?.user) && styles.primaryBtnDisabled,
+                  pressed && recallDraft.trim() && !saving && styles.primaryBtnPressed,
+                ]}
                 onPress={() => void submitGate()}
-                disabled={saving || !session?.user}
+                disabled={saving || !session?.user || !recallDraft.trim()}
               >
-                <Text style={styles.primaryBtnLabel}>
-                  {saving ? 'Saving…' : 'Submit answer & open devotional'}
+                <Text
+                  style={[
+                    styles.primaryBtnLabel,
+                    (!recallDraft.trim() || saving || !session?.user) &&
+                      styles.primaryBtnLabelDisabled,
+                  ]}
+                >
+                  {saving ? 'Saving…' : 'Continue'}
                 </Text>
               </Pressable>
             </View>
@@ -980,8 +987,6 @@ function createStyles(c: RecallionColors) {
   padBare: { padding: 20, paddingBottom: 48 },
   scrollOuter: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 48 },
   scrollFill: { flex: 1, backgroundColor: c.bgCard },
-  scrollOuterFill: { flexGrow: 1 },
-  contentCardFill: { flex: 1 },
   contentCard: {
     backgroundColor: c.bgCard,
     borderRadius: c.radiusCard,
@@ -1052,31 +1057,32 @@ function createStyles(c: RecallionColors) {
   lockHint: { fontSize: 16, fontWeight: '600', color: c.blue, marginBottom: 20 },
   gateKicker: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
     color: c.blue,
     textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  gatePrompt: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: c.navy,
-    lineHeight: 26,
+    letterSpacing: 1.4,
     marginBottom: 10,
   },
-  gateHint: { fontSize: 14, color: c.muted, lineHeight: 21, marginBottom: 16 },
-  gateInput: {
-    minHeight: 48,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: c.borderInput,
-    borderRadius: c.radiusSm,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    fontSize: 14,
-    lineHeight: 21,
+  gatePrompt: {
+    fontSize: 20,
+    fontWeight: '600',
     color: c.navy,
-    backgroundColor: c.bgCard,
+    lineHeight: 28,
+    marginBottom: 10,
+  },
+  gateHint: { fontSize: 15, color: c.muted, lineHeight: 22, marginBottom: 16 },
+  gateInput: {
+    minHeight: 110,
+    borderWidth: 1,
+    borderColor: c.borderInput,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0,
+    color: c.navy,
+    backgroundColor: c.bgWash,
   },
   title: {
     fontSize: 24,
@@ -1225,8 +1231,15 @@ function createStyles(c: RecallionColors) {
     marginTop: 16,
     backgroundColor: c.ctaSolid,
     paddingVertical: 15,
-    borderRadius: c.radiusMd,
+    borderRadius: 50,
     alignItems: 'center',
+    minHeight: 52,
+    justifyContent: 'center',
+  },
+  primaryBtnDisabled: {
+    backgroundColor: c.bgCard,
+    borderWidth: 1,
+    borderColor: c.borderInput,
   },
   primaryBtnInner: {
     flexDirection: 'row',
@@ -1235,7 +1248,8 @@ function createStyles(c: RecallionColors) {
     justifyContent: 'center',
   },
   primaryBtnPressed: { opacity: 0.9 },
-  primaryBtnLabel: { color: '#fff', fontSize: 15, fontWeight: '500' },
+  primaryBtnLabel: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  primaryBtnLabelDisabled: { color: c.muted },
   input: {
     minHeight: 100,
     borderWidth: StyleSheet.hairlineWidth,

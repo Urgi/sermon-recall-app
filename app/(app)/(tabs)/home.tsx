@@ -12,23 +12,23 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppMenu } from '../../components/AppMenu';
-import { DevotionalNotifyPrompt } from '../../components/DevotionalNotifyPrompt';
-import { HomeStreakBadge } from '../../components/HomeStreakBadge';
-import { StreakCalendarModal } from '../../components/StreakCalendarModal';
-import { StreakCelebration } from '../../components/StreakCelebration';
-import { useAuth } from '../../contexts/AuthContext';
-import { useRecallionTheme } from '../../contexts/ThemeContext';
-import type { RecallionColors } from '../../lib/recallionTheme';
+import { DevotionalNotifyPrompt } from '../../../components/DevotionalNotifyPrompt';
+import { HomeStreakBadge } from '../../../components/HomeStreakBadge';
+import { StreakCalendarModal } from '../../../components/StreakCalendarModal';
+import { StreakCelebration } from '../../../components/StreakCelebration';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useRecallionTheme } from '../../../contexts/ThemeContext';
+import type { RecallionColors } from '../../../lib/recallionTheme';
 import {
   claimStreakCelebrationForToday,
   fetchChurchTimeZone,
   fetchDevotionalStreakStatus,
   type DevotionalStreakStatus,
-} from '../../lib/devotionalStreak';
+} from '../../../lib/devotionalStreak';
 import {
   type DevotionalHomeRow,
   devotionalDisplayTitle,
+  displaySermonTitle,
   churchDisplayName,
   formatSermonDate,
   greetingFirstName,
@@ -39,8 +39,8 @@ import {
   type SermonHomeSummary,
   summarizeSermonForHome,
   timeOfDayGreeting,
-} from '../../lib/sermonHomeStatus';
-import { supabase } from '../../lib/supabase';
+} from '../../../lib/sermonHomeStatus';
+import { supabase } from '../../../lib/supabase';
 
 export default function HomeScreen() {
   const { session, profile, loading, refreshProfile } = useAuth();
@@ -202,7 +202,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       {profile?.id && showNotifyPrompt ? (
         <DevotionalNotifyPrompt
           visible
@@ -230,7 +230,7 @@ export default function HomeScreen() {
 
       <View style={styles.header}>
         <Image
-          source={require('../../assets/logo.png')}
+          source={require('../../../assets/logo.png')}
           style={styles.brandMark}
           accessibilityLabel="Sermon Recall"
         />
@@ -240,7 +240,6 @@ export default function HomeScreen() {
             loading={streakLoading}
             onPress={() => setShowStreakCalendar(true)}
           />
-          <AppMenu />
         </View>
       </View>
 
@@ -338,8 +337,15 @@ function HeroSermonCard({
   const lastDevotional = devotionals[devotionals.length - 1];
   const showReadingPrimary = Boolean(nextDevotional);
 
+  const dayNum = nextDevotional?.day_number;
   const readingLabel =
-    completedCount > 0 ? "Continue today's reading →" : "Begin today's reading →";
+    completedCount > 0
+      ? dayNum
+        ? `Continue Day ${dayNum} →`
+        : "Continue today's reading →"
+      : dayNum
+        ? `Begin Day ${dayNum} →`
+        : "Begin today's reading →";
   const readingOnPress = nextDevotional
     ? () => router.push(`/devotional/${nextDevotional.id}`)
     : undefined;
@@ -347,7 +353,7 @@ function HeroSermonCard({
   return (
     <View style={styles.heroCard}>
       <Text style={styles.heroTitle} numberOfLines={3}>
-        {sermon.title?.trim() || 'Untitled sermon'}
+        {displaySermonTitle(sermon.title)}
       </Text>
       <Text style={styles.heroMeta}>{meta}</Text>
 
@@ -362,14 +368,17 @@ function HeroSermonCard({
         <ProgressDots totalDays={totalDays} completedCount={completedCount} styles={styles} />
       ) : null}
 
-      <Text
-        style={[
-          styles.statusLabel,
-          statusTone === 'action' ? styles.statusAction : styles.statusMuted,
-        ]}
-      >
-        {statusLabel}
-      </Text>
+      {/* Skip redundant status when the primary CTA already says continue/begin. */}
+      {!showReadingPrimary ? (
+        <Text
+          style={[
+            styles.statusLabel,
+            statusTone === 'action' ? styles.statusAction : styles.statusMuted,
+          ]}
+        >
+          {statusLabel}
+        </Text>
+      ) : null}
 
       <View style={styles.heroActions}>
         {showReadingPrimary ? (
@@ -430,7 +439,7 @@ function PastSermonCard({
       onPress={() => router.push(`/sermon/${sermon.id}`)}
     >
       <Text style={styles.pastTitle} numberOfLines={2}>
-        {sermon.title?.trim() || 'Untitled sermon'}
+        {displaySermonTitle(sermon.title)}
       </Text>
       <Text style={styles.pastMeta}>{meta}</Text>
       <Text style={[styles.statusLabel, styles.statusMuted]}>{progressLabel}</Text>
@@ -442,7 +451,7 @@ function createStyles(c: RecallionColors) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bgPage },
     scroll: { flex: 1 },
-    scrollContent: { paddingHorizontal: 20, paddingBottom: 32 },
+    scrollContent: { paddingHorizontal: 20, paddingBottom: 24 },
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -463,7 +472,13 @@ function createStyles(c: RecallionColors) {
       letterSpacing: -0.3,
       marginBottom: 20,
     },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 48 },
+    center: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingTop: 48,
+      backgroundColor: c.bgPage,
+    },
     heroCard: {
       backgroundColor: c.bgCard,
       borderRadius: c.radiusCard,
@@ -522,24 +537,24 @@ function createStyles(c: RecallionColors) {
       gap: 10,
     },
     heroCtaPrimary: {
-      backgroundColor: c.blue,
-      borderRadius: c.radiusMd,
-      paddingVertical: 14,
+      backgroundColor: c.ctaSolid,
+      borderRadius: 50,
+      paddingVertical: 15,
       alignItems: 'center',
     },
     heroCtaSecondary: {
-      borderRadius: c.radiusMd,
+      borderRadius: 50,
       paddingVertical: 14,
       alignItems: 'center',
       borderWidth: 1,
       borderColor: c.borderSubtle,
-      backgroundColor: c.bgWash,
+      backgroundColor: 'transparent',
     },
     heroCtaDisabled: { opacity: 0.55 },
     heroCtaPressed: { opacity: 0.92 },
     heroCtaPrimaryLabel: {
-      color: '#05070a',
-      fontSize: 17,
+      color: '#fff',
+      fontSize: 16,
       fontWeight: '700',
     },
     heroCtaPrimaryLabelDisabled: {
@@ -547,7 +562,7 @@ function createStyles(c: RecallionColors) {
     },
     heroCtaSecondaryLabel: {
       color: c.navy,
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: '600',
     },
     pastSectionTitle: {

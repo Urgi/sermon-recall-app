@@ -1,4 +1,4 @@
-import { Link, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -52,6 +52,13 @@ export default function LoginScreen() {
     }
   }, [loading, session, profileLoading, params.confirmed]);
 
+  function backToEmail() {
+    setStep('email');
+    setCode('');
+    setError(null);
+    setNotice(null);
+  }
+
   async function onSendCode() {
     setError(null);
     setNotice(null);
@@ -99,33 +106,49 @@ export default function LoginScreen() {
     setNotice(err ?? 'New code sent. Check inbox and spam.');
   }
 
+  const emailReady = email.trim().length > 0;
+  const codeReady = code.trim().length >= 6;
+
   return (
-    <KeyboardFormScreen backgroundColor={colors.bgPage}>
+    <KeyboardFormScreen backgroundColor={colors.bgPage} centerContent={step === 'email'}>
       <View style={styles.card}>
+        {step === 'code' ? (
+          <Pressable
+            onPress={backToEmail}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            style={({ pressed }) => [styles.backRow, pressed && styles.pressed]}
+          >
+            <Text style={styles.backLabel}>← Back</Text>
+          </Pressable>
+        ) : null}
+
         <Image
           source={require('../../assets/logo.png')}
           style={styles.logo}
           accessibilityLabel="Sermon Recall"
         />
-        <Text style={styles.title}>Sign in</Text>
-        <Text style={styles.hint}>
-          {step === 'email'
-            ? 'We’ll email you a one-time code — no password needed.'
-            : `Enter the code we sent to ${email.trim().toLowerCase()}.`}
-        </Text>
-
-        {showUseCodeHint ? (
-          <View style={styles.linkErrorBox} accessibilityRole="alert">
-            <Text style={styles.linkErrorTitle}>Use your email code</Text>
-            <Text style={styles.linkErrorBody}>{USE_CODE_NOT_LINK_MESSAGE}</Text>
-          </View>
-        ) : null}
 
         {step === 'email' ? (
           <>
+            <Text style={styles.kicker}>Sign in</Text>
+            <Text style={styles.title}>Welcome back</Text>
+            <Text style={styles.subtitle}>
+              We’ll email you a one-time code — no password needed.
+            </Text>
+
+            {showUseCodeHint ? (
+              <View style={styles.linkErrorBox} accessibilityRole="alert">
+                <Text style={styles.linkErrorTitle}>Use your email code</Text>
+                <Text style={styles.linkErrorBody}>{USE_CODE_NOT_LINK_MESSAGE}</Text>
+              </View>
+            ) : null}
+
+            <Text style={styles.fieldLabel}>Email</Text>
             <TextInput
               style={styles.input}
-              placeholder="Email"
+              placeholder="Email address"
               placeholderTextColor={colors.muted}
               autoCapitalize="none"
               keyboardType="email-address"
@@ -138,70 +161,97 @@ export default function LoginScreen() {
             />
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <Pressable
-              style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+              style={({ pressed }) => [
+                styles.button,
+                (!emailReady || submitting) && styles.buttonDisabled,
+                pressed && emailReady && !submitting && styles.buttonPressed,
+              ]}
               onPress={() => void onSendCode()}
-              disabled={submitting}
+              disabled={!emailReady || submitting}
             >
               {submitting ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.buttonLabel}>Email me a code</Text>
+                <Text
+                  style={[
+                    styles.buttonLabel,
+                    (!emailReady || submitting) && styles.buttonLabelDisabled,
+                  ]}
+                >
+                  Email me a code
+                </Text>
               )}
+            </Pressable>
+
+            <Pressable
+              onPress={() => router.push('/register')}
+              style={styles.signupRow}
+              accessibilityRole="button"
+              accessibilityLabel="Create account"
+            >
+              <Text style={styles.signupPrompt}>New to Sermon Recall? </Text>
+              <Text style={styles.signupLink}>Create account</Text>
             </Pressable>
           </>
         ) : (
           <>
+            <Text style={styles.kicker}>Verification</Text>
+            <Text style={styles.title}>Enter your code</Text>
+            <Text style={styles.subtitle}>
+              We sent a code to {email.trim().toLowerCase()}.
+            </Text>
+
             <TextInput
               ref={codeRef}
               style={[styles.input, styles.codeInput]}
-              placeholder="Sign-in code"
+              placeholder="000000"
               placeholderTextColor={colors.muted}
               autoCapitalize="none"
               autoCorrect={false}
-              keyboardType="numbers-and-punctuation"
+              keyboardType="number-pad"
               textContentType="oneTimeCode"
               autoComplete="one-time-code"
               maxLength={8}
               value={code}
               onChangeText={(t) => setCode(t.replace(/\D/g, ''))}
-              returnKeyType="go"
-              submitBehavior="submit"
-              onSubmitEditing={() => void onVerify()}
             />
             {error ? <Text style={styles.error}>{error}</Text> : null}
             {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+
             <Pressable
-              style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+              style={({ pressed }) => [
+                styles.button,
+                (!codeReady || submitting) && styles.buttonDisabled,
+                pressed && codeReady && !submitting && styles.buttonPressed,
+              ]}
               onPress={() => void onVerify()}
-              disabled={submitting}
+              disabled={!codeReady || submitting}
             >
               {submitting ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.buttonLabel}>Verify & sign in</Text>
+                <Text
+                  style={[
+                    styles.buttonLabel,
+                    (!codeReady || submitting) && styles.buttonLabelDisabled,
+                  ]}
+                >
+                  Verify code
+                </Text>
               )}
             </Pressable>
-            <Pressable onPress={() => void onResend()} disabled={resendPending || submitting}>
-              <Text style={styles.secondaryLink}>
+
+            <Pressable
+              onPress={() => void onResend()}
+              disabled={resendPending || submitting}
+              style={styles.linkButton}
+            >
+              <Text style={styles.linkText}>
                 {resendPending ? 'Sending…' : 'Resend code'}
               </Text>
             </Pressable>
-            <Pressable
-              onPress={() => {
-                setStep('email');
-                setCode('');
-                setError(null);
-                setNotice(null);
-              }}
-            >
-              <Text style={styles.secondaryLink}>Use a different email</Text>
-            </Pressable>
           </>
         )}
-
-        <Link href="/register" style={styles.link}>
-          Create an account
-        </Link>
       </View>
     </KeyboardFormScreen>
   );
@@ -209,59 +259,117 @@ export default function LoginScreen() {
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-    card: { gap: 12 },
-    logo: {
-      width: 88,
-      height: 88,
-      borderRadius: 16,
-      alignSelf: 'center',
-      marginBottom: 4,
+    card: { gap: 0, alignSelf: 'stretch' },
+    backRow: {
+      alignSelf: 'flex-start',
+      marginBottom: 12,
+      paddingVertical: 4,
+      marginLeft: -4,
     },
-    title: { fontSize: 26, fontWeight: '700', color: c.navy },
-    hint: { fontSize: 15, color: c.muted, marginBottom: 8, lineHeight: 22 },
+    backLabel: { fontSize: 16, fontWeight: '600', color: c.blue },
+    pressed: { opacity: 0.7 },
+    logo: {
+      width: 72,
+      height: 72,
+      borderRadius: 16,
+      alignSelf: 'flex-start',
+      marginBottom: 20,
+    },
+    kicker: {
+      fontSize: 12,
+      letterSpacing: 1.6,
+      textTransform: 'uppercase',
+      color: c.blue,
+      fontWeight: '600',
+      marginBottom: 10,
+    },
+    title: {
+      fontSize: 32,
+      fontWeight: '700',
+      color: c.navy,
+      marginBottom: 10,
+      lineHeight: 38,
+    },
+    subtitle: {
+      fontSize: 16,
+      color: c.muted,
+      marginBottom: 28,
+      lineHeight: 24,
+    },
+    fieldLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.navy,
+      marginBottom: 8,
+    },
     linkErrorBox: {
       borderWidth: 1,
       borderColor: 'rgba(248, 113, 113, 0.65)',
       backgroundColor: '#4a1212',
-      borderRadius: 12,
+      borderRadius: 14,
       padding: 14,
       gap: 6,
+      marginBottom: 20,
     },
     linkErrorTitle: { fontSize: 15, fontWeight: '700', color: '#fff1f2' },
     linkErrorBody: { fontSize: 14, lineHeight: 20, color: '#fecaca' },
     input: {
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: c.borderInput,
-      borderRadius: 12,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      minHeight: 56,
       fontSize: 16,
       color: c.navy,
       backgroundColor: c.bgCard,
+      marginBottom: 16,
     },
     codeInput: {
-      fontSize: 18,
-      letterSpacing: 4,
+      fontSize: 28,
+      fontWeight: '600',
+      letterSpacing: 8,
+      textAlign: 'center',
       fontVariant: ['tabular-nums'],
+      paddingVertical: 18,
     },
-    error: { color: '#fca5a5', fontSize: 14 },
-    notice: { color: '#86efac', fontSize: 14 },
+    error: { color: '#fca5a5', fontSize: 14, marginBottom: 12, marginTop: -8 },
+    notice: { color: '#86efac', fontSize: 14, marginBottom: 12, marginTop: -8 },
     button: {
       backgroundColor: c.ctaSolid,
-      paddingVertical: 14,
-      borderRadius: 12,
+      paddingVertical: 16,
+      borderRadius: 50,
       alignItems: 'center',
-      marginTop: 8,
+      justifyContent: 'center',
+      minHeight: 54,
+    },
+    buttonDisabled: {
+      backgroundColor: c.bgCard,
+      borderWidth: 1,
+      borderColor: c.borderInput,
     },
     buttonPressed: { opacity: 0.9 },
-    buttonLabel: { color: '#fff', fontSize: 17, fontWeight: '600' },
-    secondaryLink: {
-      marginTop: 4,
-      textAlign: 'center',
-      fontSize: 15,
-      color: c.blue,
-      fontWeight: '600',
+    buttonLabel: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    buttonLabelDisabled: { color: c.muted },
+    linkButton: {
+      marginTop: 8,
+      paddingVertical: 12,
+      alignItems: 'center',
     },
-    link: { marginTop: 16, textAlign: 'center', fontSize: 16, color: c.blue, fontWeight: '600' },
+    linkText: {
+      color: c.blue,
+      fontSize: 15,
+      fontWeight: '500',
+      textAlign: 'center',
+    },
+    signupRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: 28,
+      paddingVertical: 8,
+      flexWrap: 'wrap',
+    },
+    signupPrompt: { color: c.muted, fontSize: 15 },
+    signupLink: { color: c.navy, fontSize: 15, fontWeight: '600' },
   });
 }

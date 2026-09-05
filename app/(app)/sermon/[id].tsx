@@ -24,6 +24,7 @@ import {
   nextUnlockedIncompleteDevotional,
 } from '../../../lib/devotionalUnlock';
 import type { RecallionColors } from '../../../lib/recallionTheme';
+import { displaySermonTitle } from '../../../lib/sermonHomeStatus';
 import { supabase } from '../../../lib/supabase';
 
 type SermonRow = {
@@ -275,7 +276,7 @@ export default function SermonDetailScreen() {
         >
           <View style={styles.contentCard}>
             <View style={styles.cardHero}>
-              <Text style={styles.title}>{sermon.title}</Text>
+              <Text style={styles.title}>{displaySermonTitle(sermon.title)}</Text>
               {sermon.pastor_name ? <Text style={styles.meta}>{sermon.pastor_name}</Text> : null}
               {preachedLabel ? <Text style={styles.preached}>{preachedLabel}</Text> : null}
             </View>
