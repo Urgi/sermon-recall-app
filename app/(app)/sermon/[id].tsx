@@ -110,7 +110,6 @@ export default function SermonDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isCurrentSermon, setIsCurrentSermon] = useState(true);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = Boolean(opts?.silent);
@@ -129,23 +128,11 @@ export default function SermonDetailScreen() {
       setSermon(null);
       setDevotionals([]);
       setProgressByDevotional(new Map());
-      setIsCurrentSermon(true);
       if (!silent) setLoading(false);
       return;
     }
 
     setSermon(s as SermonRow);
-
-    const { data: latestSermon } = await supabase
-      .from('sermons')
-      .select('id')
-      .eq('church_id', (s as SermonRow).church_id)
-      .eq('workflow_status', 'published')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    setIsCurrentSermon(latestSermon?.id === s.id);
 
     const { data: days } = await supabase
       .from('devotionals')
@@ -237,7 +224,7 @@ export default function SermonDetailScreen() {
     }
     if (nextDevotional) {
       return {
-        label: isCurrentSermon ? "Continue today's day →" : 'Continue devotionals →',
+        label: `Continue Day ${nextDevotional.day_number} →`,
         disabled: false,
         onPress: () => router.push(`/devotional/${nextDevotional.id}`),
       };
@@ -445,8 +432,8 @@ function createStyles(c: RecallionColors) {
     heroCta: {
       marginHorizontal: 22,
       marginBottom: 8,
-      backgroundColor: c.blue,
-      borderRadius: c.radiusMd,
+      backgroundColor: c.ctaSolid,
+      borderRadius: 50,
       paddingVertical: 15,
       alignItems: 'center',
     },
@@ -458,8 +445,8 @@ function createStyles(c: RecallionColors) {
     heroCtaPressed: { opacity: 0.92 },
     heroCtaLabel: {
       fontSize: 16,
-      fontWeight: '600',
-      color: '#05070a',
+      fontWeight: '700',
+      color: '#ffffff',
     },
     heroCtaLabelDisabled: {
       color: c.muted,

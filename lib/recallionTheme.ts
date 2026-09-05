@@ -3,12 +3,17 @@
  * Use `getRecallionColors(resolved)` so light / dark / system preferences apply.
  */
 
+import type { ViewStyle } from 'react-native';
+
 export type ThemePreference = 'dark' | 'light' | 'system';
 
 export type RecallionColors = {
   bgPage: string;
-  bgCard: string;
+  /** Soft page wash / secondary surface (streak chips, inputs). */
   bgWash: string;
+  bgCard: string;
+  /** Absolute gradient stops for ScreenBackdrop (top → bottom). */
+  bgGradient: readonly [string, string, string];
   borderSubtle: string;
   borderInput: string;
   navy: string;
@@ -19,6 +24,15 @@ export type RecallionColors = {
   progressRest: string;
   brandMarkBg: string;
   brandMarkText: string;
+  /** Soft fill behind focused tab icons / selected chips. */
+  accentSoft: string;
+  /** Hero card accent edge (light mode) / border (dark). */
+  heroAccent: string;
+  shadowColor: string;
+  shadowOpacity: number;
+  shadowRadius: number;
+  shadowOffsetY: number;
+  elevation: number;
   radiusCard: number;
   radiusMd: number;
   radiusSm: number;
@@ -29,8 +43,9 @@ export type RecallionColors = {
 
 const dark: RecallionColors = {
   bgPage: '#05070a',
-  bgCard: '#0a0f18',
   bgWash: '#020617',
+  bgCard: '#0a0f18',
+  bgGradient: ['#05070a', '#05070a', '#05070a'],
   borderSubtle: 'rgba(56, 189, 248, 0.12)',
   borderInput: 'rgba(56, 189, 248, 0.22)',
   navy: '#f8fafc',
@@ -41,6 +56,13 @@ const dark: RecallionColors = {
   progressRest: '#1e293b',
   brandMarkBg: '#020617',
   brandMarkText: '#38bdf8',
+  accentSoft: 'rgba(56, 189, 248, 0.14)',
+  heroAccent: '#38bdf8',
+  shadowColor: '#000000',
+  shadowOpacity: 0,
+  shadowRadius: 0,
+  shadowOffsetY: 0,
+  elevation: 0,
   radiusCard: 20,
   radiusMd: 12,
   radiusSm: 10,
@@ -48,23 +70,32 @@ const dark: RecallionColors = {
   statusBarStyle: 'light',
 };
 
+/** Daylight paper + cool sky — crisp ink, soft depth (no warm/pink casts). */
 const light: RecallionColors = {
-  bgPage: '#f1f5f9',
+  bgPage: '#eef3f8',
+  bgWash: '#e2ebf4',
   bgCard: '#ffffff',
-  bgWash: '#e2e8f0',
-  borderSubtle: 'rgba(15, 23, 42, 0.1)',
-  borderInput: 'rgba(15, 23, 42, 0.16)',
-  navy: '#0f172a',
-  navyMid: '#334155',
-  blue: '#0284c7',
-  ctaSolid: '#0ea5e9',
-  muted: '#64748b',
-  progressRest: '#cbd5e1',
-  brandMarkBg: '#f8fafc',
-  brandMarkText: '#0284c7',
-  radiusCard: 20,
-  radiusMd: 12,
-  radiusSm: 10,
+  bgGradient: ['#eef3f8', '#eef3f8', '#eef3f8'],
+  borderSubtle: 'rgba(15, 40, 70, 0.08)',
+  borderInput: 'rgba(15, 40, 70, 0.14)',
+  navy: '#0b1f33',
+  navyMid: '#2a4058',
+  blue: '#0369a1',
+  ctaSolid: '#0284c7',
+  muted: '#5b6f86',
+  progressRest: '#c5d4e4',
+  brandMarkBg: '#ffffff',
+  brandMarkText: '#0369a1',
+  accentSoft: 'rgba(3, 105, 161, 0.1)',
+  heroAccent: '#0284c7',
+  shadowColor: '#0b1f33',
+  shadowOpacity: 0.08,
+  shadowRadius: 14,
+  shadowOffsetY: 6,
+  elevation: 3,
+  radiusCard: 22,
+  radiusMd: 14,
+  radiusSm: 12,
   hairline: 0.5,
   statusBarStyle: 'dark',
 };
@@ -83,4 +114,18 @@ export function resolveThemePreference(
 
 export function getRecallionColors(resolved: 'light' | 'dark'): RecallionColors {
   return resolved === 'light' ? light : dark;
+}
+
+/** Soft card elevation — meaningful in bright mode, no-op in dark. */
+export function cardShadowStyle(c: RecallionColors): ViewStyle {
+  if (c.elevation <= 0) {
+    return {};
+  }
+  return {
+    shadowColor: c.shadowColor,
+    shadowOpacity: c.shadowOpacity,
+    shadowRadius: c.shadowRadius,
+    shadowOffset: { width: 0, height: c.shadowOffsetY },
+    elevation: c.elevation,
+  };
 }

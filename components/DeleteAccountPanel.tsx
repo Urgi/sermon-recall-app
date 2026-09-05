@@ -29,8 +29,8 @@ type Props = {
 
 export function DeleteAccountPanel({ scrollRef }: Props) {
   const { session, signOut } = useAuth();
-  const { colors } = useRecallionTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { colors, resolved } = useRecallionTheme();
+  const styles = useMemo(() => createStyles(colors, resolved), [colors, resolved]);
   const [preview, setPreview] = useState<AccountDeletionPreview | null>(null);
   const [accountEmail, setAccountEmail] = useState('');
   const [loadingPreview, setLoadingPreview] = useState(true);
@@ -197,38 +197,63 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
   );
 }
 
-function createStyles(c: RecallionColors) {
+function createStyles(c: RecallionColors, resolved: 'light' | 'dark') {
+  const light = resolved === 'light';
   return StyleSheet.create({
     wrap: {
       marginTop: 28,
       marginBottom: 24,
       padding: 16,
       borderRadius: c.radiusMd,
-      borderWidth: 1,
-      borderColor: 'rgba(248, 113, 113, 0.35)',
-      backgroundColor: 'rgba(127, 29, 29, 0.15)',
+      borderWidth: 1.5,
+      borderColor: light ? 'rgba(185, 28, 28, 0.35)' : 'rgba(248, 113, 113, 0.35)',
+      backgroundColor: light ? '#fff5f5' : 'rgba(127, 29, 29, 0.2)',
     },
-    title: { fontSize: 18, fontWeight: '600', color: '#fecaca' },
-    hint: { marginTop: 8, fontSize: 14, color: c.muted, lineHeight: 20 },
+    title: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: light ? '#991b1b' : '#fecaca',
+    },
+    hint: {
+      marginTop: 8,
+      fontSize: 14,
+      color: light ? '#7f1d1d' : c.muted,
+      lineHeight: 20,
+      opacity: light ? 0.9 : 1,
+    },
     outlineBtn: {
       marginTop: 12,
       paddingVertical: 12,
       alignItems: 'center',
       borderRadius: c.radiusMd,
-      borderWidth: 1,
-      borderColor: 'rgba(248, 113, 113, 0.5)',
+      borderWidth: 1.5,
+      borderColor: light ? '#b91c1c' : 'rgba(248, 113, 113, 0.5)',
+      backgroundColor: light ? '#ffffff' : 'transparent',
     },
-    outlineLabel: { color: '#fca5a5', fontSize: 16, fontWeight: '600' },
+    outlineLabel: {
+      color: light ? '#b91c1c' : '#fca5a5',
+      fontSize: 16,
+      fontWeight: '700',
+    },
     form: { marginTop: 12, gap: 12 },
     warnBox: {
       padding: 12,
       borderRadius: c.radiusMd,
       borderWidth: 1,
-      borderColor: 'rgba(251, 191, 36, 0.4)',
-      backgroundColor: 'rgba(120, 53, 15, 0.25)',
+      borderColor: light ? 'rgba(180, 83, 9, 0.45)' : 'rgba(251, 191, 36, 0.4)',
+      backgroundColor: light ? '#fffbeb' : 'rgba(120, 53, 15, 0.25)',
     },
-    warnTitle: { fontWeight: '600', color: '#fde68a', fontSize: 15 },
-    warnText: { marginTop: 8, fontSize: 14, color: '#fef3c7', lineHeight: 20 },
+    warnTitle: {
+      fontWeight: '700',
+      color: light ? '#92400e' : '#fde68a',
+      fontSize: 15,
+    },
+    warnText: {
+      marginTop: 8,
+      fontSize: 14,
+      color: light ? '#78350f' : '#fef3c7',
+      lineHeight: 20,
+    },
     checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
     checkbox: {
       marginTop: 2,
@@ -240,10 +265,10 @@ function createStyles(c: RecallionColors) {
     },
     checkboxOn: { backgroundColor: c.blue, borderColor: c.blue },
     checkLabel: { flex: 1, fontSize: 14, color: c.navy, lineHeight: 20 },
-    inputLabel: { fontSize: 14, color: c.muted },
+    inputLabel: { fontSize: 14, color: light ? '#7f1d1d' : c.muted, fontWeight: '600' },
     input: {
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: 'rgba(248, 113, 113, 0.4)',
+      borderWidth: 1,
+      borderColor: light ? 'rgba(185, 28, 28, 0.35)' : 'rgba(248, 113, 113, 0.4)',
       borderRadius: c.radiusMd,
       paddingHorizontal: 14,
       paddingVertical: 12,
@@ -251,14 +276,14 @@ function createStyles(c: RecallionColors) {
       color: c.navy,
       backgroundColor: c.bgCard,
     },
-    error: { color: '#fca5a5', fontSize: 14 },
+    error: { color: light ? '#b91c1c' : '#fca5a5', fontSize: 14, fontWeight: '600' },
     dangerBtn: {
-      backgroundColor: '#dc2626',
+      backgroundColor: '#b91c1c',
       paddingVertical: 14,
-      borderRadius: c.radiusMd,
+      borderRadius: 50,
       alignItems: 'center',
     },
-    dangerLabel: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    dangerLabel: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
     cancel: { textAlign: 'center', color: c.muted, fontSize: 16, paddingVertical: 8 },
     pressed: { opacity: 0.88 },
   });

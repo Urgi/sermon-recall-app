@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
+import { ReminderTimePicker } from '../../components/ReminderTimePicker';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
@@ -21,6 +22,11 @@ import {
   languageOptionLabel,
 } from '../../lib/i18n/languages';
 import type { RecallionColors } from '../../lib/recallionTheme';
+import {
+  clockToHour24,
+  DEFAULT_REMINDER_CLOCK,
+  type ReminderClock,
+} from '../../lib/reminderTime';
 
 export default function RegisterScreen() {
   const { colors } = useRecallionTheme();
@@ -30,6 +36,7 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [preferredLanguage, setPreferredLanguage] =
     useState<AppLanguage>(DEFAULT_APP_LANGUAGE);
+  const [reminderClock, setReminderClock] = useState<ReminderClock>(DEFAULT_REMINDER_CLOCK);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const emailRef = useRef<TextInput>(null);
@@ -52,6 +59,7 @@ export default function RegisterScreen() {
       createUser: true,
       fullName: fullName.trim() || undefined,
       preferredLanguage,
+      notifyHour: clockToHour24(reminderClock),
     });
     setSubmitting(false);
     if (err) {
@@ -97,9 +105,8 @@ export default function RegisterScreen() {
           autoComplete="email"
           value={email}
           onChangeText={setEmail}
-          returnKeyType="go"
-          submitBehavior="submit"
-          onSubmitEditing={() => void onSubmit()}
+          returnKeyType="done"
+          submitBehavior="blurAndSubmit"
         />
 
         <Text style={styles.fieldLabel}>Preferred language</Text>
@@ -126,6 +133,12 @@ export default function RegisterScreen() {
             );
           })}
         </View>
+
+        <Text style={styles.fieldLabel}>Daily reminder</Text>
+        <Text style={styles.fieldHint}>
+          When should we nudge you about today&apos;s reading? Change anytime in Settings.
+        </Text>
+        <ReminderTimePicker value={reminderClock} onChange={setReminderClock} />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Pressable
@@ -191,9 +204,9 @@ function createStyles(c: RecallionColors) {
       lineHeight: 38,
     },
     hint: { fontSize: 16, color: c.muted, marginBottom: 28, lineHeight: 24 },
-    fieldLabel: { fontSize: 13, fontWeight: '600', color: c.navy, marginBottom: 8 },
+    fieldLabel: { fontSize: 13, fontWeight: '600', color: c.navy, marginBottom: 8, marginTop: 8 },
     fieldHint: { marginBottom: 10, fontSize: 13, color: c.muted, lineHeight: 18 },
-    languageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+    languageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
     languageChip: {
       borderWidth: 1,
       borderColor: c.borderInput,
@@ -217,10 +230,11 @@ function createStyles(c: RecallionColors) {
       fontSize: 16,
       color: c.navy,
       backgroundColor: c.bgCard,
-      marginBottom: 16,
+      marginBottom: 8,
     },
-    error: { color: '#fca5a5', fontSize: 14, marginBottom: 12 },
+    error: { color: '#b91c1c', fontSize: 14, marginBottom: 12, marginTop: 12, fontWeight: '600' },
     button: {
+      marginTop: 20,
       backgroundColor: c.ctaSolid,
       paddingVertical: 16,
       borderRadius: 50,

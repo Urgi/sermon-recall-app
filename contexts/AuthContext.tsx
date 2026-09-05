@@ -34,6 +34,8 @@ type AuthContextValue = {
     options?: {
       fullName?: string;
       preferredLanguage?: string;
+      /** Custom reminder hour 0–23; omit to leave unset until notify prompt. */
+      notifyHour?: number;
       /** false = existing accounts only (sign-in). Default true for create-account. */
       createUser?: boolean;
     },
@@ -128,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       options?: {
         fullName?: string;
         preferredLanguage?: string;
+        notifyHour?: number;
         createUser?: boolean;
       },
     ) => {
@@ -147,6 +150,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ? options.preferredLanguage
           : 'en';
 
+      const hour =
+        typeof options?.notifyHour === 'number' &&
+        options.notifyHour >= 0 &&
+        options.notifyHour <= 23
+          ? options.notifyHour
+          : undefined;
+
       const { error } = await supabase.auth.signInWithOtp({
         email: trimmed,
         options: {
@@ -155,6 +165,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             ? {
                 full_name: options?.fullName?.trim() || undefined,
                 preferred_language: lang,
+                ...(hour != null
+                  ? {
+                      devotional_notify_hour: hour,
+                      devotional_notify_enabled: true,
+                      devotional_notify_prompt_done: true,
+                    }
+                  : {}),
               }
             : undefined,
         },

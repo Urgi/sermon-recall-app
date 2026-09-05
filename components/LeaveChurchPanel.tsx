@@ -8,8 +8,8 @@ import type { RecallionColors } from '../lib/recallionTheme';
 
 export function LeaveChurchPanel() {
   const { profile, leaveChurch } = useAuth();
-  const { colors } = useRecallionTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { colors, resolved } = useRecallionTheme();
+  const styles = useMemo(() => createStyles(colors, resolved), [colors, resolved]);
   const [pending, setPending] = useState(false);
 
   const canLeave = Boolean(profile?.church_id && profile.role === 'member');
@@ -54,7 +54,7 @@ export function LeaveChurchPanel() {
         disabled={pending}
       >
         {pending ? (
-          <ActivityIndicator color="#f87171" />
+          <ActivityIndicator color={resolved === 'light' ? '#b91c1c' : '#f87171'} />
         ) : (
           <Text style={styles.buttonLabel}>Leave church</Text>
         )}
@@ -63,20 +63,26 @@ export function LeaveChurchPanel() {
   );
 }
 
-function createStyles(c: RecallionColors) {
+function createStyles(c: RecallionColors, resolved: 'light' | 'dark') {
+  const light = resolved === 'light';
   return StyleSheet.create({
     wrap: { marginTop: 28 },
-    title: { fontSize: 18, fontWeight: '600', color: c.navy },
+    title: { fontSize: 18, fontWeight: '700', color: c.navy },
     hint: { marginTop: 6, fontSize: 15, color: c.muted, lineHeight: 22 },
     button: {
       marginTop: 14,
       paddingVertical: 14,
-      borderRadius: c.radiusMd,
-      borderWidth: 1,
-      borderColor: 'rgba(248, 113, 113, 0.45)',
+      borderRadius: 50,
+      borderWidth: 1.5,
+      borderColor: light ? '#b91c1c' : 'rgba(248, 113, 113, 0.55)',
+      backgroundColor: light ? '#ffffff' : 'transparent',
       alignItems: 'center',
     },
     pressed: { opacity: 0.85 },
-    buttonLabel: { fontSize: 16, fontWeight: '600', color: '#f87171' },
+    buttonLabel: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: light ? '#b91c1c' : '#fca5a5',
+    },
   });
 }

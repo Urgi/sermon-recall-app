@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
@@ -14,12 +14,14 @@ function TabIcon({
   size,
   active,
   inactive,
+  accentSoft,
 }: {
   focused: boolean;
   color: string;
   size: number;
   active: IoniconName;
   inactive: IoniconName;
+  accentSoft: string;
 }) {
   const iconSize = focused ? Math.round(size * 1.12) : size;
   return (
@@ -30,7 +32,7 @@ function TabIcon({
         borderRadius: 17,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: focused ? 'rgba(56, 189, 248, 0.14)' : 'transparent',
+        backgroundColor: focused ? accentSoft : 'transparent',
       }}
     >
       <Ionicons name={focused ? active : inactive} size={iconSize} color={color} />
@@ -50,18 +52,18 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '600',
+          fontWeight: '700',
           marginTop: 2,
         },
+        sceneStyle: { backgroundColor: colors.bgPage },
         tabBarStyle: {
           backgroundColor: colors.bgCard,
           borderTopColor: colors.borderSubtle,
-          borderTopWidth: 1,
+          borderTopWidth: StyleSheet.hairlineWidth,
           height: 52 + Math.max(insets.bottom, 8),
           paddingTop: 6,
           paddingBottom: Math.max(insets.bottom, 8),
         },
-        sceneStyle: { backgroundColor: colors.bgPage },
       }}
     >
       <Tabs.Screen
@@ -75,21 +77,7 @@ export default function TabsLayout() {
               size={size}
               active="book"
               inactive="book-outline"
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size, focused }) => (
-            <TabIcon
-              focused={focused}
-              color={color}
-              size={size}
-              active="person"
-              inactive="person-outline"
+              accentSoft={colors.accentSoft}
             />
           ),
         }}
@@ -105,6 +93,7 @@ export default function TabsLayout() {
               size={size}
               active="settings"
               inactive="settings-outline"
+              accentSoft={colors.accentSoft}
             />
           ),
         }}

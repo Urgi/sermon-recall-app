@@ -15,6 +15,18 @@ export async function ensurePublicUserProfile(
 
   const fullName = user.user_metadata?.full_name;
   const preferredLanguage = user.user_metadata?.preferred_language;
+  const rawHour = user.user_metadata?.devotional_notify_hour;
+  const notifyHour =
+    typeof rawHour === 'number' && rawHour >= 0 && rawHour <= 23
+      ? rawHour
+      : typeof rawHour === 'string' && /^\d+$/.test(rawHour)
+        ? Number(rawHour)
+        : null;
+  const validHour =
+    typeof notifyHour === 'number' && notifyHour >= 0 && notifyHour <= 23 ? notifyHour : null;
+  const notifyEnabledMeta = user.user_metadata?.devotional_notify_enabled;
+  const promptDoneMeta = user.user_metadata?.devotional_notify_prompt_done;
+
   const { error: insertError } = await supabase.from('users').insert({
     id: user.id,
     full_name: typeof fullName === 'string' && fullName.trim() ? fullName.trim() : null,
@@ -22,6 +34,13 @@ export async function ensurePublicUserProfile(
       typeof preferredLanguage === 'string' && ['en', 'es', 'fr'].includes(preferredLanguage)
         ? preferredLanguage
         : 'en',
+    ...(validHour != null
+      ? {
+          devotional_notify_hour: validHour,
+          devotional_notify_enabled: notifyEnabledMeta !== false,
+          devotional_notify_prompt_done: promptDoneMeta !== false,
+        }
+      : {}),
   });
 
   if (insertError) return { ok: false, error: insertError.message };

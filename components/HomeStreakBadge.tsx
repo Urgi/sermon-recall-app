@@ -87,7 +87,7 @@ function createStyles(c: RecallionColors) {
     },
     wrapPressed: { opacity: 0.85 },
     wrapActive: {
-      backgroundColor: c.bgWash,
+      backgroundColor: c.accentSoft,
       borderColor: c.blue,
     },
     wrapIdle: {
@@ -100,10 +100,10 @@ function createStyles(c: RecallionColors) {
       borderRadius: 8,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: c.bgPage,
+      backgroundColor: c.bgWash,
     },
     iconShellActive: {
-      backgroundColor: c.bgWash,
+      backgroundColor: c.bgCard,
     },
     count: {
       fontSize: 13,

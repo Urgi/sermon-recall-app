@@ -14,11 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DevotionalNotifyPrompt } from '../../../components/DevotionalNotifyPrompt';
 import { HomeStreakBadge } from '../../../components/HomeStreakBadge';
+import { ScreenBackdrop } from '../../../components/ScreenBackdrop';
 import { StreakCalendarModal } from '../../../components/StreakCalendarModal';
 import { StreakCelebration } from '../../../components/StreakCelebration';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
-import type { RecallionColors } from '../../../lib/recallionTheme';
+import { cardShadowStyle, type RecallionColors } from '../../../lib/recallionTheme';
 import {
   claimStreakCelebrationForToday,
   fetchChurchTimeZone,
@@ -202,6 +203,7 @@ export default function HomeScreen() {
   }
 
   return (
+    <ScreenBackdrop>
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       {profile?.id && showNotifyPrompt ? (
         <DevotionalNotifyPrompt
@@ -229,11 +231,13 @@ export default function HomeScreen() {
       ) : null}
 
       <View style={styles.header}>
-        <Image
-          source={require('../../../assets/logo.png')}
-          style={styles.brandMark}
-          accessibilityLabel="Sermon Recall"
-        />
+        <View style={styles.brandMarkWrap}>
+          <Image
+            source={require('../../../assets/logo.png')}
+            style={styles.brandMark}
+            accessibilityLabel="Sermon Recall"
+          />
+        </View>
         <View style={styles.headerRight}>
           <HomeStreakBadge
             status={streakStatus}
@@ -282,6 +286,7 @@ export default function HomeScreen() {
         </ScrollView>
       )}
     </SafeAreaView>
+    </ScreenBackdrop>
   );
 }
 
@@ -352,6 +357,8 @@ function HeroSermonCard({
 
   return (
     <View style={styles.heroCard}>
+      <View style={styles.heroAccent} />
+      <View style={styles.heroInner}>
       <Text style={styles.heroTitle} numberOfLines={3}>
         {displaySermonTitle(sermon.title)}
       </Text>
@@ -415,6 +422,7 @@ function HeroSermonCard({
           </Pressable>
         ) : null}
       </View>
+      </View>
     </View>
   );
 }
@@ -448,9 +456,10 @@ function PastSermonCard({
 }
 
 function createStyles(c: RecallionColors) {
+  const elevation = cardShadowStyle(c);
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bgPage },
-    scroll: { flex: 1 },
+    scroll: { flex: 1, backgroundColor: c.bgPage },
     scrollContent: { paddingHorizontal: 20, paddingBottom: 24 },
     header: {
       flexDirection: 'row',
@@ -458,19 +467,29 @@ function createStyles(c: RecallionColors) {
       alignItems: 'center',
       paddingHorizontal: 20,
       paddingBottom: 8,
+      backgroundColor: c.bgPage,
     },
     headerRight: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
     },
-    brandMark: { width: 44, height: 44, borderRadius: 10 },
+    brandMarkWrap: {
+      borderRadius: 14,
+      ...elevation,
+    },
+    brandMark: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+    },
     greeting: {
-      fontSize: 28,
+      fontSize: 30,
       fontWeight: '700',
       color: c.navy,
-      letterSpacing: -0.3,
-      marginBottom: 20,
+      letterSpacing: -0.4,
+      marginBottom: 22,
+      lineHeight: 36,
     },
     center: {
       flex: 1,
@@ -482,16 +501,24 @@ function createStyles(c: RecallionColors) {
     heroCard: {
       backgroundColor: c.bgCard,
       borderRadius: c.radiusCard,
-      padding: 22,
       borderWidth: 1,
-      borderColor: c.blue,
+      borderColor: c.borderSubtle,
+      overflow: 'hidden',
+      ...elevation,
+    },
+    heroAccent: {
+      height: 4,
+      backgroundColor: c.heroAccent,
+    },
+    heroInner: {
+      padding: 22,
     },
     heroTitle: {
       fontSize: 24,
-      fontWeight: '600',
+      fontWeight: '700',
       color: c.navy,
       lineHeight: 30,
-      letterSpacing: -0.2,
+      letterSpacing: -0.3,
     },
     heroMeta: {
       marginTop: 8,
@@ -500,27 +527,27 @@ function createStyles(c: RecallionColors) {
     },
     heroDayLabel: {
       marginTop: 16,
-      fontSize: 13,
-      fontWeight: '600',
+      fontSize: 12,
+      fontWeight: '700',
       color: c.blue,
-      letterSpacing: 0.4,
+      letterSpacing: 1.2,
       textTransform: 'uppercase',
     },
     heroReadingTitle: {
       marginTop: 8,
       fontSize: 18,
-      fontWeight: '500',
+      fontWeight: '600',
       color: c.navy,
       lineHeight: 24,
     },
     dotsRow: {
       flexDirection: 'row',
       gap: 6,
-      marginTop: 12,
+      marginTop: 14,
     },
     dot: {
       flex: 1,
-      height: 6,
+      height: 7,
       borderRadius: 999,
     },
     dotDone: { backgroundColor: c.blue },
@@ -533,7 +560,7 @@ function createStyles(c: RecallionColors) {
     statusAction: { color: c.blue },
     statusMuted: { color: c.muted },
     heroActions: {
-      marginTop: 18,
+      marginTop: 20,
       gap: 10,
     },
     heroCtaPrimary: {
@@ -548,7 +575,7 @@ function createStyles(c: RecallionColors) {
       alignItems: 'center',
       borderWidth: 1,
       borderColor: c.borderSubtle,
-      backgroundColor: 'transparent',
+      backgroundColor: c.bgWash,
     },
     heroCtaDisabled: { opacity: 0.55 },
     heroCtaPressed: { opacity: 0.92 },
@@ -568,9 +595,11 @@ function createStyles(c: RecallionColors) {
     pastSectionTitle: {
       marginTop: 28,
       marginBottom: 12,
-      fontSize: 18,
-      fontWeight: '600',
-      color: c.navy,
+      fontSize: 13,
+      fontWeight: '700',
+      color: c.muted,
+      letterSpacing: 1.1,
+      textTransform: 'uppercase',
     },
     pastList: { gap: 12 },
     pastCard: {
@@ -579,6 +608,7 @@ function createStyles(c: RecallionColors) {
       padding: 18,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.borderSubtle,
+      ...elevation,
     },
     pastCardPressed: { opacity: 0.95 },
     pastTitle: {
