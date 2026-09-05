@@ -15,7 +15,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useRecallionTheme } from '../contexts/ThemeContext';
 import {
-  deleteAccountViaSiteApi,
+  deleteAccount,
   emailsMatchForDeletion,
   fetchDeletionPreview,
   type AccountDeletionPreview,
@@ -33,7 +33,7 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
   const styles = useMemo(() => createStyles(colors, resolved), [colors, resolved]);
   const [preview, setPreview] = useState<AccountDeletionPreview | null>(null);
   const [accountEmail, setAccountEmail] = useState('');
-  const [loadingPreview, setLoadingPreview] = useState(true);
+  const [loadingPreview, setLoadingPreview] = useState(false);
   const [open, setOpen] = useState(false);
   const [confirmEmail, setConfirmEmail] = useState('');
   const [churchAck, setChurchAck] = useState(false);
@@ -45,7 +45,7 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
     if (!session?.access_token) return;
     setLoadingPreview(true);
     setError(null);
-    const { preview: p, email, error: err } = await fetchDeletionPreview(session.access_token);
+    const { preview: p, email, error: err } = await fetchDeletionPreview();
     setPreview(p);
     setAccountEmail(email ?? session.user.email ?? '');
     if (err) setError(err);
@@ -53,8 +53,9 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
   }, [session?.access_token, session?.user.email]);
 
   useEffect(() => {
+    if (!open) return;
     void loadPreview();
-  }, [loadPreview]);
+  }, [open, loadPreview]);
 
   function scrollFormIntoView() {
     const parent = scrollRef?.current;
@@ -92,7 +93,7 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
       return;
     }
     setPending(true);
-    const { error: err } = await deleteAccountViaSiteApi(
+    const { error: err } = await deleteAccount(
       session,
       preview?.will_delete_church === true,
       confirmEmail.trim(),
@@ -117,15 +118,22 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
         <Pressable
           style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}
           onPress={() => setOpen(true)}
-          disabled={loadingPreview}
           accessibilityRole="button"
         >
-          <Text style={styles.linkLabel}>
-            {loadingPreview ? 'Loading…' : 'Delete account →'}
-          </Text>
+          <Text style={styles.linkLabel}>Delete account →</Text>
         </Pressable>
       ) : (
         <View style={styles.form}>
+          {loadingPreview ? (
+            <ActivityIndicator color={colors.blue} />
+          ) : null}
+
+          {error && !preview && !loadingPreview ? (
+            <Pressable onPress={() => void loadPreview()} style={styles.linkRow}>
+              <Text style={styles.retryLabel}>Couldn’t load details. Tap to retry.</Text>
+            </Pressable>
+          ) : null}
+
           {preview?.will_delete_church ? (
             <View style={styles.warnBox}>
               <Text style={styles.warnTitle}>Church will be removed</Text>
@@ -173,7 +181,7 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
           <Pressable
             style={({ pressed }) => [styles.dangerBtn, pressed && styles.pressed]}
             onPress={() => void onDelete()}
-            disabled={pending}
+            disabled={pending || loadingPreview}
           >
             {pending ? (
               <ActivityIndicator color="#fff" />
@@ -220,6 +228,11 @@ function createStyles(c: RecallionColors, resolved: 'light' | 'dark') {
     linkLabel: {
       color: light ? '#b91c1c' : '#f87171',
       fontSize: 15,
+      fontWeight: '600',
+    },
+    retryLabel: {
+      color: c.blue,
+      fontSize: 14,
       fontWeight: '600',
     },
     form: { marginTop: 14, gap: 12 },
