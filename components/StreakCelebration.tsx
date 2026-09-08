@@ -22,6 +22,27 @@ type Props = {
 
 const PARTICLE_COUNT = 12;
 
+const staticStyles = StyleSheet.create({
+  particle: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+  },
+  burstWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ring: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 999,
+    borderWidth: 2,
+  },
+});
+
 function ParticleBurst({
   progress,
   index,
@@ -54,7 +75,7 @@ function ParticleBurst({
   return (
     <Animated.View
       style={[
-        styles.particle,
+        staticStyles.particle,
         {
           backgroundColor: color,
           opacity,
@@ -195,13 +216,13 @@ export function StreakCelebration({ visible, streakCount, completedToday, onCont
             },
           ]}
         >
-          <View style={styles.burstWrap} pointerEvents="none">
+          <View style={staticStyles.burstWrap} pointerEvents="none">
             {Array.from({ length: PARTICLE_COUNT }).map((_, i) => (
               <ParticleBurst key={i} progress={burst} index={i} color={colors.blue} />
             ))}
             <Animated.View
               style={[
-                styles.ring,
+                staticStyles.ring,
                 {
                   borderColor: colors.blue,
                   opacity: ringOpacity,
@@ -232,27 +253,6 @@ export function StreakCelebration({ visible, streakCount, completedToday, onCont
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  particle: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-  },
-  burstWrap: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ring: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 999,
-    borderWidth: 2,
-  },
-});
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({

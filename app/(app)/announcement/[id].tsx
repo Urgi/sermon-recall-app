@@ -34,10 +34,12 @@ export default function AnnouncementScreen() {
     let cancelled = false;
 
     async function load() {
+      const client = supabase;
+      if (!client) return;
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchErr } = await supabase.rpc('get_broadcast_message_for_recipient', {
+      const { data, error: fetchErr } = await client.rpc('get_broadcast_message_for_recipient', {
         p_broadcast_id: broadcastId,
       });
 
@@ -63,7 +65,7 @@ export default function AnnouncementScreen() {
       setMessage(row);
 
       if (!row.already_opened) {
-        await supabase.rpc('mark_broadcast_opened', { p_broadcast_id: broadcastId });
+        await client.rpc('mark_broadcast_opened', { p_broadcast_id: broadcastId });
       }
 
       setLoading(false);
