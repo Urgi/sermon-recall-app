@@ -30,13 +30,7 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "package": "com.antoineassociates.sermonrecall"
     },
@@ -67,8 +61,15 @@
           "enableBackgroundRemoteNotifications": true
         }
       ],
-      "expo-audio",
-      "./plugins/withExpoSwift5Podfile.js"
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ],
+      "./plugins/withExpoSwift5Podfile.js",
+      "./plugins/withNoBackgroundAudio.js"
     ],
     "web": {
       "favicon": "./assets/logo.png"
