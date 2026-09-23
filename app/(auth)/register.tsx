@@ -14,6 +14,7 @@ import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
 import { ReminderTimePicker } from '../../components/ReminderTimePicker';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { useI18n } from '../../contexts/I18nContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
 import {
   APP_LANGUAGES,
@@ -32,6 +33,7 @@ export default function RegisterScreen() {
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { sendEmailOtp, session, loading, profileLoading } = useAuth();
+  const { t, setLanguagePreview } = useI18n();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [preferredLanguage, setPreferredLanguage] =
@@ -51,7 +53,7 @@ export default function RegisterScreen() {
     setError(null);
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail) {
-      setError('Enter your email address.');
+      setError(t('auth.enterEmail'));
       return;
     }
     setSubmitting(true);
@@ -77,14 +79,14 @@ export default function RegisterScreen() {
           style={styles.logo}
           accessibilityLabel="Sermon Recall"
         />
-        <Text style={styles.kicker}>Get started</Text>
-        <Text style={styles.title}>Create account</Text>
-        <Text style={styles.hint}>We’ll email a one-time code to finish signing up.</Text>
+        <Text style={styles.kicker}>{t('auth.getStarted')}</Text>
+        <Text style={styles.title}>{t('auth.createAccount')}</Text>
+        <Text style={styles.hint}>{t('auth.signupHint')}</Text>
 
-        <Text style={styles.fieldLabel}>Full name</Text>
+        <Text style={styles.fieldLabel}>{t('auth.fullName')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="Optional"
+          placeholder={t('auth.optional')}
           placeholderTextColor={colors.muted}
           autoComplete="name"
           value={fullName}
@@ -94,11 +96,11 @@ export default function RegisterScreen() {
           blurOnSubmit={false}
           onSubmitEditing={() => emailRef.current?.focus()}
         />
-        <Text style={styles.fieldLabel}>Email</Text>
+        <Text style={styles.fieldLabel}>{t('auth.email')}</Text>
         <TextInput
           ref={emailRef}
           style={styles.input}
-          placeholder="Email address"
+          placeholder={t('auth.emailPlaceholder')}
           placeholderTextColor={colors.muted}
           autoCapitalize="none"
           keyboardType="email-address"
@@ -109,15 +111,18 @@ export default function RegisterScreen() {
           submitBehavior="blurAndSubmit"
         />
 
-        <Text style={styles.fieldLabel}>Preferred language</Text>
-        <Text style={styles.fieldHint}>English, Spanish, or French — change later in Settings.</Text>
+        <Text style={styles.fieldLabel}>{t('auth.preferredLanguage')}</Text>
+        <Text style={styles.fieldHint}>{t('auth.languageHint')}</Text>
         <View style={styles.languageRow}>
           {APP_LANGUAGES.map((opt) => {
             const selected = preferredLanguage === opt.value;
             return (
               <Pressable
                 key={opt.value}
-                onPress={() => setPreferredLanguage(opt.value)}
+                onPress={() => {
+                  setPreferredLanguage(opt.value);
+                  setLanguagePreview(opt.value);
+                }}
                 style={({ pressed }) => [
                   styles.languageChip,
                   selected && styles.languageChipSelected,
@@ -134,10 +139,8 @@ export default function RegisterScreen() {
           })}
         </View>
 
-        <Text style={styles.fieldLabel}>Daily reminder</Text>
-        <Text style={styles.fieldHint}>
-          When should we nudge you about today&apos;s reading? Change anytime in Settings.
-        </Text>
+        <Text style={styles.fieldLabel}>{t('auth.dailyReminder')}</Text>
+        <Text style={styles.fieldHint}>{t('auth.reminderHint')}</Text>
         <ReminderTimePicker value={reminderClock} onChange={setReminderClock} />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -159,7 +162,7 @@ export default function RegisterScreen() {
                 (!email.trim() || submitting) && styles.buttonLabelDisabled,
               ]}
             >
-              Email me a code
+              {t('auth.emailMeCode')}
             </Text>
           )}
         </Pressable>
@@ -170,8 +173,8 @@ export default function RegisterScreen() {
           accessibilityRole="button"
           accessibilityLabel="Sign in"
         >
-          <Text style={styles.signupPrompt}>Already have an account? </Text>
-          <Text style={styles.signupLink}>Sign in</Text>
+          <Text style={styles.signupPrompt}>{t('auth.haveAccount')}</Text>
+          <Text style={styles.signupLink}>{t('auth.signIn')}</Text>
         </Pressable>
       </View>
     </KeyboardFormScreen>

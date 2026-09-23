@@ -20,6 +20,7 @@ import { LeaveChurchPanel } from '../../../components/LeaveChurchPanel';
 import { ScreenBackdrop } from '../../../components/ScreenBackdrop';
 import { SettingsPanelModal } from '../../../components/SettingsPanelModal';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useI18n } from '../../../contexts/I18nContext';
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
 import {
   APP_LANGUAGES,
@@ -39,19 +40,19 @@ import { supabase } from '../../../lib/supabase';
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 type Panel = 'notifications' | 'language' | 'display' | 'account' | null;
 
-const APPEARANCE_OPTIONS: {
-  value: ThemePreference;
-  label: string;
-  description: string;
-}[] = [
-  { value: 'dark', label: 'Dark', description: 'Deep slate for evening reading.' },
-  { value: 'light', label: 'Bright', description: 'Soft daylight sky and paper cards.' },
-  { value: 'system', label: 'System', description: 'Follow your device appearance.' },
-];
-
 export default function SettingsScreen() {
   const { session, profile, refreshProfile, updatePreferredLanguage, signOut } = useAuth();
+  const { t, setLanguagePreview } = useI18n();
   const { colors, preference, resolved, setPreference } = useRecallionTheme();
+  const appearanceOptions: {
+    value: ThemePreference;
+    label: string;
+    description: string;
+  }[] = [
+    { value: 'dark', label: t('appearance.dark'), description: t('appearance.darkDesc') },
+    { value: 'light', label: t('appearance.light'), description: t('appearance.lightDesc') },
+    { value: 'system', label: t('appearance.system'), description: t('appearance.systemDesc') },
+  ];
   const styles = useMemo(() => createStyles(colors, resolved), [colors, resolved]);
   const [panel, setPanel] = useState<Panel>(null);
   const [languagePending, setLanguagePending] = useState(false);
@@ -62,23 +63,23 @@ export default function SettingsScreen() {
 
   const displayName = greetingFirstName(profile?.full_name, session?.user?.email);
   const email = session?.user?.email ?? '';
-  const roleLabel = formatRole(profile?.role);
+  const roleLabel = formatRole(profile?.role, t);
   const selectedLanguage = normalizeAppLanguage(profile?.preferred_language);
 
   const reminderSubtitle = !profile?.church_id
-    ? 'Join a church to enable reminders'
+    ? t('settings.notifyJoinHint')
     : profile.devotional_notify_enabled === false
-      ? 'Off'
+      ? t('settings.notifyOff')
       : typeof profile.devotional_notify_hour === 'number'
         ? formatReminderHour24(profile.devotional_notify_hour)
-        : 'Defaults · morning & midday';
+        : t('settings.notifyDefaults');
 
   const appearanceSubtitle =
     preference === 'system'
-      ? `System (${resolved})`
+      ? `${t('appearance.system')} (${resolved})`
       : preference === 'dark'
-        ? 'Dark'
-        : 'Bright';
+        ? t('appearance.dark')
+        : t('appearance.light');
 
   const loadChurch = useCallback(async () => {
     if (!supabase || !profile?.church_id) {
@@ -117,16 +118,17 @@ export default function SettingsScreen() {
     if (value === selectedLanguage || languagePending) return;
     setLanguageError(null);
     setLanguagePending(true);
+    setLanguagePreview(value);
     const { error } = await updatePreferredLanguage(value);
     setLanguagePending(false);
     if (error) setLanguageError(error);
   }
 
   function confirmSignOut() {
-    Alert.alert('Sign out?', undefined, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('settings.signOutConfirm'), undefined, [
+      { text: t('settings.cancel'), style: 'cancel' },
       {
-        text: 'Sign out',
+        text: t('settings.signOut'),
         style: 'destructive',
         onPress: () => {
           void (async () => {
@@ -141,8 +143,8 @@ export default function SettingsScreen() {
   return (
     <ScreenBackdrop>
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-        <Text style={styles.kicker}>Account</Text>
-        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.kicker}>{t('settings.kicker')}</Text>
+        <Text style={styles.title}>{t('settings.title')}</Text>
 
         <ScrollView
           ref={scrollRef}
@@ -162,7 +164,7 @@ export default function SettingsScreen() {
             {email ? <Text style={styles.profileEmail}>{email}</Text> : null}
             {profile?.church_id ? (
               <>
-                <Text style={styles.profileChurch}>{churchName ?? 'Your church'}</Text>
+                <Text style={styles.profileChurch}>{churchName ?? t('settings.yourChurch')}</Text>
                 {roleLabel ? <Text style={styles.profileRole}>{roleLabel}</Text> : null}
               </>
             ) : (
@@ -170,7 +172,7 @@ export default function SettingsScreen() {
                 style={({ pressed }) => [styles.joinLink, pressed && styles.pressed]}
                 onPress={() => router.push('/join-church')}
               >
-                <Text style={styles.joinLinkLabel}>Join a church</Text>
+                <Text style={styles.joinLinkLabel}>{t('settings.joinChurch')}</Text>
                 <Ionicons name="chevron-forward" size={16} color={colors.blue} />
               </Pressable>
             )}
@@ -179,7 +181,7 @@ export default function SettingsScreen() {
           <View style={styles.menuCard}>
             <SettingsRow
               icon="notifications-outline"
-              label="Notifications"
+              label={t('settings.notifications')}
               subtitle={reminderSubtitle}
               onPress={() => setPanel('notifications')}
               styles={styles}
@@ -187,7 +189,7 @@ export default function SettingsScreen() {
             />
             <SettingsRow
               icon="globe-outline"
-              label="Language"
+              label={t('settings.language')}
               subtitle={languageOptionLabel(selectedLanguage)}
               onPress={() => setPanel('language')}
               styles={styles}
@@ -195,7 +197,7 @@ export default function SettingsScreen() {
             />
             <SettingsRow
               icon="color-palette-outline"
-              label="Display"
+              label={t('settings.display')}
               subtitle={appearanceSubtitle}
               onPress={() => setPanel('display')}
               styles={styles}
@@ -203,8 +205,8 @@ export default function SettingsScreen() {
             />
             <SettingsRow
               icon="person-circle-outline"
-              label="Manage account"
-              subtitle="Leave church or delete account"
+              label={t('settings.manageAccount')}
+              subtitle={t('settings.manageAccountHint')}
               last
               onPress={() => setPanel('account')}
               styles={styles}
@@ -216,18 +218,16 @@ export default function SettingsScreen() {
             style={({ pressed }) => [styles.signOutBtn, pressed && styles.pressed]}
             onPress={confirmSignOut}
           >
-            <Text style={styles.signOutLabel}>Sign out</Text>
+            <Text style={styles.signOutLabel}>{t('settings.signOut')}</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
 
       <SettingsPanelModal
         visible={panel === 'notifications'}
-        title="Notifications"
+        title={t('settings.notifications')}
         subtitle={
-          profile?.church_id
-            ? 'Choose when you’d like a gentle push for today’s reading.'
-            : 'Join a church to set a daily reminder time.'
+          profile?.church_id ? t('settings.notifyModalHint') : t('settings.notifyJoinModal')
         }
         onClose={() => setPanel(null)}
       >
@@ -254,15 +254,15 @@ export default function SettingsScreen() {
               router.push('/join-church');
             }}
           >
-            <Text style={styles.modalCtaLabel}>Join a church</Text>
+            <Text style={styles.modalCtaLabel}>{t('settings.joinChurch')}</Text>
           </Pressable>
         )}
       </SettingsPanelModal>
 
       <SettingsPanelModal
         visible={panel === 'language'}
-        title="Language"
-        subtitle="Prefer English, Spanish, or French. Church content language is set by your pastor."
+        title={t('settings.language')}
+        subtitle={t('settings.languageSubtitle')}
         onClose={() => setPanel(null)}
       >
         {APP_LANGUAGES.map((opt) => {
@@ -288,11 +288,11 @@ export default function SettingsScreen() {
 
       <SettingsPanelModal
         visible={panel === 'display'}
-        title="Display"
-        subtitle={`Currently using ${resolved} mode on this device.`}
+        title={t('settings.display')}
+        subtitle={t('settings.displayCurrent', { mode: resolved })}
         onClose={() => setPanel(null)}
       >
-        {APPEARANCE_OPTIONS.map((opt) => {
+        {appearanceOptions.map((opt) => {
           const selected = preference === opt.value;
           return (
             <Pressable
@@ -316,8 +316,8 @@ export default function SettingsScreen() {
 
       <SettingsPanelModal
         visible={panel === 'account'}
-        title="Manage account"
-        subtitle="Church membership and account deletion."
+        title={t('settings.manageAccount')}
+        subtitle={t('settings.accountSubtitle')}
         onClose={() => setPanel(null)}
       >
         <LeaveChurchPanel />
@@ -327,10 +327,13 @@ export default function SettingsScreen() {
   );
 }
 
-function formatRole(role: string | undefined): string | null {
+function formatRole(
+  role: string | undefined,
+  t: (key: 'settings.rolePastor' | 'settings.roleMember') => string,
+): string | null {
   if (!role) return null;
-  if (role === 'pastor' || role === 'admin') return 'Pastor / admin';
-  if (role === 'member') return 'Member';
+  if (role === 'pastor' || role === 'admin') return t('settings.rolePastor');
+  if (role === 'member') return t('settings.roleMember');
   return role;
 }
 

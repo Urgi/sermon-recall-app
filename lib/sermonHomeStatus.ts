@@ -176,6 +176,7 @@ export function timeOfDayGreeting(now = new Date()): string {
 export function greetingFirstName(
   fullName: string | null | undefined,
   email: string | null | undefined,
+  fallback = 'there',
 ): string {
   const trimmed = fullName?.trim();
   if (trimmed) {
@@ -183,7 +184,7 @@ export function greetingFirstName(
     if (first) return first;
   }
   const local = email?.split('@')[0]?.trim();
-  return local || 'there';
+  return local || fallback;
 }
 
 export function formatSermonDate(iso: string | null): string | null {

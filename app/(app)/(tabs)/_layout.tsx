@@ -4,6 +4,7 @@ import type { ComponentProps } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useI18n } from '../../../contexts/I18nContext';
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
@@ -42,6 +43,7 @@ function TabIcon({
 
 export default function TabsLayout() {
   const { colors } = useRecallionTheme();
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
 
   return (
@@ -69,7 +71,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Devotionals',
+          title: t('tabs.devotionals'),
           tabBarIcon: ({ color, size, focused }) => (
             <TabIcon
               focused={focused}
@@ -85,7 +87,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: t('tabs.settings'),
           tabBarIcon: ({ color, size, focused }) => (
             <TabIcon
               focused={focused}

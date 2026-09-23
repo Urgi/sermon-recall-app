@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { GlobalAuthToast } from '../components/GlobalAuthToast';
 import { AuthProvider } from '../contexts/AuthContext';
+import { I18nProvider } from '../contexts/I18nContext';
 import { ThemeProvider, useRecallionTheme } from '../contexts/ThemeContext';
 import { useNotificationRouting } from '../lib/notificationRouting';
 
@@ -64,7 +65,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <RootStack />
+          <I18nProvider>
+            <RootStack />
+          </I18nProvider>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>

@@ -19,6 +19,7 @@ import { ScreenBackdrop } from '../../../components/ScreenBackdrop';
 import { StreakCalendarModal } from '../../../components/StreakCalendarModal';
 import { StreakCelebration } from '../../../components/StreakCelebration';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useI18n } from '../../../contexts/I18nContext';
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
 import { cardShadowStyle, type RecallionColors } from '../../../lib/recallionTheme';
 import {
@@ -29,23 +30,21 @@ import {
 } from '../../../lib/devotionalStreak';
 import {
   type DevotionalHomeRow,
-  devotionalDisplayTitle,
   displaySermonTitle,
   churchDisplayName,
   formatSermonDate,
   greetingFirstName,
-  heroStatusLabel,
-  pastSermonProgressLabel,
   pickHeroAndPastSummaries,
   type SermonHomeRow,
   type SermonHomeSummary,
   summarizeSermonForHome,
-  timeOfDayGreeting,
 } from '../../../lib/sermonHomeStatus';
+import { greetingForHour } from '../../../lib/i18n/ui';
 import { supabase } from '../../../lib/supabase';
 
 export default function HomeScreen() {
   const { session, profile, loading, refreshProfile } = useAuth();
+  const { t, language } = useI18n();
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [summaries, setSummaries] = useState<SermonHomeSummary[]>([]);
@@ -63,9 +62,9 @@ export default function HomeScreen() {
   );
 
   const greeting = useMemo(() => {
-    const name = greetingFirstName(profile?.full_name, session?.user?.email);
-    return `${timeOfDayGreeting()}, ${name}`;
-  }, [profile?.full_name, session?.user?.email]);
+    const name = greetingFirstName(profile?.full_name, session?.user?.email, t('home.there'));
+    return `${greetingForHour(language, new Date().getHours())}, ${name}`;
+  }, [profile?.full_name, session?.user?.email, language, t]);
 
   const { hero, past } = useMemo(() => pickHeroAndPastSummaries(summaries), [summaries]);
 
@@ -279,7 +278,7 @@ export default function HomeScreen() {
 
           {past.length > 0 ? (
             <>
-              <Text style={styles.pastSectionTitle}>Previous sermons</Text>
+              <Text style={styles.pastSectionTitle}>{t('home.previousSermons')}</Text>
               <View style={styles.pastList}>
                 {past.map((item) => (
                   <PastSermonCard key={item.sermon.id} summary={item} styles={styles} />
@@ -310,11 +309,31 @@ function HeroSermonCard({
     nextIncomplete,
     allDone,
   } = summary;
+  const { t } = useI18n();
   const focusDay = nextDevotional ?? nextIncomplete;
   const dayLabel =
-    totalDays > 0 && focusDay ? `Day ${focusDay.day_number} of ${totalDays}` : null;
-  const readingTitle = devotionalDisplayTitle(focusDay);
-  const { label: statusLabel, tone: statusTone } = heroStatusLabel(summary);
+    totalDays > 0 && focusDay
+      ? t('home.dayOf', { day: focusDay.day_number, total: totalDays })
+      : null;
+  const readingTitle = focusDay
+    ? (() => {
+        const trimmed = focusDay.title?.trim();
+        if (trimmed && trimmed.toLowerCase() !== 'title') return trimmed;
+        return t('home.dayFallback', { day: focusDay.day_number });
+      })()
+    : null;
+  const status =
+    summary.totalDays === 0
+      ? { label: t('home.comingSoon'), tone: 'muted' as const }
+      : summary.allDone
+        ? { label: t('home.completed'), tone: 'muted' as const }
+        : summary.nextDevotional
+          ? {
+              label: t('home.dayReady', { day: summary.nextDevotional.day_number }),
+              tone: 'action' as const,
+            }
+          : { label: t('home.opensOnCalendar'), tone: 'muted' as const };
+  const { label: statusLabel, tone: statusTone } = status;
   const currentDayNumber =
     !allDone && nextDevotional ? nextDevotional.day_number : null;
 
@@ -398,8 +417,8 @@ function HeroSermonCard({
               }
             >
               {showReadingPrimary
-                ? `View all ${totalDays || 6} days →`
-                : 'View six-day journey →'}
+                ? t('home.viewAllDays', { total: totalDays || 6 })
+                : t('home.viewJourney')}
             </Text>
           </Pressable>
 
@@ -408,7 +427,7 @@ function HeroSermonCard({
               style={({ pressed }) => [styles.heroTextLink, pressed && styles.heroCtaPressed]}
               onPress={() => router.push(`/devotional/${lastDevotional.id}`)}
             >
-              <Text style={styles.heroTextLinkLabel}>Review last day →</Text>
+              <Text style={styles.heroTextLinkLabel}>{t('home.reviewLastDay')}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -424,8 +443,14 @@ function PastSermonCard({
   summary: SermonHomeSummary;
   styles: ReturnType<typeof createStyles>;
 }) {
+  const { t } = useI18n();
   const { sermon } = summary;
-  const progressLabel = pastSermonProgressLabel(summary);
+  const progressLabel =
+    summary.totalDays === 0
+      ? t('home.comingSoon')
+      : summary.allDone
+        ? t('home.completed')
+        : t('home.ofComplete', { done: summary.completedCount, total: summary.totalDays });
   const meta =
     [churchDisplayName(sermon.churches), formatSermonDate(sermon.sermon_date)]
       .filter(Boolean)

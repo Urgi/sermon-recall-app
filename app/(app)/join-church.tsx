@@ -12,6 +12,7 @@ import {
 import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { useI18n } from '../../contexts/I18nContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
 import type { RecallionColors } from '../../lib/recallionTheme';
 
@@ -19,6 +20,7 @@ export default function JoinChurchScreen() {
   const { joinChurch, signOut, profile, profileLoading, session } = useAuth();
   const params = useLocalSearchParams<{ code?: string }>();
   const { colors } = useRecallionTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [code, setCode] = useState(() => {
     const raw = params.code;
@@ -62,21 +64,21 @@ export default function JoinChurchScreen() {
   return (
     <KeyboardFormScreen backgroundColor={colors.bgPage}>
       <View style={styles.card}>
-        <Text style={styles.title}>Join your church</Text>
+        <Text style={styles.title}>{t('join.title')}</Text>
         {dissolvedNotice ? (
           <View style={styles.noticeBox}>
-            <Text style={styles.noticeTitle}>Your previous church</Text>
+            <Text style={styles.noticeTitle}>{t('join.previousChurch')}</Text>
             <Text style={styles.noticeText}>{dissolvedNotice}</Text>
           </View>
         ) : (
           <Text style={styles.hint}>
-            Enter the church code your pastor shared (e.g. GRACE001 for the demo seed).
+            {t('join.hint')}
           </Text>
         )}
 
         <TextInput
           style={styles.input}
-          placeholder="Church code"
+          placeholder={t('join.codePlaceholder')}
           autoCapitalize="characters"
           autoCorrect={false}
           value={code}
@@ -96,12 +98,12 @@ export default function JoinChurchScreen() {
           {submitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonLabel}>Continue</Text>
+            <Text style={styles.buttonLabel}>{t('join.continue')}</Text>
           )}
         </Pressable>
 
         <Pressable onPress={() => signOut()} style={styles.outline}>
-          <Text style={styles.outlineLabel}>Sign out</Text>
+          <Text style={styles.outlineLabel}>{t('join.signOut')}</Text>
         </Pressable>
       </View>
     </KeyboardFormScreen>

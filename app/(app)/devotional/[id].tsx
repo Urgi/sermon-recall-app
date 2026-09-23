@@ -35,6 +35,7 @@ import { supabase } from '../../../lib/supabase';
 import { touchDevotionalOpen } from '../../../lib/touchDevotionalOpen';
 import { queuePendingToast } from '../../../lib/pendingToast';
 import { fetchScripturePassage, resolveScriptureBody } from '../../../lib/fetchScriptureText';
+import { type AppLanguage, normalizeAppLanguage } from '../../../lib/i18n/languages';
 import { createVoicePlaybackUrl, deleteVoiceCommitment, uploadVoiceCommitment } from '../../../lib/voiceCommitment';
 
 /** When the row has no AI `pre_prompt`, we still gate reading with a generic retrieval question. */
@@ -65,7 +66,10 @@ type SermonTiny = {
   title: string;
   sermon_date: string | null;
   created_at: string;
-  churches: { timezone: string } | { timezone: string }[] | null;
+  churches:
+    | { timezone: string; sermon_language?: string | null }
+    | { timezone: string; sermon_language?: string | null }[]
+    | null;
 };
 
 function formatSermonKicker(iso: string | null): string | null {
@@ -105,6 +109,7 @@ export default function DevotionalScreen() {
   const [commitmentDraft, setCommitmentDraft] = useState('');
   const [fetchedScriptureText, setFetchedScriptureText] = useState<string | null>(null);
   const [scriptureLoading, setScriptureLoading] = useState(false);
+  const [churchLanguage, setChurchLanguage] = useState<AppLanguage>('en');
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [sessionVoicePath, setSessionVoicePath] = useState<string | null>(null);
   /** Local file URI from the last stop — use for playback so we don’t wait on network right after recording. */
@@ -161,7 +166,7 @@ export default function DevotionalScreen() {
     const [{ data: s }, { data: sibs }, countRes] = await Promise.all([
       supabase
         .from('sermons')
-        .select('title, sermon_date, created_at, churches(timezone)')
+        .select('title, sermon_date, created_at, churches(timezone, sermon_language)')
         .eq('id', sermonId)
         .maybeSingle(),
       supabase
@@ -182,6 +187,11 @@ export default function DevotionalScreen() {
 
     setSermonTitle(sm ? displaySermonTitle(sm.title, sm.sermon_date) : null);
     setSermonDate(sm?.sermon_date ?? null);
+    const churchEmbed = sm?.churches;
+    const sermonLang = Array.isArray(churchEmbed)
+      ? churchEmbed[0]?.sermon_language
+      : churchEmbed?.sermon_language;
+    setChurchLanguage(normalizeAppLanguage(sermonLang));
     setTotalDays(countRes.count ?? siblingList.length);
 
     const completedIds = new Set<string>();
@@ -265,7 +275,7 @@ export default function DevotionalScreen() {
 
     let cancelled = false;
     setScriptureLoading(true);
-    void fetchScripturePassage(reference).then((text) => {
+    void fetchScripturePassage(reference, churchLanguage).then((text) => {
       if (cancelled) return;
       setFetchedScriptureText(text);
       setScriptureLoading(false);
@@ -274,7 +284,7 @@ export default function DevotionalScreen() {
     return () => {
       cancelled = true;
     };
-  }, [row?.scripture_reference, row?.scripture_text]);
+  }, [row?.scripture_reference, row?.scripture_text, churchLanguage]);
 
   const scriptureBody = useMemo(
     () => resolveScriptureBody(row?.scripture_text, fetchedScriptureText),

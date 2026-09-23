@@ -13,6 +13,7 @@ import {
 import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { useI18n } from '../../contexts/I18nContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
 import { USE_CODE_NOT_LINK_MESSAGE } from '../../lib/authToastMessages';
 import type { RecallionColors } from '../../lib/recallionTheme';
@@ -33,6 +34,7 @@ export default function LoginScreen() {
   const linkError = param(params.error);
   const showUseCodeHint = linkError === 'use_code' || linkError === 'confirmation_failed';
   const { sendEmailOtp, verifyEmailOtp, session, loading, profileLoading } = useAuth();
+  const { t } = useI18n();
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [step, setStep] = useState<Step>('email');
@@ -64,7 +66,7 @@ export default function LoginScreen() {
     setNotice(null);
     const trimmed = email.trim().toLowerCase();
     if (!trimmed) {
-      setError('Enter your email address.');
+      setError(t('auth.enterEmail'));
       return;
     }
     setSubmitting(true);
@@ -75,7 +77,7 @@ export default function LoginScreen() {
       return;
     }
     setStep('code');
-    setNotice('Code sent. Check your inbox and spam.');
+    setNotice(t('auth.codeSent'));
     setTimeout(() => codeRef.current?.focus(), 50);
   }
 
@@ -85,7 +87,7 @@ export default function LoginScreen() {
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedCode = code.trim();
     if (trimmedCode.length < 6) {
-      setError('Enter the 6+ digit code from your email.');
+      setError(t('auth.enterCode'));
       return;
     }
     setSubmitting(true);
@@ -103,7 +105,7 @@ export default function LoginScreen() {
     setError(null);
     const { error: err } = await sendEmailOtp(email.trim().toLowerCase(), { createUser: false });
     setResendPending(false);
-    setNotice(err ?? 'New code sent. Check inbox and spam.');
+    setNotice(err ?? t('auth.newCodeSent'));
   }
 
   const emailReady = email.trim().length > 0;
@@ -117,10 +119,10 @@ export default function LoginScreen() {
             onPress={backToEmail}
             hitSlop={10}
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel={t('auth.back')}
             style={({ pressed }) => [styles.backRow, pressed && styles.pressed]}
           >
-            <Text style={styles.backLabel}>← Back</Text>
+            <Text style={styles.backLabel}>← {t('auth.back')}</Text>
           </Pressable>
         ) : null}
 
@@ -132,11 +134,21 @@ export default function LoginScreen() {
 
         {step === 'email' ? (
           <>
-            <Text style={styles.kicker}>Sign in</Text>
-            <Text style={styles.title}>Welcome back</Text>
-            <Text style={styles.subtitle}>
-              We’ll email you a one-time code — no password needed.
-            </Text>
+            <Text style={styles.kicker}>{t('auth.signUp')}</Text>
+            <Text style={styles.title}>{t('auth.welcome')}</Text>
+            <Text style={styles.subtitle}>{t('auth.welcomeHint')}</Text>
+
+            <Pressable
+              onPress={() => router.push('/register')}
+              style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={t('auth.createAccount')}
+            >
+              <Text style={styles.buttonLabel}>{t('auth.createAccount')}</Text>
+            </Pressable>
+
+            <Text style={styles.signInSectionLabel}>{t('auth.alreadyHaveAccount')}</Text>
+            <Text style={styles.signInSectionCopy}>{t('auth.loginHint')}</Text>
 
             {showUseCodeHint ? (
               <View style={styles.linkErrorBox} accessibilityRole="alert">
@@ -145,10 +157,10 @@ export default function LoginScreen() {
               </View>
             ) : null}
 
-            <Text style={styles.fieldLabel}>Email</Text>
+            <Text style={styles.fieldLabel}>{t('auth.email')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Email address"
+              placeholder={t('auth.emailPlaceholder')}
               placeholderTextColor={colors.muted}
               autoCapitalize="none"
               keyboardType="email-address"
@@ -162,43 +174,33 @@ export default function LoginScreen() {
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <Pressable
               style={({ pressed }) => [
-                styles.button,
-                (!emailReady || submitting) && styles.buttonDisabled,
+                styles.secondaryButton,
+                (!emailReady || submitting) && styles.secondaryButtonDisabled,
                 pressed && emailReady && !submitting && styles.buttonPressed,
               ]}
               onPress={() => void onSendCode()}
               disabled={!emailReady || submitting}
             >
               {submitting ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.navy} />
               ) : (
                 <Text
                   style={[
-                    styles.buttonLabel,
+                    styles.secondaryButtonLabel,
                     (!emailReady || submitting) && styles.buttonLabelDisabled,
                   ]}
                 >
-                  Email me a code
+                  {t('auth.emailMeCode')}
                 </Text>
               )}
-            </Pressable>
-
-            <Pressable
-              onPress={() => router.push('/register')}
-              style={styles.signupRow}
-              accessibilityRole="button"
-              accessibilityLabel="Create account"
-            >
-              <Text style={styles.signupPrompt}>New to Sermon Recall? </Text>
-              <Text style={styles.signupLink}>Create account</Text>
             </Pressable>
           </>
         ) : (
           <>
-            <Text style={styles.kicker}>Verification</Text>
-            <Text style={styles.title}>Enter your code</Text>
+            <Text style={styles.kicker}>{t('auth.verification')}</Text>
+            <Text style={styles.title}>{t('auth.enterYourCode')}</Text>
             <Text style={styles.subtitle}>
-              We sent a code to {email.trim().toLowerCase()}.
+              {t('auth.codeSentTo', { email: email.trim().toLowerCase() })}
             </Text>
 
             <TextInput
@@ -236,7 +238,7 @@ export default function LoginScreen() {
                     (!codeReady || submitting) && styles.buttonLabelDisabled,
                   ]}
                 >
-                  Verify code
+                  {t('auth.verifyCode')}
                 </Text>
               )}
             </Pressable>
@@ -350,6 +352,31 @@ function createStyles(c: RecallionColors) {
     buttonPressed: { opacity: 0.9 },
     buttonLabel: { color: '#fff', fontSize: 16, fontWeight: '600' },
     buttonLabelDisabled: { color: c.muted },
+    secondaryButton: {
+      backgroundColor: 'transparent',
+      paddingVertical: 16,
+      borderRadius: 50,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 54,
+      borderWidth: 1,
+      borderColor: c.borderInput,
+    },
+    secondaryButtonDisabled: { opacity: 0.55 },
+    secondaryButtonLabel: { color: c.navy, fontSize: 16, fontWeight: '600' },
+    signInSectionLabel: {
+      marginTop: 32,
+      marginBottom: 8,
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.navy,
+    },
+    signInSectionCopy: {
+      fontSize: 15,
+      color: c.muted,
+      marginBottom: 16,
+      lineHeight: 22,
+    },
     linkButton: {
       marginTop: 8,
       paddingVertical: 12,
@@ -361,15 +388,5 @@ function createStyles(c: RecallionColors) {
       fontWeight: '500',
       textAlign: 'center',
     },
-    signupRow: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginTop: 28,
-      paddingVertical: 8,
-      flexWrap: 'wrap',
-    },
-    signupPrompt: { color: c.muted, fontSize: 15 },
-    signupLink: { color: c.navy, fontSize: 15, fontWeight: '600' },
   });
 }
