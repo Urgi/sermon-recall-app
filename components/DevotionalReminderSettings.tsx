@@ -11,6 +11,7 @@ import {
   hour24ToClock,
   type ReminderClock,
 } from '../lib/reminderTime';
+import { getDeviceTimeZone } from '../lib/deviceTimezone';
 import {
   pushRegistrationHint,
   registerExpoPushTokenForCurrentUser,
@@ -64,14 +65,17 @@ export function DevotionalReminderSettings({
       (savedMode !== 'custom' ||
         (typeof notifyHour === 'number' && clockToHour24(clock) !== notifyHour)));
 
-  async function apply(patch: Record<string, boolean | number | null>): Promise<void> {
+  async function apply(patch: Record<string, boolean | number | string | null>): Promise<void> {
     if (!supabase) {
       setError('App is not configured.');
       return;
     }
     setError(null);
     setBusy(true);
-    const { error: upErr } = await supabase.from('users').update(patch).eq('id', userId);
+    const { error: upErr } = await supabase
+      .from('users')
+      .update({ ...patch, timezone: getDeviceTimeZone() })
+      .eq('id', userId);
     setBusy(false);
     if (upErr) {
       setError(upErr.message);
@@ -112,7 +116,7 @@ export function DevotionalReminderSettings({
     <View>
       <Text style={styles.hint}>
         One gentle push when your church has a devotional ready for the day you are on. Times use
-        your church&apos;s time zone.
+        your phone&apos;s local time zone.
       </Text>
 
       {error ? <Text style={styles.err}>{error}</Text> : null}
@@ -155,7 +159,7 @@ export function DevotionalReminderSettings({
       ) : null}
 
       {mode === 'defaults' ? (
-        <Text style={styles.modeHint}>Morning and midday reminders (church time zone).</Text>
+        <Text style={styles.modeHint}>Morning and midday reminders (your local time).</Text>
       ) : null}
       {mode === 'off' ? (
         <Text style={styles.modeHint}>You won’t get daily devotional push reminders.</Text>

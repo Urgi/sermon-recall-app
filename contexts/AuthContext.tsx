@@ -7,6 +7,7 @@ import {
   isAppReviewSignIn,
 } from '../lib/appReviewSignIn';
 import { mapAuthError } from '../lib/auth/mapAuthError';
+import { syncUserDeviceTimeZone } from '../lib/deviceTimezone';
 import { registerExpoPushTokenForCurrentUser } from '../lib/registerPushToken';
 import { supabase } from '../lib/supabase';
 
@@ -110,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!session?.user?.id || !supabase) return;
     void registerExpoPushTokenForCurrentUser(session.user.id);
+    void syncUserDeviceTimeZone(session.user.id);
   }, [session?.user?.id]);
 
   useEffect(() => {
@@ -119,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         void registerExpoPushTokenForCurrentUser(userId);
+        void syncUserDeviceTimeZone(userId);
       }
     });
     return () => sub.remove();

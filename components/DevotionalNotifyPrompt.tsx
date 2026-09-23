@@ -16,6 +16,7 @@ import {
   DEFAULT_REMINDER_CLOCK,
   type ReminderClock,
 } from '../lib/reminderTime';
+import { getDeviceTimeZone } from '../lib/deviceTimezone';
 import {
   pushRegistrationHint,
   registerExpoPushTokenForCurrentUser,
@@ -35,14 +36,17 @@ export function DevotionalNotifyPrompt({ visible, userId, onComplete }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [clock, setClock] = useState<ReminderClock>(DEFAULT_REMINDER_CLOCK);
 
-  async function apply(patch: Record<string, boolean | number | null>): Promise<void> {
+  async function apply(patch: Record<string, boolean | number | string | null>): Promise<void> {
     if (!supabase) {
       setError('App is not configured.');
       return;
     }
     setError(null);
     setBusy(true);
-    const { error: upErr } = await supabase.from('users').update(patch).eq('id', userId);
+    const { error: upErr } = await supabase
+      .from('users')
+      .update({ ...patch, timezone: getDeviceTimeZone() })
+      .eq('id', userId);
     setBusy(false);
     if (upErr) {
       setError(upErr.message);
@@ -63,7 +67,7 @@ export function DevotionalNotifyPrompt({ visible, userId, onComplete }: Props) {
           <Text style={styles.title}>Daily reminder</Text>
           <Text style={styles.sub}>
             Choose when you&apos;d like a reminder when your next day is ready. You can change this
-            later in Settings. Times use your church&apos;s time zone.
+            later in Settings. Times use your phone&apos;s local time zone.
           </Text>
 
           {error ? <Text style={styles.err}>{error}</Text> : null}
