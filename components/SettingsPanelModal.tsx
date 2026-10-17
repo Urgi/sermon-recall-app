@@ -97,7 +97,7 @@ function createStyles(c: RecallionColors, resolved: 'light' | 'dark') {
     sheet: {
       maxHeight: '90%',
       borderRadius: c.radiusCard,
-      backgroundColor: isDark ? '#101826' : c.bgCard,
+      backgroundColor: c.bgCard,
       borderWidth: 1,
       borderColor: isDark ? c.borderInput : 'rgba(15, 40, 70, 0.16)',
       zIndex: 1,

@@ -77,7 +77,7 @@ export default function SettingsScreen() {
 
   const appearanceSubtitle =
     preference === 'system'
-      ? `${t('appearance.system')} (${resolved})`
+      ? `${t('appearance.system')} (${(resolved === 'dark' ? t('appearance.dark') : t('appearance.light')).toLowerCase()})`
       : preference === 'dark'
         ? t('appearance.dark')
         : t('appearance.light');
@@ -299,7 +299,9 @@ export default function SettingsScreen() {
       <SettingsPanelModal
         visible={panel === 'display'}
         title={t('settings.display')}
-        subtitle={t('settings.displayCurrent', { mode: resolved })}
+        subtitle={t('settings.displayCurrent', {
+          mode: (resolved === 'dark' ? t('appearance.dark') : t('appearance.light')).toLowerCase(),
+        })}
         onClose={() => setPanel(null)}
       >
         {appearanceOptions.map((opt) => {
@@ -388,8 +390,8 @@ function SettingsRow({
 function createStyles(colors: RecallionColors, resolved: 'light' | 'dark') {
   const elevation = cardShadowStyle(colors);
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.bgPage },
-    flex: { flex: 1, backgroundColor: colors.bgPage },
+    safe: { flex: 1 },
+    flex: { flex: 1 },
     kicker: {
       marginTop: 8,
       paddingHorizontal: 20,

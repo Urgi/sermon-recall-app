@@ -246,13 +246,13 @@ export function StreakCelebration({ visible, streakCount, completedToday, onCont
           {reduced ? null : (
             <View style={staticStyles.burstWrap} pointerEvents="none">
               {Array.from({ length: PARTICLE_COUNT }).map((_, i) => (
-                <ParticleBurst key={i} progress={burst} index={i} color={colors.blue} />
+                <ParticleBurst key={i} progress={burst} index={i} color={colors.gold} />
               ))}
               <Animated.View
                 style={[
                   staticStyles.ring,
                   {
-                    borderColor: colors.blue,
+                    borderColor: colors.gold,
                     opacity: ringOpacity,
                     transform: [{ scale: ringScale }],
                   },
@@ -262,7 +262,7 @@ export function StreakCelebration({ visible, streakCount, completedToday, onCont
           )}
 
           <Animated.View style={[styles.iconWrap, { transform: [{ scale: iconScale }] }]}>
-            <Ionicons name="flame" size={32} color={colors.blue} />
+            <Ionicons name="flame" size={32} color={colors.gold} />
           </Animated.View>
 
           <View accessible accessibilityLabel={t('streak.count', { count: streakCount })}>
@@ -314,9 +314,9 @@ function createStyles(c: RecallionColors) {
       width: 64,
       height: 64,
       borderRadius: 18,
-      backgroundColor: c.bgWash,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: c.borderSubtle,
+      backgroundColor: c.goldSoft,
+      borderWidth: 1,
+      borderColor: c.goldBorder,
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 8,
@@ -333,7 +333,7 @@ function createStyles(c: RecallionColors) {
       marginTop: 2,
       fontSize: 18,
       fontWeight: '600',
-      color: c.blue,
+      color: c.gold,
       textAlign: 'center',
     },
     subtitle: {

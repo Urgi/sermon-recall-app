@@ -352,7 +352,7 @@ export default function SermonDetailScreen() {
                             ]}
                           >
                             {done ? (
-                              <Ionicons name="checkmark" size={16} color="#fff" />
+                              <Ionicons name="checkmark" size={16} color={colors.onGold} />
                             ) : !unlocked ? (
                               <Ionicons name="lock-closed" size={13} color={colors.muted} />
                             ) : (
@@ -409,7 +409,7 @@ export default function SermonDetailScreen() {
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: c.bgPage },
+    safe: { flex: 1 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
     scrollOuter: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 40 },
     err: { color: c.navyMid, fontSize: 16, lineHeight: 22, textAlign: 'center' },
@@ -512,7 +512,7 @@ function createStyles(c: RecallionColors) {
       justifyContent: 'center',
       backgroundColor: c.bgWash,
     },
-    rowBadgeDone: { backgroundColor: c.ctaSolid },
+    rowBadgeDone: { backgroundColor: c.gold },
     rowBadgeCurrent: { backgroundColor: c.bgCard, borderWidth: 1.5, borderColor: c.blue },
     rowBadgeText: { fontSize: 13, fontWeight: '700', color: c.navyMid },
     rowBadgeTextCurrent: { color: c.blue },

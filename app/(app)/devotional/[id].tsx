@@ -739,7 +739,7 @@ export default function DevotionalScreen() {
 
               {completed ? (
                 <View style={styles.doneBanner}>
-                  <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                  <Ionicons name="checkmark-circle" size={18} color={colors.gold} />
                   <Text style={styles.doneText}>You completed this day.</Text>
                 </View>
               ) : null}
@@ -981,7 +981,7 @@ export default function DevotionalScreen() {
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: c.bgPage },
+    safe: { flex: 1 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     padBare: { padding: 20, paddingBottom: 48 },
     scrollOuter: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 48 },
@@ -1044,9 +1044,11 @@ function createStyles(c: RecallionColors) {
       paddingVertical: 10,
       paddingHorizontal: 12,
       borderRadius: c.radiusSm,
-      backgroundColor: c.successSoft,
+      backgroundColor: c.goldSoft,
+      borderWidth: 1,
+      borderColor: c.goldBorder,
     },
-    doneText: { fontSize: 14, fontWeight: '600', color: c.success },
+    doneText: { fontSize: 14, fontWeight: '600', color: c.gold },
     recallSummary: {
       marginTop: 16,
       marginBottom: 8,

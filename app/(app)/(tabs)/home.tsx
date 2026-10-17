@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -333,6 +334,7 @@ function HeroSermonCard({
     allDone,
   } = summary;
   const { t } = useI18n();
+  const { colors } = useRecallionTheme();
   const focusDay = nextDevotional ?? nextIncomplete;
   const dayLabel =
     totalDays > 0 && focusDay
@@ -378,7 +380,12 @@ function HeroSermonCard({
 
   return (
     <View style={styles.heroCard}>
-      <View style={styles.heroInner}>
+      <LinearGradient
+        colors={colors.heroGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroInner}
+      >
         <Text style={styles.heroTitle} numberOfLines={3}>
           {displaySermonTitle(sermon.title, sermon.sermon_date)}
         </Text>
@@ -452,7 +459,7 @@ function HeroSermonCard({
             </Pressable>
           ) : null}
         </View>
-      </View>
+      </LinearGradient>
     </View>
   );
 }
@@ -501,8 +508,8 @@ function PastSermonCard({
 function createStyles(c: RecallionColors) {
   const elevation = cardShadowStyle(c);
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: c.bgPage },
-    scroll: { flex: 1, backgroundColor: c.bgPage },
+    safe: { flex: 1 },
+    scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: 20, paddingBottom: 24 },
     header: {
       flexDirection: 'row',
@@ -510,7 +517,6 @@ function createStyles(c: RecallionColors) {
       alignItems: 'center',
       paddingHorizontal: 20,
       paddingBottom: 8,
-      backgroundColor: c.bgPage,
     },
     headerRight: {
       flexDirection: 'row',
@@ -547,18 +553,18 @@ function createStyles(c: RecallionColors) {
       justifyContent: 'center',
       alignItems: 'center',
       paddingTop: 48,
-      backgroundColor: c.bgPage,
     },
     heroCard: {
-      backgroundColor: c.bgCard,
       borderRadius: c.radiusCard,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: c.borderSubtle,
-      overflow: 'hidden',
+      backgroundColor: c.bgCard,
       ...elevation,
     },
     heroInner: {
       padding: 22,
+      borderRadius: c.radiusCard,
+      borderWidth: 1,
+      borderColor: c.heroBorder,
+      overflow: 'hidden',
     },
     heroTitle: {
       fontSize: 24,

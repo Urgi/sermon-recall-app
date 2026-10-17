@@ -46,7 +46,7 @@ export function HomeStreakBadge({ status, loading, onPress }: Props) {
       <Ionicons
         name={active && completedToday ? 'flame' : 'flame-outline'}
         size={15}
-        color={active ? colors.blue : colors.muted}
+        color={active ? colors.gold : colors.muted}
       />
       <Text style={[styles.count, active ? styles.countActive : styles.countIdle]} numberOfLines={1}>
         {label}
@@ -98,8 +98,8 @@ function createStyles(c: RecallionColors) {
     },
     wrapPressed: { opacity: pressedOpacity },
     wrapActive: {
-      backgroundColor: c.accentSoft,
-      borderColor: c.borderSubtle,
+      backgroundColor: c.goldSoft,
+      borderColor: c.goldBorder,
     },
     wrapIdle: {
       backgroundColor: c.bgCard,

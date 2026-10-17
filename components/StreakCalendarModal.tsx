@@ -348,7 +348,7 @@ function createStyles(c: RecallionColors) {
       width: 6,
       height: 6,
       borderRadius: 999,
-      backgroundColor: c.blue,
+      backgroundColor: c.gold,
     },
     legend: {
       flexDirection: 'row',
@@ -363,7 +363,7 @@ function createStyles(c: RecallionColors) {
       width: 6,
       height: 6,
       borderRadius: 999,
-      backgroundColor: c.blue,
+      backgroundColor: c.gold,
     },
     legendText: {
       flex: 1,

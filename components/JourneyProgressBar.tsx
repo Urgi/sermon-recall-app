@@ -6,7 +6,7 @@ import type { RecallionColors } from '../lib/recallionTheme';
 
 type Props = {
   totalDays: number;
-  /** Number of fully completed days (fills solid cyan from the start). */
+  /** Number of fully completed days (fills solid gold from the start). */
   completedCount: number;
   /**
    * 1-based day that is currently in progress / focused.
@@ -19,7 +19,7 @@ type Props = {
 
 /**
  * Option A progress model:
- * completed = solid cyan · current = outlined active · future = muted
+ * completed = solid gold · current = outlined cyan · future = muted
  */
 export function JourneyProgressBar({
   totalDays,
@@ -68,7 +68,7 @@ function createStyles(c: RecallionColors, size: 'thin' | 'default') {
       borderRadius: 999,
     },
     segDone: {
-      backgroundColor: c.blue,
+      backgroundColor: c.gold,
     },
     segCurrent: {
       backgroundColor: c.accentSoft,

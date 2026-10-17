@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ScreenBackdrop } from './ScreenBackdrop';
+
 type Props = {
   children: ReactNode;
   backgroundColor: string;
@@ -65,23 +67,25 @@ export function KeyboardFormScreen({
   }, [centerContent]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor }]} edges={['top', 'left', 'right']}>
-      <ScrollView
-        style={[styles.scroll, { backgroundColor }]}
-        contentContainerStyle={[
-          styles.scrollContent,
-          centerContent && !keyboardOpen && styles.scrollContentCenter,
-          contentContainerStyle,
-        ]}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
-        automaticallyAdjustKeyboardInsets
-        contentInsetAdjustmentBehavior="automatic"
-        showsVerticalScrollIndicator={false}
-      >
-        {children}
-      </ScrollView>
-    </SafeAreaView>
+    <ScreenBackdrop style={{ backgroundColor }}>
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.scrollContent,
+            centerContent && !keyboardOpen && styles.scrollContentCenter,
+            contentContainerStyle,
+          ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets
+          contentInsetAdjustmentBehavior="automatic"
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </ScrollView>
+      </SafeAreaView>
+    </ScreenBackdrop>
   );
 }
 

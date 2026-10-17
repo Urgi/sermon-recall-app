@@ -145,7 +145,7 @@ function formatSentDate(iso: string): string {
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-    safe: { flex: 1, backgroundColor: c.bgPage },
+    safe: { flex: 1 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
     content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 32 },
     label: { ...typeScale.kicker, color: c.blue, marginBottom: 10 },
