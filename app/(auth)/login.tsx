@@ -10,20 +10,22 @@ import {
   View,
 } from 'react-native';
 
+import { AuthBackButtonSlot } from '../../components/AuthBackButton';
+import { FadeInView } from '../../components/FadeInView';
 import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useI18n } from '../../contexts/I18nContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
-import { USE_CODE_NOT_LINK_MESSAGE } from '../../lib/authToastMessages';
-import type { RecallionColors } from '../../lib/recallionTheme';
+import { createAuthFormStyles } from '../../lib/authFormStyles';
 
 function param(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
   return value;
 }
 
-type Step = 'email' | 'code';
+/** welcome → (create account | email → code). One primary action per step. */
+type Step = 'welcome' | 'email' | 'code';
 
 export default function LoginScreen() {
   const params = useLocalSearchParams<{
@@ -36,8 +38,10 @@ export default function LoginScreen() {
   const { sendEmailOtp, verifyEmailOtp, session, loading, profileLoading } = useAuth();
   const { t } = useI18n();
   const { colors } = useRecallionTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-  const [step, setStep] = useState<Step>('email');
+  const form = useMemo(() => createAuthFormStyles(colors), [colors]);
+  const [step, setStep] = useState<Step>(() =>
+    param(params.email) || showUseCodeHint ? 'email' : 'welcome',
+  );
   const [email, setEmail] = useState(param(params.email) ?? '');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -54,11 +58,11 @@ export default function LoginScreen() {
     }
   }, [loading, session, profileLoading, params.confirmed]);
 
-  function backToEmail() {
-    setStep('email');
-    setCode('');
+  function goTo(next: Step) {
+    setStep(next);
     setError(null);
     setNotice(null);
+    if (next !== 'code') setCode('');
   }
 
   async function onSendCode() {
@@ -78,7 +82,6 @@ export default function LoginScreen() {
     }
     setStep('code');
     setNotice(t('auth.codeSent'));
-    setTimeout(() => codeRef.current?.focus(), 50);
   }
 
   async function onVerify() {
@@ -108,104 +111,123 @@ export default function LoginScreen() {
     setNotice(err ?? t('auth.newCodeSent'));
   }
 
-  const emailReady = email.trim().length > 0;
-  const codeReady = code.trim().length >= 6;
+  const emailReady = email.trim().length > 0 && !submitting;
+  const codeReady = code.trim().length >= 6 && !submitting;
 
   return (
-    <KeyboardFormScreen backgroundColor={colors.bgPage} centerContent={step === 'email'}>
-      <View style={styles.card}>
-        {step === 'code' ? (
-          <Pressable
-            onPress={backToEmail}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel={t('auth.back')}
-            style={({ pressed }) => [styles.backRow, pressed && styles.pressed]}
-          >
-            <Text style={styles.backLabel}>← {t('auth.back')}</Text>
-          </Pressable>
-        ) : null}
-
-        <Image
-          source={require('../../assets/logo.png')}
-          style={styles.logo}
-          accessibilityLabel="Sermon Recall"
-        />
-
-        {step === 'email' ? (
+    <KeyboardFormScreen backgroundColor={colors.bgPage} centerContent={step !== 'code'}>
+      <FadeInView key={step} style={form.card}>
+        {step === 'welcome' ? (
           <>
-            <Text style={styles.kicker}>{t('auth.signUp')}</Text>
-            <Text style={styles.title}>{t('auth.welcome')}</Text>
-            <Text style={styles.subtitle}>{t('auth.welcomeHint')}</Text>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={[form.logo, styles.logoWelcome]}
+              accessibilityIgnoresInvertColors
+              accessible={false}
+            />
+            <Text style={form.title} accessibilityRole="header">
+              {t('auth.welcome')}
+            </Text>
+            <Text style={form.subtitle}>{t('auth.welcomeHint')}</Text>
 
             <Pressable
               onPress={() => router.push('/register')}
-              style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+              style={({ pressed }) => [form.button, pressed && form.pressed]}
               accessibilityRole="button"
-              accessibilityLabel={t('auth.createAccount')}
             >
-              <Text style={styles.buttonLabel}>{t('auth.createAccount')}</Text>
+              <Text style={form.buttonLabel}>{t('auth.createAccount')}</Text>
             </Pressable>
 
-            <Text style={styles.signInSectionLabel}>{t('auth.alreadyHaveAccount')}</Text>
-            <Text style={styles.signInSectionCopy}>{t('auth.loginHint')}</Text>
+            <Pressable
+              onPress={() => goTo('email')}
+              style={({ pressed }) => [form.secondaryButton, styles.gap, pressed && form.pressed]}
+              accessibilityRole="button"
+              accessibilityHint={t('auth.loginHint')}
+            >
+              <Text style={form.secondaryButtonLabel}>{t('auth.signIn')}</Text>
+            </Pressable>
+          </>
+        ) : step === 'email' ? (
+          <>
+            <AuthBackButtonSlot label={t('common.back')} onPress={() => goTo('welcome')} />
+            <Text style={form.title} accessibilityRole="header">
+              {t('auth.signIn')}
+            </Text>
+            <Text style={form.subtitle}>{t('auth.loginHint')}</Text>
 
             {showUseCodeHint ? (
-              <View style={styles.linkErrorBox} accessibilityRole="alert">
-                <Text style={styles.linkErrorTitle}>Use your email code</Text>
-                <Text style={styles.linkErrorBody}>{USE_CODE_NOT_LINK_MESSAGE}</Text>
+              <View style={form.alertBox} accessibilityRole="alert">
+                <Text style={form.alertTitle}>{t('auth.useEmailCode')}</Text>
+                <Text style={form.alertBody}>{t('auth.useCodeNotLink')}</Text>
               </View>
             ) : null}
 
-            <Text style={styles.fieldLabel}>{t('auth.email')}</Text>
+            <Text style={form.fieldLabel}>{t('auth.email')}</Text>
             <TextInput
-              style={styles.input}
+              style={form.input}
               placeholder={t('auth.emailPlaceholder')}
               placeholderTextColor={colors.muted}
               autoCapitalize="none"
+              autoCorrect={false}
               keyboardType="email-address"
               autoComplete="email"
+              textContentType="emailAddress"
               value={email}
               onChangeText={setEmail}
+              autoFocus={!param(params.email)}
               returnKeyType="go"
               submitBehavior="submit"
               onSubmitEditing={() => void onSendCode()}
             />
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? (
+              <Text style={form.error} accessibilityRole="alert">
+                {error}
+              </Text>
+            ) : null}
             <Pressable
               style={({ pressed }) => [
-                styles.secondaryButton,
-                (!emailReady || submitting) && styles.secondaryButtonDisabled,
-                pressed && emailReady && !submitting && styles.buttonPressed,
+                form.button,
+                !emailReady && form.buttonDisabled,
+                pressed && emailReady && form.pressed,
               ]}
               onPress={() => void onSendCode()}
-              disabled={!emailReady || submitting}
+              disabled={!emailReady}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !emailReady, busy: submitting }}
             >
               {submitting ? (
-                <ActivityIndicator color={colors.navy} />
+                <ActivityIndicator color="#fff" />
               ) : (
-                <Text
-                  style={[
-                    styles.secondaryButtonLabel,
-                    (!emailReady || submitting) && styles.buttonLabelDisabled,
-                  ]}
-                >
+                <Text style={[form.buttonLabel, !emailReady && form.buttonLabelDisabled]}>
                   {t('auth.emailMeCode')}
                 </Text>
               )}
             </Pressable>
+
+            <Pressable
+              onPress={() => router.push('/register')}
+              style={form.footerRow}
+              accessibilityRole="button"
+              accessibilityLabel={t('auth.createAccountLink')}
+            >
+              <Text style={form.footerPrompt}>{t('auth.newToApp')}</Text>
+              <Text style={form.footerLink}>{t('auth.createAccountLink')}</Text>
+            </Pressable>
           </>
         ) : (
           <>
-            <Text style={styles.kicker}>{t('auth.verification')}</Text>
-            <Text style={styles.title}>{t('auth.enterYourCode')}</Text>
-            <Text style={styles.subtitle}>
+            <AuthBackButtonSlot label={t('common.back')} onPress={() => goTo('email')} />
+            <Text style={form.kicker}>{t('auth.verification')}</Text>
+            <Text style={form.title} accessibilityRole="header">
+              {t('auth.enterYourCode')}
+            </Text>
+            <Text style={form.subtitle}>
               {t('auth.codeSentTo', { email: email.trim().toLowerCase() })}
             </Text>
 
             <TextInput
               ref={codeRef}
-              style={[styles.input, styles.codeInput]}
+              style={[form.input, form.codeInput]}
               placeholder="000000"
               placeholderTextColor={colors.muted}
               autoCapitalize="none"
@@ -213,31 +235,37 @@ export default function LoginScreen() {
               keyboardType="number-pad"
               textContentType="oneTimeCode"
               autoComplete="one-time-code"
+              accessibilityLabel={t('auth.codeLabel')}
+              autoFocus
               maxLength={8}
               value={code}
-              onChangeText={(t) => setCode(t.replace(/\D/g, ''))}
+              onChangeText={(v) => setCode(v.replace(/\D/g, ''))}
             />
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-            {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+            {error ? (
+              <Text style={form.error} accessibilityRole="alert">
+                {error}
+              </Text>
+            ) : notice ? (
+              <Text style={form.notice} accessibilityLiveRegion="polite">
+                {notice}
+              </Text>
+            ) : null}
 
             <Pressable
               style={({ pressed }) => [
-                styles.button,
-                (!codeReady || submitting) && styles.buttonDisabled,
-                pressed && codeReady && !submitting && styles.buttonPressed,
+                form.button,
+                !codeReady && form.buttonDisabled,
+                pressed && codeReady && form.pressed,
               ]}
               onPress={() => void onVerify()}
-              disabled={!codeReady || submitting}
+              disabled={!codeReady}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !codeReady, busy: submitting }}
             >
               {submitting ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text
-                  style={[
-                    styles.buttonLabel,
-                    (!codeReady || submitting) && styles.buttonLabelDisabled,
-                  ]}
-                >
+                <Text style={[form.buttonLabel, !codeReady && form.buttonLabelDisabled]}>
                   {t('auth.verifyCode')}
                 </Text>
               )}
@@ -246,147 +274,21 @@ export default function LoginScreen() {
             <Pressable
               onPress={() => void onResend()}
               disabled={resendPending || submitting}
-              style={styles.linkButton}
+              style={form.linkButton}
+              accessibilityRole="button"
             >
-              <Text style={styles.linkText}>
-                {resendPending ? 'Sending…' : 'Resend code'}
+              <Text style={[form.linkText, resendPending && form.linkTextDisabled]}>
+                {resendPending ? t('auth.sending') : t('auth.resendCode')}
               </Text>
             </Pressable>
           </>
         )}
-      </View>
+      </FadeInView>
     </KeyboardFormScreen>
   );
 }
 
-function createStyles(c: RecallionColors) {
-  return StyleSheet.create({
-    card: { gap: 0, alignSelf: 'stretch' },
-    backRow: {
-      alignSelf: 'flex-start',
-      marginBottom: 12,
-      paddingVertical: 4,
-      marginLeft: -4,
-    },
-    backLabel: { fontSize: 16, fontWeight: '600', color: c.blue },
-    pressed: { opacity: 0.7 },
-    logo: {
-      width: 72,
-      height: 72,
-      borderRadius: 16,
-      alignSelf: 'flex-start',
-      marginBottom: 20,
-    },
-    kicker: {
-      fontSize: 12,
-      letterSpacing: 1.6,
-      textTransform: 'uppercase',
-      color: c.blue,
-      fontWeight: '600',
-      marginBottom: 10,
-    },
-    title: {
-      fontSize: 32,
-      fontWeight: '700',
-      color: c.navy,
-      marginBottom: 10,
-      lineHeight: 38,
-    },
-    subtitle: {
-      fontSize: 16,
-      color: c.muted,
-      marginBottom: 28,
-      lineHeight: 24,
-    },
-    fieldLabel: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: c.navy,
-      marginBottom: 8,
-    },
-    linkErrorBox: {
-      borderWidth: 1,
-      borderColor: 'rgba(248, 113, 113, 0.65)',
-      backgroundColor: '#4a1212',
-      borderRadius: 14,
-      padding: 14,
-      gap: 6,
-      marginBottom: 20,
-    },
-    linkErrorTitle: { fontSize: 15, fontWeight: '700', color: '#fff1f2' },
-    linkErrorBody: { fontSize: 14, lineHeight: 20, color: '#fecaca' },
-    input: {
-      borderWidth: 1,
-      borderColor: c.borderInput,
-      borderRadius: 14,
-      paddingHorizontal: 16,
-      minHeight: 56,
-      fontSize: 16,
-      color: c.navy,
-      backgroundColor: c.bgCard,
-      marginBottom: 16,
-    },
-    codeInput: {
-      fontSize: 28,
-      fontWeight: '600',
-      letterSpacing: 8,
-      textAlign: 'center',
-      fontVariant: ['tabular-nums'],
-      paddingVertical: 18,
-    },
-    error: { color: '#fca5a5', fontSize: 14, marginBottom: 12, marginTop: -8 },
-    notice: { color: '#86efac', fontSize: 14, marginBottom: 12, marginTop: -8 },
-    button: {
-      backgroundColor: c.ctaSolid,
-      paddingVertical: 16,
-      borderRadius: 50,
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 54,
-    },
-    buttonDisabled: {
-      backgroundColor: c.bgCard,
-      borderWidth: 1,
-      borderColor: c.borderInput,
-    },
-    buttonPressed: { opacity: 0.9 },
-    buttonLabel: { color: '#fff', fontSize: 16, fontWeight: '600' },
-    buttonLabelDisabled: { color: c.muted },
-    secondaryButton: {
-      backgroundColor: 'transparent',
-      paddingVertical: 16,
-      borderRadius: 50,
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 54,
-      borderWidth: 1,
-      borderColor: c.borderInput,
-    },
-    secondaryButtonDisabled: { opacity: 0.55 },
-    secondaryButtonLabel: { color: c.navy, fontSize: 16, fontWeight: '600' },
-    signInSectionLabel: {
-      marginTop: 32,
-      marginBottom: 8,
-      fontSize: 13,
-      fontWeight: '600',
-      color: c.navy,
-    },
-    signInSectionCopy: {
-      fontSize: 15,
-      color: c.muted,
-      marginBottom: 16,
-      lineHeight: 22,
-    },
-    linkButton: {
-      marginTop: 8,
-      paddingVertical: 12,
-      alignItems: 'center',
-    },
-    linkText: {
-      color: c.blue,
-      fontSize: 15,
-      fontWeight: '500',
-      textAlign: 'center',
-    },
-  });
-}
+const styles = StyleSheet.create({
+  logoWelcome: { width: 72, height: 72, marginBottom: 24 },
+  gap: { marginTop: 12 },
+});

@@ -52,7 +52,7 @@ function createStyles(c: RecallionColors) {
       backgroundColor: c.bgPage,
     },
     err: {
-      color: '#b91c1c',
+      color: c.danger,
       textAlign: 'center',
       fontSize: 15,
     },

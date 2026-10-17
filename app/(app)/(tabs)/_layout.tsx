@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useI18n } from '../../../contexts/I18nContext';
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
+import { duration } from '../../../lib/motion';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -24,7 +25,6 @@ function TabIcon({
   inactive: IoniconName;
   accentSoft: string;
 }) {
-  const iconSize = focused ? Math.round(size * 1.12) : size;
   return (
     <View
       style={{
@@ -36,7 +36,7 @@ function TabIcon({
         backgroundColor: focused ? accentSoft : 'transparent',
       }}
     >
-      <Ionicons name={focused ? active : inactive} size={iconSize} color={color} />
+      <Ionicons name={focused ? active : inactive} size={size} color={color} />
     </View>
   );
 }
@@ -50,6 +50,11 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        animation: 'fade',
+        transitionSpec: {
+          animation: 'timing',
+          config: { duration: duration.fast },
+        },
         tabBarActiveTintColor: colors.blue,
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: {

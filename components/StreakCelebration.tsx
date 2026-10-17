@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -10,7 +10,9 @@ import {
   View,
 } from 'react-native';
 
+import { useI18n } from '../contexts/I18nContext';
 import { useRecallionTheme } from '../contexts/ThemeContext';
+import { duration, easing, pressedOpacity, useReducedMotion } from '../lib/motion';
 import type { RecallionColors } from '../lib/recallionTheme';
 
 type Props = {
@@ -88,75 +90,83 @@ function ParticleBurst({
 
 export function StreakCelebration({ visible, streakCount, completedToday, onContinue }: Props) {
   const { colors } = useRecallionTheme();
+  const { t } = useI18n();
+  const reduced = useReducedMotion();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const backdrop = useRef(new Animated.Value(0)).current;
-  const cardScale = useRef(new Animated.Value(0.82)).current;
-  const cardOpacity = useRef(new Animated.Value(0)).current;
-  const numberScale = useRef(new Animated.Value(0.4)).current;
+  const card = useRef(new Animated.Value(0)).current;
+  const numberScale = useRef(new Animated.Value(0.6)).current;
   const iconPulse = useRef(new Animated.Value(0)).current;
-  const ringScale = useRef(new Animated.Value(0.6)).current;
-  const ringOpacity = useRef(new Animated.Value(0)).current;
+  const ring = useRef(new Animated.Value(0)).current;
   const burst = useRef(new Animated.Value(0)).current;
+  const [mounted, setMounted] = useState(visible);
+  const closingRef = useRef(false);
 
   useEffect(() => {
-    if (!visible) {
-      backdrop.setValue(0);
-      cardScale.setValue(0.82);
-      cardOpacity.setValue(0);
-      numberScale.setValue(0.4);
-      iconPulse.setValue(0);
-      ringScale.setValue(0.6);
-      ringOpacity.setValue(0);
-      burst.setValue(0);
-      return;
-    }
+    if (!visible) return;
+    closingRef.current = false;
+    setMounted(true);
+    backdrop.setValue(0);
+    card.setValue(0);
+    numberScale.setValue(reduced ? 1 : 0.6);
+    iconPulse.setValue(0);
+    ring.setValue(0);
+    burst.setValue(0);
 
-    Animated.parallel([
+    const entrance = Animated.parallel([
       Animated.timing(backdrop, {
         toValue: 1,
-        duration: 280,
+        duration: duration.enter,
+        easing: easing.enter,
         useNativeDriver: true,
       }),
-      Animated.spring(cardScale, {
-        toValue: 1,
-        friction: 7,
-        tension: 80,
-        useNativeDriver: true,
-      }),
-      Animated.timing(cardOpacity, {
-        toValue: 1,
-        duration: 260,
-        useNativeDriver: true,
-      }),
-    ]).start();
+      reduced
+        ? Animated.timing(card, { toValue: 1, duration: duration.base, useNativeDriver: true })
+        : Animated.spring(card, {
+            toValue: 1,
+            damping: 16,
+            stiffness: 180,
+            mass: 0.9,
+            useNativeDriver: true,
+          }),
+    ]);
+    entrance.start();
+    if (reduced) return () => entrance.stop();
 
-    Animated.sequence([
-      Animated.delay(120),
+    /** Decorative beats: number pops, ring + particles burst once, icon breathes twice. */
+    const flourish = Animated.sequence([
+      Animated.delay(140),
       Animated.parallel([
         Animated.spring(numberScale, {
           toValue: 1,
-          friction: 5,
-          tension: 120,
+          damping: 10,
+          stiffness: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(ring, {
+          toValue: 1,
+          duration: 700,
+          easing: easing.enter,
           useNativeDriver: true,
         }),
         Animated.timing(burst, {
           toValue: 1,
-          duration: 900,
-          easing: Easing.out(Easing.cubic),
+          duration: 820,
+          easing: easing.enter,
           useNativeDriver: true,
         }),
         Animated.loop(
           Animated.sequence([
             Animated.timing(iconPulse, {
               toValue: 1,
-              duration: 900,
+              duration: 700,
               easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
             Animated.timing(iconPulse, {
               toValue: 0,
-              duration: 900,
+              duration: 700,
               easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
@@ -164,92 +174,116 @@ export function StreakCelebration({ visible, streakCount, completedToday, onCont
           { iterations: 2 },
         ),
       ]),
-    ]).start();
+    ]);
+    flourish.start();
+    return () => {
+      entrance.stop();
+      flourish.stop();
+    };
+  }, [visible, reduced, backdrop, burst, card, iconPulse, numberScale, ring]);
 
-    Animated.sequence([
-      Animated.delay(180),
-      Animated.parallel([
-        Animated.timing(ringScale, {
-          toValue: 1.35,
-          duration: 700,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(ringOpacity, {
-          toValue: 0,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-  }, [
-    visible,
-    backdrop,
-    burst,
-    cardOpacity,
-    cardScale,
-    iconPulse,
-    numberScale,
-    ringOpacity,
-    ringScale,
-  ]);
+  useEffect(() => {
+    if (visible || !mounted) return;
+    setMounted(false);
+  }, [visible, mounted]);
 
-  const iconScale = iconPulse.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.08],
+  /** Play the exit before telling the parent, so the card never hard-cuts away. */
+  function close() {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    Animated.parallel([
+      Animated.timing(backdrop, {
+        toValue: 0,
+        duration: duration.base - 40,
+        easing: easing.exit,
+        useNativeDriver: true,
+      }),
+      Animated.timing(card, {
+        toValue: 0,
+        duration: duration.base - 40,
+        easing: easing.exit,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setMounted(false);
+      onContinue();
+    });
+  }
+
+  const cardScale = card.interpolate({ inputRange: [0, 1], outputRange: [reduced ? 1 : 0.88, 1] });
+  const cardOpacity = card.interpolate({
+    inputRange: [0, 0.6, 1],
+    outputRange: [0, 1, 1],
+    extrapolate: 'clamp',
   });
+  const iconScale = iconPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
+  const ringScale = ring.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1.45] });
+  const ringOpacity = ring.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.7, 0] });
 
-  const subtitle = completedToday
-    ? 'You showed up today. Keep listening, remembering, growing.'
-    : 'Complete today\'s reading to keep your streak going.';
+  const subtitle = completedToday ? t('streak.celebrateDone') : t('streak.celebratePending');
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onContinue}>
-      <Animated.View style={[styles.backdrop, { opacity: backdrop }]}>
-        <Pressable style={styles.backdropPress} onPress={onContinue} />
+    <Modal
+      visible={mounted}
+      transparent
+      animationType="none"
+      onRequestClose={close}
+      statusBarTranslucent
+    >
+      <View style={styles.backdrop}>
+        <Animated.View style={[StyleSheet.absoluteFill, styles.scrim, { opacity: backdrop }]}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={close}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.close')}
+          />
+        </Animated.View>
         <Animated.View
-          style={[
-            styles.card,
-            {
-              opacity: cardOpacity,
-              transform: [{ scale: cardScale }],
-            },
-          ]}
+          style={[styles.card, { opacity: cardOpacity, transform: [{ scale: cardScale }] }]}
+          accessibilityViewIsModal
         >
-          <View style={staticStyles.burstWrap} pointerEvents="none">
-            {Array.from({ length: PARTICLE_COUNT }).map((_, i) => (
-              <ParticleBurst key={i} progress={burst} index={i} color={colors.blue} />
-            ))}
-            <Animated.View
-              style={[
-                staticStyles.ring,
-                {
-                  borderColor: colors.blue,
-                  opacity: ringOpacity,
-                  transform: [{ scale: ringScale }],
-                },
-              ]}
-            />
-          </View>
+          {reduced ? null : (
+            <View style={staticStyles.burstWrap} pointerEvents="none">
+              {Array.from({ length: PARTICLE_COUNT }).map((_, i) => (
+                <ParticleBurst key={i} progress={burst} index={i} color={colors.blue} />
+              ))}
+              <Animated.View
+                style={[
+                  staticStyles.ring,
+                  {
+                    borderColor: colors.blue,
+                    opacity: ringOpacity,
+                    transform: [{ scale: ringScale }],
+                  },
+                ]}
+              />
+            </View>
+          )}
 
           <Animated.View style={[styles.iconWrap, { transform: [{ scale: iconScale }] }]}>
-            <Ionicons name="book" size={34} color={colors.blue} />
+            <Ionicons name="flame" size={32} color={colors.blue} />
           </Animated.View>
 
-          <Animated.Text style={[styles.count, { transform: [{ scale: numberScale }] }]}>
-            {streakCount}
-          </Animated.Text>
-          <Text style={styles.label}>{streakCount === 1 ? 'day streak' : 'day streak'}</Text>
+          <View accessible accessibilityLabel={t('streak.count', { count: streakCount })}>
+            <Animated.Text style={[styles.count, { transform: [{ scale: numberScale }] }]}>
+              {streakCount}
+            </Animated.Text>
+            <Text style={styles.label}>
+              {streakCount === 1 ? t('streak.dayStreakOne') : t('streak.dayStreak')}
+            </Text>
+          </View>
           <Text style={styles.subtitle}>{subtitle}</Text>
 
           <Pressable
             style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-            onPress={onContinue}
+            onPress={close}
+            accessibilityRole="button"
           >
-            <Text style={styles.buttonLabel}>Continue</Text>
+            <Text style={styles.buttonLabel}>{t('common.continue')}</Text>
           </Pressable>
         </Animated.View>
-      </Animated.View>
+      </View>
     </Modal>
   );
 }
@@ -258,21 +292,18 @@ function createStyles(c: RecallionColors) {
   return StyleSheet.create({
     backdrop: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.72)',
       justifyContent: 'center',
       alignItems: 'center',
       padding: 24,
     },
-    backdropPress: {
-      ...StyleSheet.absoluteFillObject,
-    },
+    scrim: { backgroundColor: c.scrim },
     card: {
       width: '100%',
       maxWidth: 340,
       backgroundColor: c.bgCard,
       borderRadius: c.radiusCard,
       borderWidth: 1,
-      borderColor: c.blue,
+      borderColor: c.borderInput,
       paddingHorizontal: 24,
       paddingTop: 28,
       paddingBottom: 22,
@@ -291,6 +322,7 @@ function createStyles(c: RecallionColors) {
       marginBottom: 8,
     },
     count: {
+      textAlign: 'center',
       fontSize: 56,
       fontWeight: '800',
       color: c.navy,
@@ -302,7 +334,7 @@ function createStyles(c: RecallionColors) {
       fontSize: 18,
       fontWeight: '600',
       color: c.blue,
-      textTransform: 'lowercase',
+      textAlign: 'center',
     },
     subtitle: {
       marginTop: 14,
@@ -314,16 +346,18 @@ function createStyles(c: RecallionColors) {
     button: {
       marginTop: 22,
       alignSelf: 'stretch',
-      backgroundColor: c.blue,
-      borderRadius: c.radiusMd,
+      backgroundColor: c.ctaSolid,
+      borderRadius: 50,
       paddingVertical: 14,
+      minHeight: 52,
+      justifyContent: 'center',
       alignItems: 'center',
     },
-    buttonPressed: { opacity: 0.92 },
+    buttonPressed: { opacity: pressedOpacity },
     buttonLabel: {
       fontSize: 17,
       fontWeight: '700',
-      color: '#05070a',
+      color: '#ffffff',
     },
   });
 }

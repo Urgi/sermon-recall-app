@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Modal,
   Pressable,
   StyleSheet,
@@ -9,10 +10,13 @@ import {
   View,
 } from 'react-native';
 
+import { useI18n } from '../contexts/I18nContext';
 import { useRecallionTheme } from '../contexts/ThemeContext';
 import type { DevotionalStreakStatus } from '../lib/devotionalStreak';
 import { localYmdInTimeZone } from '../lib/devotionalUnlock';
+import { pressedOpacity } from '../lib/motion';
 import type { RecallionColors } from '../lib/recallionTheme';
+import { useModalTransition } from '../lib/useModalTransition';
 import {
   buildMonthGrid,
   fetchDevotionalCompletionDates,
@@ -29,7 +33,25 @@ type Props = {
   onClose: () => void;
 };
 
-const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+/** Day cell: 6pt padding × 2 + 32pt bubble + 2pt gap + 8pt dot slot. */
+const CELL_HEIGHT = 54;
+
+const FALLBACK_WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+/** Sunday-first narrow weekday initials in the app language. */
+function weekdayInitials(language: string): string[] {
+  try {
+    // 2023-01-01 was a Sunday.
+    return Array.from({ length: 7 }, (_, i) =>
+      new Date(Date.UTC(2023, 0, 1 + i, 12)).toLocaleDateString(language, {
+        weekday: 'narrow',
+        timeZone: 'UTC',
+      }),
+    );
+  } catch {
+    return FALLBACK_WEEKDAYS;
+  }
+}
 
 export function StreakCalendarModal({
   visible,
@@ -40,6 +62,9 @@ export function StreakCalendarModal({
 }: Props) {
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { t, language } = useI18n();
+  const weekdays = useMemo(() => weekdayInitials(language), [language]);
+  const { mounted, backdropStyle, cardStyle } = useModalTransition(visible);
   const todayYmd = useMemo(() => localYmdInTimeZone(new Date(), timeZone), [timeZone]);
 
   const initialMonth = useMemo(() => ymdToMonthIndex(todayYmd), [todayYmd]);
@@ -82,20 +107,44 @@ export function StreakCalendarModal({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+    <Modal
+      visible={mounted}
+      transparent
+      animationType="none"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={styles.backdrop}>
+        <Animated.View style={[StyleSheet.absoluteFill, styles.scrim, backdropStyle]}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.close')}
+          />
+        </Animated.View>
+        <Animated.View style={[styles.sheet, cardStyle]} accessibilityViewIsModal>
           <View style={styles.headerRow}>
             <View style={styles.titleBlock}>
-              <Text style={styles.title}>Devotional streak</Text>
+              <Text style={styles.title} accessibilityRole="header">
+                {t('streak.calendarTitle')}
+              </Text>
               <Text style={styles.subtitle}>
                 {active
-                  ? `${count} day${count === 1 ? '' : 's'} in a row`
-                  : 'Complete a devotional to start your streak'}
+                  ? count === 1
+                    ? t('streak.inARowOne')
+                    : t('streak.inARow', { count })
+                  : t('streak.startHint')}
               </Text>
             </View>
-            <Pressable onPress={onClose} hitSlop={12} accessibilityLabel="Close calendar">
-              <Ionicons name="close" size={24} color={colors.muted} />
+            <Pressable
+              onPress={onClose}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
+              style={({ pressed }) => [styles.closeBtn, pressed && styles.navBtnPressed]}
+            >
+              <Ionicons name="close" size={22} color={colors.navyMid} />
             </Pressable>
           </View>
 
@@ -103,22 +152,26 @@ export function StreakCalendarModal({
             <Pressable
               onPress={() => goMonth(-1)}
               style={({ pressed }) => [styles.navBtn, pressed && styles.navBtnPressed]}
-              accessibilityLabel="Previous month"
+              accessibilityRole="button"
+              accessibilityLabel={t('streak.prevMonth')}
             >
               <Ionicons name="chevron-back" size={20} color={colors.navy} />
             </Pressable>
-            <Text style={styles.monthLabel}>{monthLabel(year, monthIndex)}</Text>
+            <Text style={styles.monthLabel} accessibilityLiveRegion="polite">
+              {monthLabel(year, monthIndex)}
+            </Text>
             <Pressable
               onPress={() => goMonth(1)}
               style={({ pressed }) => [styles.navBtn, pressed && styles.navBtnPressed]}
-              accessibilityLabel="Next month"
+              accessibilityRole="button"
+              accessibilityLabel={t('streak.nextMonth')}
             >
               <Ionicons name="chevron-forward" size={20} color={colors.navy} />
             </Pressable>
           </View>
 
           <View style={styles.weekdayRow}>
-            {WEEKDAYS.map((label, i) => (
+            {weekdays.map((label, i) => (
               <Text key={`${label}-${i}`} style={styles.weekday}>
                 {label}
               </Text>
@@ -126,7 +179,7 @@ export function StreakCalendarModal({
           </View>
 
           {loadingDates ? (
-            <View style={styles.loading}>
+            <View style={[styles.loading, { height: (cells.length / 7) * CELL_HEIGHT }]}>
               <ActivityIndicator color={colors.blue} />
             </View>
           ) : (
@@ -164,10 +217,10 @@ export function StreakCalendarModal({
 
           <View style={styles.legend}>
             <View style={styles.legendDot} />
-            <Text style={styles.legendText}>Day you marked a devotional complete</Text>
+            <Text style={styles.legendText}>{t('streak.legend')}</Text>
           </View>
-        </Pressable>
-      </Pressable>
+        </Animated.View>
+      </View>
     </Modal>
   );
 }
@@ -176,9 +229,17 @@ function createStyles(c: RecallionColors) {
   return StyleSheet.create({
     backdrop: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.55)',
       justifyContent: 'center',
       padding: 20,
+    },
+    scrim: { backgroundColor: c.scrim },
+    closeBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.bgWash,
     },
     sheet: {
       backgroundColor: c.bgCard,
@@ -216,10 +277,13 @@ function createStyles(c: RecallionColors) {
       marginBottom: 12,
     },
     navBtn: {
-      padding: 8,
-      borderRadius: 8,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    navBtnPressed: { opacity: 0.7 },
+    navBtnPressed: { opacity: pressedOpacity },
     monthLabel: {
       fontSize: 16,
       fontWeight: '600',
@@ -237,7 +301,6 @@ function createStyles(c: RecallionColors) {
       color: c.muted,
     },
     loading: {
-      minHeight: 220,
       alignItems: 'center',
       justifyContent: 'center',
     },

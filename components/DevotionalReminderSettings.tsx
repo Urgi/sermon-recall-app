@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ReminderTimePicker } from './ReminderTimePicker';
+import { useI18n } from '../contexts/I18nContext';
 import { useRecallionTheme } from '../contexts/ThemeContext';
+import { pressedOpacity } from '../lib/motion';
 import type { RecallionColors } from '../lib/recallionTheme';
 import {
   clockToHour24,
@@ -35,6 +37,7 @@ export function DevotionalReminderSettings({
 }: Props) {
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,19 +117,12 @@ export function DevotionalReminderSettings({
 
   return (
     <View>
-      <Text style={styles.hint}>
-        One gentle push when your church has a devotional ready for the day you are on. Times use
-        your phone&apos;s local time zone.
-      </Text>
-
-      {error ? <Text style={styles.err}>{error}</Text> : null}
-
-      <View style={styles.modeRow}>
+      <View style={styles.modeRow} accessibilityRole="radiogroup">
         {(
           [
-            { key: 'custom' as const, label: 'Custom time' },
-            { key: 'defaults' as const, label: 'Defaults' },
-            { key: 'off' as const, label: 'Off' },
+            { key: 'custom' as const, label: t('notify.modeCustom') },
+            { key: 'defaults' as const, label: t('notify.modeDefaults') },
+            { key: 'off' as const, label: t('settings.notifyOff') },
           ] as const
         ).map((opt) => {
           const selected = mode === opt.key;
@@ -140,6 +136,8 @@ export function DevotionalReminderSettings({
               ]}
               disabled={busy}
               onPress={() => setMode(opt.key)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected, disabled: busy }}
             >
               <Text style={[styles.modeChipLabel, selected && styles.modeChipLabelSelected]}>
                 {opt.label}
@@ -154,19 +152,27 @@ export function DevotionalReminderSettings({
           value={clock}
           onChange={setClock}
           disabled={busy}
-          caption="on the hour"
+          caption={t('notify.onTheHour')}
         />
       ) : null}
 
       {mode === 'defaults' ? (
-        <Text style={styles.modeHint}>Morning and midday reminders (your local time).</Text>
+        <Text style={styles.modeHint}>{t('notify.defaultsHint')}</Text>
       ) : null}
       {mode === 'off' ? (
-        <Text style={styles.modeHint}>You won’t get daily devotional push reminders.</Text>
+        <Text style={styles.modeHint}>{t('notify.offHint')}</Text>
       ) : null}
 
       {savedMode === 'custom' && typeof notifyHour === 'number' && !dirty ? (
-        <Text style={styles.saved}>Saved · {formatReminderHour24(notifyHour)}</Text>
+        <Text style={styles.saved}>
+          {t('notify.savedAt', { time: formatReminderHour24(notifyHour) })}
+        </Text>
+      ) : null}
+
+      {error ? (
+        <Text style={styles.err} accessibilityRole="alert">
+          {error}
+        </Text>
       ) : null}
 
       <Pressable
@@ -177,12 +183,14 @@ export function DevotionalReminderSettings({
         ]}
         disabled={!dirty || busy}
         onPress={() => void onSave()}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !dirty || busy, busy }}
       >
         {busy ? (
           <ActivityIndicator color="#fff" />
         ) : (
           <Text style={[styles.saveLabel, !dirty && styles.saveLabelDisabled]}>
-            {dirty ? 'Save reminder' : 'Saved'}
+            {dirty ? t('notify.save') : t('notify.saved')}
           </Text>
         )}
       </Pressable>
@@ -192,11 +200,11 @@ export function DevotionalReminderSettings({
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-    hint: { fontSize: 15, lineHeight: 22, color: c.muted, marginBottom: 12 },
-    err: { marginBottom: 10, color: '#b91c1c', fontSize: 14, fontWeight: '600' },
+    err: { marginTop: 12, color: c.danger, fontSize: 14, fontWeight: '600', lineHeight: 20 },
     modeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
     modeChip: {
-      paddingVertical: 10,
+      minHeight: 44,
+      justifyContent: 'center',
       paddingHorizontal: 14,
       borderRadius: 999,
       borderWidth: 1,
@@ -215,9 +223,8 @@ function createStyles(c: RecallionColors) {
       marginTop: 16,
       backgroundColor: c.ctaSolid,
       borderRadius: 50,
-      paddingVertical: 14,
       alignItems: 'center',
-      minHeight: 50,
+      minHeight: 52,
       justifyContent: 'center',
     },
     saveBtnDisabled: {
@@ -227,6 +234,6 @@ function createStyles(c: RecallionColors) {
     },
     saveLabel: { color: '#fff', fontSize: 16, fontWeight: '700' },
     saveLabelDisabled: { color: c.muted },
-    pressed: { opacity: 0.9 },
+    pressed: { opacity: pressedOpacity },
   });
 }

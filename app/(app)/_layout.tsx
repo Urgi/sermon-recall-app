@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 
 import { useRecallionTheme } from '../../contexts/ThemeContext';
+import { duration } from '../../lib/motion';
 
 export default function AppLayout() {
   const { colors } = useRecallionTheme();
@@ -10,12 +11,14 @@ export default function AppLayout() {
         headerShown: false,
         contentStyle: { backgroundColor: colors.bgPage },
         animation: 'fade',
+        animationDuration: duration.screen,
       }}
     >
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="sermon/[id]" />
-      <Stack.Screen name="devotional/[id]" />
-      <Stack.Screen name="announcement/[id]" />
+      {/* Drill-down screens use the native push so swipe-back works. */}
+      <Stack.Screen name="sermon/[id]" options={{ animation: 'default' }} />
+      <Stack.Screen name="devotional/[id]" options={{ animation: 'default' }} />
+      <Stack.Screen name="announcement/[id]" options={{ animation: 'default' }} />
       <Stack.Screen name="join-church" />
     </Stack>
   );

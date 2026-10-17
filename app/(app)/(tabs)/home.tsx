@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -13,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DevotionalNotifyPrompt } from '../../../components/DevotionalNotifyPrompt';
+import { FadeInView } from '../../../components/FadeInView';
 import { HomeStreakBadge } from '../../../components/HomeStreakBadge';
 import { JourneyProgressBar } from '../../../components/JourneyProgressBar';
 import { ScreenBackdrop } from '../../../components/ScreenBackdrop';
@@ -21,6 +23,7 @@ import { StreakCelebration } from '../../../components/StreakCelebration';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useI18n } from '../../../contexts/I18nContext';
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
+import { pressedOpacity } from '../../../lib/motion';
 import { cardShadowStyle, type RecallionColors } from '../../../lib/recallionTheme';
 import {
   claimStreakCelebrationForToday,
@@ -49,6 +52,7 @@ export default function HomeScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [summaries, setSummaries] = useState<SermonHomeSummary[]>([]);
   const [loadingSermons, setLoadingSermons] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [streakStatus, setStreakStatus] = useState<DevotionalStreakStatus | null>(null);
   const [streakLoading, setStreakLoading] = useState(true);
@@ -84,10 +88,11 @@ export default function HomeScreen() {
 
     if (error) {
       console.warn('[home] sermons', error.message);
-      setSummaries([]);
+      setLoadError(true);
       setLoadingSermons(false);
       return;
     }
+    setLoadError(false);
 
     const sermons = (sermonRows as SermonHomeRow[]) ?? [];
     if (sermons.length > 0) {
@@ -205,9 +210,9 @@ export default function HomeScreen() {
   return (
     <ScreenBackdrop>
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      {profile?.id && showNotifyPrompt ? (
+      {profile?.id ? (
         <DevotionalNotifyPrompt
-          visible
+          visible={showNotifyPrompt}
           userId={profile.id}
           onComplete={() => void refreshProfile()}
         />
@@ -260,32 +265,50 @@ export default function HomeScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
           }
         >
-          <Text style={styles.greeting}>{greeting}</Text>
+          <FadeInView>
+            <Text style={styles.greeting} accessibilityRole="header">
+              {greeting}
+            </Text>
 
-          {hero ? (
-            <>
-              <Text style={styles.sectionTitle}>Current journey</Text>
-              <HeroSermonCard summary={hero} styles={styles} />
-            </>
-          ) : (
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>No sermons yet</Text>
-              <Text style={styles.emptyBody}>
-                When your pastor adds sermons in the admin portal, they will show up here.
-              </Text>
-            </View>
-          )}
-
-          {past.length > 0 ? (
-            <>
-              <Text style={styles.pastSectionTitle}>{t('home.previousSermons')}</Text>
-              <View style={styles.pastList}>
-                {past.map((item) => (
-                  <PastSermonCard key={item.sermon.id} summary={item} styles={styles} />
-                ))}
+            {hero ? (
+              <>
+                <Text style={styles.sectionTitle}>{t('home.currentJourney')}</Text>
+                <HeroSermonCard summary={hero} styles={styles} />
+              </>
+            ) : loadError ? (
+              <View style={styles.empty}>
+                <Ionicons name="cloud-offline-outline" size={32} color={colors.muted} />
+                <Text style={styles.emptyBody}>{t('home.loadError')}</Text>
+                <Pressable
+                  onPress={() => {
+                    setLoadingSermons(true);
+                    void loadSermons();
+                  }}
+                  style={({ pressed }) => [styles.retryBtn, pressed && styles.heroCtaPressed]}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.retryLabel}>{t('common.retry')}</Text>
+                </Pressable>
               </View>
-            </>
-          ) : null}
+            ) : (
+              <View style={styles.empty}>
+                <Ionicons name="book-outline" size={32} color={colors.muted} />
+                <Text style={styles.emptyTitle}>{t('home.emptyTitle')}</Text>
+                <Text style={styles.emptyBody}>{t('home.emptyBody')}</Text>
+              </View>
+            )}
+
+            {past.length > 0 ? (
+              <>
+                <Text style={styles.pastSectionTitle}>{t('home.previousSermons')}</Text>
+                <View style={styles.pastList}>
+                  {past.map((item) => (
+                    <PastSermonCard key={item.sermon.id} summary={item} styles={styles} />
+                  ))}
+                </View>
+              </>
+            ) : null}
+          </FadeInView>
         </ScrollView>
       )}
     </SafeAreaView>
@@ -346,14 +369,9 @@ function HeroSermonCard({
   const showReadingPrimary = Boolean(nextDevotional);
 
   const dayNum = nextDevotional?.day_number;
-  const readingLabel =
-    completedCount > 0
-      ? dayNum
-        ? `Continue Day ${dayNum} →`
-        : "Continue today's reading →"
-      : dayNum
-        ? `Begin Day ${dayNum} →`
-        : "Begin today's reading →";
+  const readingLabel = dayNum
+    ? `${t(completedCount > 0 ? 'home.continueDay' : 'home.beginDay', { day: dayNum })} →`
+    : '';
   const readingOnPress = nextDevotional
     ? () => router.push(`/devotional/${nextDevotional.id}`)
     : undefined;
@@ -399,6 +417,7 @@ function HeroSermonCard({
             <Pressable
               style={({ pressed }) => [styles.heroCtaPrimary, pressed && styles.heroCtaPressed]}
               onPress={readingOnPress}
+              accessibilityRole="button"
             >
               <Text style={styles.heroCtaPrimaryLabel}>{readingLabel}</Text>
             </Pressable>
@@ -410,6 +429,7 @@ function HeroSermonCard({
               pressed && styles.heroCtaPressed,
             ]}
             onPress={() => router.push(`/sermon/${sermon.id}`)}
+            accessibilityRole="button"
           >
             <Text
               style={
@@ -426,6 +446,7 @@ function HeroSermonCard({
             <Pressable
               style={({ pressed }) => [styles.heroTextLink, pressed && styles.heroCtaPressed]}
               onPress={() => router.push(`/devotional/${lastDevotional.id}`)}
+              accessibilityRole="button"
             >
               <Text style={styles.heroTextLinkLabel}>{t('home.reviewLastDay')}</Text>
             </Pressable>
@@ -444,6 +465,7 @@ function PastSermonCard({
   styles: ReturnType<typeof createStyles>;
 }) {
   const { t } = useI18n();
+  const { colors } = useRecallionTheme();
   const { sermon } = summary;
   const progressLabel =
     summary.totalDays === 0
@@ -460,12 +482,18 @@ function PastSermonCard({
     <Pressable
       style={({ pressed }) => [styles.pastCard, pressed && styles.pastCardPressed]}
       onPress={() => router.push(`/sermon/${sermon.id}`)}
+      accessibilityRole="button"
     >
-      <Text style={styles.pastTitle} numberOfLines={2}>
-        {displaySermonTitle(sermon.title, sermon.sermon_date)}
-      </Text>
-      <Text style={styles.pastMeta}>{meta}</Text>
-      <Text style={[styles.statusLabel, styles.statusMuted]}>{progressLabel}</Text>
+      <View style={styles.pastText}>
+        <Text style={styles.pastTitle} numberOfLines={2}>
+          {displaySermonTitle(sermon.title, sermon.sermon_date)}
+        </Text>
+        <Text style={styles.pastMeta} numberOfLines={1}>
+          {meta}
+        </Text>
+        <Text style={styles.pastStatus}>{progressLabel}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.muted} />
     </Pressable>
   );
 }
@@ -577,14 +605,17 @@ function createStyles(c: RecallionColors) {
       backgroundColor: c.ctaSolid,
       borderRadius: 50,
       paddingVertical: 15,
+      minHeight: 52,
+      justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: 8,
+      marginBottom: 4,
     },
     heroTextLink: {
-      paddingVertical: 10,
+      minHeight: 44,
+      justifyContent: 'center',
       alignItems: 'center',
     },
-    heroCtaPressed: { opacity: 0.92 },
+    heroCtaPressed: { opacity: pressedOpacity },
     heroCtaPrimaryLabel: {
       color: '#fff',
       fontSize: 16,
@@ -604,29 +635,58 @@ function createStyles(c: RecallionColors) {
       letterSpacing: 1.1,
       textTransform: 'uppercase',
     },
-    pastList: { gap: 12 },
+    pastList: { gap: 10 },
     pastCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
       backgroundColor: c.bgCard,
-      borderRadius: c.radiusCard,
-      padding: 18,
+      borderRadius: c.radiusMd,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.borderSubtle,
       ...elevation,
     },
-    pastCardPressed: { opacity: 0.95 },
+    pastCardPressed: { opacity: pressedOpacity },
+    pastText: { flex: 1, minWidth: 0 },
     pastTitle: {
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: '600',
       color: c.navy,
       lineHeight: 24,
     },
     pastMeta: {
-      marginTop: 6,
-      fontSize: 14,
+      marginTop: 4,
+      fontSize: 13,
       color: c.muted,
     },
-    empty: { paddingVertical: 40, paddingHorizontal: 8 },
-    emptyTitle: { fontSize: 18, fontWeight: '600', color: c.navyMid, textAlign: 'center' },
+    pastStatus: {
+      marginTop: 6,
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.navyMid,
+    },
+    empty: { paddingVertical: 48, paddingHorizontal: 16, alignItems: 'center', gap: 4 },
+    emptyTitle: {
+      marginTop: 8,
+      fontSize: 18,
+      fontWeight: '600',
+      color: c.navyMid,
+      textAlign: 'center',
+    },
+    retryBtn: {
+      marginTop: 16,
+      minHeight: 44,
+      paddingHorizontal: 24,
+      borderRadius: 50,
+      borderWidth: 1,
+      borderColor: c.blue,
+      backgroundColor: c.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    retryLabel: { fontSize: 15, fontWeight: '700', color: c.blue },
     emptyBody: {
       marginTop: 10,
       fontSize: 15,

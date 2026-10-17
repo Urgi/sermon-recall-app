@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import {
   Keyboard,
+  LayoutAnimation,
   Platform,
+  type KeyboardEvent,
   ScrollView,
   StyleSheet,
   type StyleProp,
@@ -31,19 +33,36 @@ export function KeyboardFormScreen({
   const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   useEffect(() => {
+    /** Ride the keyboard's own curve so centered content glides up instead of snapping. */
+    function animateWith(e: KeyboardEvent) {
+      if (!centerContent) return;
+      LayoutAnimation.configureNext(
+        LayoutAnimation.create(
+          Platform.OS === 'ios' && e.duration ? e.duration : 220,
+          Platform.OS === 'ios' ? LayoutAnimation.Types.keyboard : LayoutAnimation.Types.easeInEaseOut,
+          LayoutAnimation.Properties.opacity,
+        ),
+      );
+    }
     const show = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => setKeyboardOpen(true),
+      (e) => {
+        animateWith(e);
+        setKeyboardOpen(true);
+      },
     );
     const hide = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setKeyboardOpen(false),
+      (e) => {
+        animateWith(e);
+        setKeyboardOpen(false);
+      },
     );
     return () => {
       show.remove();
       hide.remove();
     };
-  }, []);
+  }, [centerContent]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor }]} edges={['top', 'left', 'right']}>
@@ -71,8 +90,9 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
-    padding: 24,
-    paddingBottom: 48,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
   scrollContentCenter: {
     justifyContent: 'center',

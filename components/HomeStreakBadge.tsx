@@ -2,8 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useI18n } from '../contexts/I18nContext';
 import { useRecallionTheme } from '../contexts/ThemeContext';
 import type { DevotionalStreakStatus } from '../lib/devotionalStreak';
+import { pressedOpacity } from '../lib/motion';
 import type { RecallionColors } from '../lib/recallionTheme';
 
 type Props = {
@@ -15,10 +17,11 @@ type Props = {
 export function HomeStreakBadge({ status, loading, onPress }: Props) {
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { t } = useI18n();
 
   if (loading) {
     return (
-      <View style={styles.wrap} accessibilityLabel="Loading streak">
+      <View style={[styles.wrap, styles.wrapIdle]} accessibilityLabel={t('streak.loading')}>
         <Ionicons name="flame-outline" size={15} color={colors.muted} />
         <Text style={styles.mutedText}>—</Text>
       </View>
@@ -29,20 +32,19 @@ export function HomeStreakBadge({ status, loading, onPress }: Props) {
   const active = status?.isActive === true && count > 0;
   const completedToday = status?.completedToday === true;
 
-  const label = active
-    ? completedToday
-      ? `${count}-day streak`
-      : `${count}-day streak · today`
-    : 'Start streak';
+  // Filled flame = done today; outline = streak alive but today's reading still open.
+  const label = active ? t('streak.count', { count }) : t('streak.start');
 
   const a11y = active
-    ? `${count}-day streak${completedToday ? '' : ', keep it going today'}`
-    : 'Start your streak today';
+    ? completedToday
+      ? t('streak.count', { count })
+      : t('streak.a11yKeepGoing', { count })
+    : t('streak.a11yStart');
 
   const content = (
     <>
       <Ionicons
-        name={active ? 'flame' : 'flame-outline'}
+        name={active && completedToday ? 'flame' : 'flame-outline'}
         size={15}
         color={active ? colors.blue : colors.muted}
       />
@@ -62,7 +64,9 @@ export function HomeStreakBadge({ status, loading, onPress }: Props) {
           pressed && styles.wrapPressed,
         ]}
         accessibilityRole="button"
-        accessibilityLabel={`${a11y}, open calendar`}
+        accessibilityLabel={a11y}
+        accessibilityHint={t('streak.a11yOpenCalendar')}
+        hitSlop={6}
       >
         {content}
       </Pressable>
@@ -86,12 +90,13 @@ function createStyles(c: RecallionColors) {
       alignItems: 'center',
       gap: 6,
       paddingHorizontal: 10,
-      paddingVertical: 7,
+      paddingVertical: 8,
+      minHeight: 34,
       borderRadius: 999,
       borderWidth: StyleSheet.hairlineWidth,
-      maxWidth: 168,
+      maxWidth: 230,
     },
-    wrapPressed: { opacity: 0.85 },
+    wrapPressed: { opacity: pressedOpacity },
     wrapActive: {
       backgroundColor: c.accentSoft,
       borderColor: c.borderSubtle,

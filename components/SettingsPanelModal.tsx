@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, type ReactNode } from 'react';
 import {
+  Animated,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -11,8 +12,11 @@ import {
   View,
 } from 'react-native';
 
+import { useI18n } from '../contexts/I18nContext';
 import { useRecallionTheme } from '../contexts/ThemeContext';
+import { pressedOpacity } from '../lib/motion';
 import type { RecallionColors } from '../lib/recallionTheme';
+import { useModalTransition } from '../lib/useModalTransition';
 
 type Props = {
   visible: boolean;
@@ -25,37 +29,54 @@ type Props = {
 export function SettingsPanelModal({ visible, title, subtitle, onClose, children }: Props) {
   const { colors, resolved } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors, resolved), [colors, resolved]);
+  const { t } = useI18n();
+  const { mounted, backdropStyle, cardStyle } = useModalTransition(visible);
 
   return (
-    <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
+    <Modal
+      animationType="none"
+      transparent
+      visible={mounted}
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.overlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Dismiss" />
-          <View style={styles.sheet}>
+          <Animated.View style={[StyleSheet.absoluteFill, styles.scrim, backdropStyle]}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
+            />
+          </Animated.View>
+          <Animated.View style={[styles.sheet, cardStyle]} accessibilityViewIsModal>
             <ScrollView
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.sheetBody}
             >
               <View style={styles.headerRow}>
-                <Text style={styles.title}>{title}</Text>
+                <Text style={styles.title} accessibilityRole="header">
+                  {title}
+                </Text>
                 <Pressable
                   onPress={onClose}
                   hitSlop={12}
                   accessibilityRole="button"
-                  accessibilityLabel="Close"
+                  accessibilityLabel={t('common.close')}
                   style={({ pressed }) => [styles.closeBtn, pressed && styles.pressed]}
                 >
-                  <Ionicons name="close-circle" size={30} color={colors.blue} />
+                  <Ionicons name="close" size={22} color={colors.navyMid} />
                 </Pressable>
               </View>
               {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
               {children}
             </ScrollView>
-          </View>
+          </Animated.View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -66,19 +87,19 @@ function createStyles(c: RecallionColors, resolved: 'light' | 'dark') {
   const isDark = resolved === 'dark';
   return StyleSheet.create({
     flex: { flex: 1 },
+    scrim: { backgroundColor: c.scrim },
     overlay: {
       flex: 1,
-      backgroundColor: isDark ? 'rgba(0, 0, 0, 0.72)' : 'rgba(15, 23, 42, 0.45)',
       justifyContent: 'center',
       paddingHorizontal: 20,
       paddingVertical: 40,
     },
     sheet: {
       maxHeight: '90%',
-      borderRadius: 16,
-      backgroundColor: isDark ? '#121a28' : c.bgCard,
-      borderWidth: isDark ? 1.5 : 1,
-      borderColor: isDark ? 'rgba(56, 189, 248, 0.45)' : 'rgba(15, 40, 70, 0.16)',
+      borderRadius: c.radiusCard,
+      backgroundColor: isDark ? '#101826' : c.bgCard,
+      borderWidth: 1,
+      borderColor: isDark ? c.borderInput : 'rgba(15, 40, 70, 0.16)',
       zIndex: 1,
       shadowColor: '#000',
       shadowOpacity: isDark ? 0.55 : 0.18,
@@ -101,13 +122,20 @@ function createStyles(c: RecallionColors, resolved: 'light' | 'dark') {
       color: c.navy,
       letterSpacing: -0.2,
     },
-    closeBtn: { marginLeft: 4 },
+    closeBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.bgWash,
+    },
     subtitle: {
       marginBottom: 16,
       fontSize: 14,
       lineHeight: 21,
       color: c.muted,
     },
-    pressed: { opacity: 0.85 },
+    pressed: { opacity: pressedOpacity },
   });
 }

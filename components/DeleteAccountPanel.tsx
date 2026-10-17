@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -148,8 +149,15 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
           ) : null}
 
           {preview?.will_delete_church ? (
-            <Pressable style={styles.checkRow} onPress={() => setChurchAck((v) => !v)}>
-              <View style={[styles.checkbox, churchAck && styles.checkboxOn]} />
+            <Pressable
+              style={styles.checkRow}
+              onPress={() => setChurchAck((v) => !v)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: churchAck }}
+            >
+              <View style={[styles.checkbox, churchAck && styles.checkboxOn]}>
+                {churchAck ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
+              </View>
               <Text style={styles.checkLabel}>
                 I understand members will lose access to this church on Sermon Recall.
               </Text>
@@ -207,7 +215,6 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
 }
 
 function createStyles(c: RecallionColors, resolved: 'light' | 'dark') {
-  const light = resolved === 'light';
   return StyleSheet.create({
     wrap: {
       paddingVertical: 4,
@@ -224,9 +231,9 @@ function createStyles(c: RecallionColors, resolved: 'light' | 'dark') {
       color: c.muted,
       lineHeight: 21,
     },
-    linkRow: { marginTop: 12, alignSelf: 'flex-start', paddingVertical: 4 },
+    linkRow: { marginTop: 8, alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
     linkLabel: {
-      color: light ? '#b91c1c' : '#f87171',
+      color: c.danger,
       fontSize: 15,
       fontWeight: '600',
     },
@@ -239,20 +246,22 @@ function createStyles(c: RecallionColors, resolved: 'light' | 'dark') {
     warnBox: {
       padding: 12,
       borderRadius: c.radiusMd,
-      backgroundColor: light ? '#fffbeb' : 'rgba(120, 53, 15, 0.22)',
+      backgroundColor: c.warningSoft,
+      borderWidth: 1,
+      borderColor: c.warningBorder,
     },
     warnTitle: {
       fontWeight: '700',
-      color: light ? '#92400e' : '#fde68a',
+      color: c.warning,
       fontSize: 15,
     },
     warnText: {
       marginTop: 8,
       fontSize: 14,
-      color: light ? '#78350f' : '#fef3c7',
+      color: c.navyMid,
       lineHeight: 20,
     },
-    checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+    checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minHeight: 44 },
     checkbox: {
       marginTop: 2,
       width: 20,
@@ -260,6 +269,8 @@ function createStyles(c: RecallionColors, resolved: 'light' | 'dark') {
       borderRadius: 4,
       borderWidth: 2,
       borderColor: c.muted,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     checkboxOn: { backgroundColor: c.blue, borderColor: c.blue },
     checkLabel: { flex: 1, fontSize: 14, color: c.navy, lineHeight: 20 },
@@ -274,15 +285,16 @@ function createStyles(c: RecallionColors, resolved: 'light' | 'dark') {
       color: c.navy,
       backgroundColor: c.bgWash,
     },
-    error: { color: light ? '#b91c1c' : '#fca5a5', fontSize: 14, fontWeight: '600' },
+    error: { color: c.danger, fontSize: 14, fontWeight: '600', lineHeight: 20 },
     dangerBtn: {
       backgroundColor: '#b91c1c',
-      paddingVertical: 14,
+      minHeight: 52,
+      justifyContent: 'center',
       borderRadius: 50,
       alignItems: 'center',
     },
     dangerLabel: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
-    cancel: { textAlign: 'center', color: c.muted, fontSize: 16, paddingVertical: 8 },
-    pressed: { opacity: 0.88 },
+    cancel: { textAlign: 'center', color: c.muted, fontSize: 16, fontWeight: '600', paddingVertical: 12 },
+    pressed: { opacity: 0.86 },
   });
 }

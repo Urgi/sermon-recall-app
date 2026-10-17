@@ -74,8 +74,8 @@ function createStyles(c: RecallionColors) {
     },
     title: { fontSize: 17, fontWeight: '600', color: c.navy },
     hint: { marginTop: 6, fontSize: 14, color: c.muted, lineHeight: 21 },
-    linkRow: { marginTop: 12, alignSelf: 'flex-start', paddingVertical: 4 },
-    pressed: { opacity: 0.75 },
+    linkRow: { marginTop: 8, alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
+    pressed: { opacity: 0.86 },
     linkLabel: { fontSize: 15, fontWeight: '600', color: c.blue },
   });
 }

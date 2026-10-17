@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -11,21 +12,22 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FadeInView } from '../../../components/FadeInView';
 import { JourneyProgressBar } from '../../../components/JourneyProgressBar';
 import { ScreenBackdrop } from '../../../components/ScreenBackdrop';
 import { SermonRecallScreenHeader } from '../../../components/SermonRecallScreenHeader';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useI18n } from '../../../contexts/I18nContext';
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
 import { typeScale } from '../../../lib/designTokens';
-import { devotionalDayHeading, devotionalTopic } from '../../../lib/devotionalDayTopics';
+import { devotionalDayHeading } from '../../../lib/devotionalDayTopics';
 import {
   accessibleDevotionalIds,
   buildUnlockContext,
   daysUntilCalendarUnlock,
-  formatUnlockLabel,
-  formatUnlockRelative,
   nextUnlockedIncompleteDevotional,
 } from '../../../lib/devotionalUnlock';
+import { pressedOpacity } from '../../../lib/motion';
 import type { RecallionColors } from '../../../lib/recallionTheme';
 import { displaySermonTitle } from '../../../lib/sermonHomeStatus';
 import { supabase } from '../../../lib/supabase';
@@ -62,7 +64,7 @@ function formatPreachedDate(iso: string | null): string | null {
   if (!iso) return null;
   try {
     const d = new Date(`${iso}T12:00:00`);
-    return `Preached ${d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}`;
+    return d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
   } catch {
     return null;
   }
@@ -83,6 +85,7 @@ export default function SermonDetailScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
+  const { t } = useI18n();
   const [sermon, setSermon] = useState<SermonRow | null>(null);
   const [devotionals, setDevotionals] = useState<DevotionalRow[]>([]);
   const [progressByDevotional, setProgressByDevotional] = useState<Map<string, ProgressRow>>(
@@ -105,7 +108,7 @@ export default function SermonDetailScreen() {
       .maybeSingle();
 
     if (e1 || !s) {
-      setError('Could not load this sermon.');
+      setError('load');
       setSermon(null);
       setDevotionals([]);
       setProgressByDevotional(new Map());
@@ -190,26 +193,31 @@ export default function SermonDetailScreen() {
     (d) => !completedIds.has(d.id) && !unlockedIds.has(d.id),
   );
 
-  const nextUpDevotional = nextDevotional ?? nextLockedDevotional;
   const currentDayNumber = !allDone && nextDevotional ? nextDevotional.day_number : null;
 
-  const preachedLabel = sermon ? formatPreachedDate(sermon.sermon_date) : null;
-  const titleDisplay = sermon
-    ? displaySermonTitle(sermon.title, sermon.sermon_date)
-    : 'Sermon';
+  const preachedDate = sermon ? formatPreachedDate(sermon.sermon_date) : null;
+  const titleDisplay = sermon ? displaySermonTitle(sermon.title, sermon.sermon_date) : '';
 
   function unlockDaysFor(dayNumber: number): number {
     if (!unlockCtx) return 0;
     return daysUntilCalendarUnlock(dayNumber, unlockCtx.anchorYmd, unlockCtx.todayYmd);
   }
 
+  function unlockLabel(daysUntil: number): string {
+    if (daysUntil <= 0) return t('sermon.unlocksSoon');
+    if (daysUntil === 1) return t('sermon.unlocksTomorrow');
+    return t('sermon.unlocksInDays', { days: daysUntil });
+  }
+
   function ctaConfig(): { label: string; disabled: boolean; onPress?: () => void } {
     if (allDone) {
-      return { label: 'All days complete', disabled: true };
+      return { label: t('sermon.allDaysComplete'), disabled: true };
     }
     if (nextDevotional) {
       return {
-        label: `Continue Day ${nextDevotional.day_number} →`,
+        label: `${t(completedCount > 0 ? 'home.continueDay' : 'home.beginDay', {
+          day: nextDevotional.day_number,
+        })} →`,
         disabled: false,
         onPress: () => router.push(`/devotional/${nextDevotional.id}`),
       };
@@ -217,11 +225,14 @@ export default function SermonDetailScreen() {
     if (nextLockedDevotional) {
       const daysUntil = unlockDaysFor(nextLockedDevotional.day_number);
       return {
-        label: `Day ${nextLockedDevotional.day_number} unlocks ${formatUnlockRelative(daysUntil)}`,
+        label: t('sermon.dayUnlocks', {
+          day: nextLockedDevotional.day_number,
+          when: unlockLabel(daysUntil),
+        }),
         disabled: true,
       };
     }
-    return { label: 'View journey', disabled: true };
+    return { label: t('sermon.journey'), disabled: true };
   }
 
   const cta = ctaConfig();
@@ -229,15 +240,23 @@ export default function SermonDetailScreen() {
   return (
     <ScreenBackdrop>
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
-        <SermonRecallScreenHeader backLabel="Back" />
+        <SermonRecallScreenHeader />
 
         {loading ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={colors.blue} />
           </View>
         ) : error || !sermon ? (
-          <View style={styles.padBare}>
-            <Text style={styles.err}>{error ?? 'Not found.'}</Text>
+          <View style={styles.center}>
+            <Ionicons name="cloud-offline-outline" size={32} color={colors.muted} />
+            <Text style={styles.err}>{t('sermon.loadError')}</Text>
+            <Pressable
+              onPress={() => void load()}
+              style={({ pressed }) => [styles.retryBtn, pressed && styles.rowPressed]}
+              accessibilityRole="button"
+            >
+              <Text style={styles.retryLabel}>{t('common.retry')}</Text>
+            </Pressable>
           </View>
         ) : (
           <ScrollView
@@ -247,111 +266,140 @@ export default function SermonDetailScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
             }
           >
-            <Text style={styles.title}>{titleDisplay}</Text>
-            {sermon.pastor_name ? <Text style={styles.meta}>{sermon.pastor_name}</Text> : null}
-            {preachedLabel ? <Text style={styles.preached}>{preachedLabel}</Text> : null}
-
-            {totalDays > 0 ? (
-              <View style={styles.progressBlock}>
-                <Text style={styles.progressTitle}>Your progress</Text>
-                <JourneyProgressBar
-                  totalDays={totalDays}
-                  completedCount={completedCount}
-                  currentDayNumber={currentDayNumber}
-                />
-                {nextUpDevotional ? (
-                  <Text style={styles.nextUp}>
-                    {allDone
-                      ? `All ${totalDays} days complete`
-                      : (() => {
-                          const row = devotionals.find((item) => item.id === nextUpDevotional.id);
-                          return `Next up: Day ${nextUpDevotional.day_number} — ${devotionalTopic(nextUpDevotional.day_number, row?.title)}`;
-                        })()}
-                  </Text>
-                ) : null}
-              </View>
-            ) : null}
-
-            {totalDays > 0 ? (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.heroCta,
-                  cta.disabled && styles.heroCtaDisabled,
-                  pressed && !cta.disabled && styles.heroCtaPressed,
-                ]}
-                disabled={cta.disabled}
-                onPress={cta.onPress}
-              >
-                <Text style={[styles.heroCtaLabel, cta.disabled && styles.heroCtaLabelDisabled]}>
-                  {cta.label}
-                </Text>
-              </Pressable>
-            ) : null}
-
-            <Text style={styles.section}>Six-day journey</Text>
-            {devotionals.length === 0 ? (
-              <Text style={styles.muted}>
-                Daily devotionals will appear here once they are published for this sermon.
+            <FadeInView>
+              <Text style={styles.title} accessibilityRole="header">
+                {titleDisplay}
               </Text>
-            ) : (
-              <View style={styles.list}>
-                {devotionals.map((d) => {
-                  const done = completedIds.has(d.id);
-                  const unlocked = unlockedIds.has(d.id);
-                  const isNext = unlocked && !done && nextDevotional?.id === d.id;
-                  const progress = progressByDevotional.get(d.id);
-                  const commitment = progress?.application_commitment?.trim();
-                  const completedLabel = formatCompletedDate(progress?.completed_at ?? null);
-                  const daysUntil = unlockDaysFor(d.day_number);
+              {sermon.pastor_name || preachedDate ? (
+                <Text style={styles.meta}>
+                  {[sermon.pastor_name, preachedDate ? t('sermon.preached', { date: preachedDate }) : null]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+              ) : null}
 
-                  return (
-                    <Pressable
-                      key={d.id}
-                      disabled={!unlocked && !done}
-                      style={({ pressed }) => [
-                        styles.row,
-                        done && styles.rowDone,
-                        unlocked && isNext && styles.rowCurrent,
-                        !unlocked && !done && styles.rowLocked,
-                        pressed && (unlocked || done) && styles.rowPressed,
-                      ]}
-                      onPress={() => (unlocked || done) && router.push(`/devotional/${d.id}`)}
-                    >
-                      <View style={styles.rowMain}>
-                        <View style={styles.rowTextCol}>
-                          <Text style={[styles.dayHeading, !unlocked && !done && styles.dayMuted]}>
-                            {done ? '✓ ' : ''}
-                            {devotionalDayHeading(d.day_number, d.title)}
-                          </Text>
-                          {done ? (
-                            <>
-                              <Text style={styles.completedMeta}>
-                                Completed{completedLabel ? ` ${completedLabel}` : ''}
+              {totalDays > 0 ? (
+                <View style={styles.progressBlock}>
+                  <View style={styles.progressHeader}>
+                    <Text style={styles.progressTitle}>{t('sermon.yourProgress')}</Text>
+                    <Text style={styles.progressCount}>
+                      {allDone
+                        ? t('sermon.allComplete', { total: totalDays })
+                        : t('home.ofComplete', { done: completedCount, total: totalDays })}
+                    </Text>
+                  </View>
+                  <JourneyProgressBar
+                    totalDays={totalDays}
+                    completedCount={completedCount}
+                    currentDayNumber={currentDayNumber}
+                  />
+                </View>
+              ) : null}
+
+              {totalDays > 0 ? (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.heroCta,
+                    cta.disabled && styles.heroCtaDisabled,
+                    pressed && !cta.disabled && styles.heroCtaPressed,
+                  ]}
+                  disabled={cta.disabled}
+                  onPress={cta.onPress}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: cta.disabled }}
+                >
+                  <Text style={[styles.heroCtaLabel, cta.disabled && styles.heroCtaLabelDisabled]}>
+                    {cta.label}
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              <Text style={styles.section}>{t('sermon.journey')}</Text>
+              {devotionals.length === 0 ? (
+                <Text style={styles.muted}>{t('sermon.emptyDays')}</Text>
+              ) : (
+                <View style={styles.list}>
+                  {devotionals.map((d) => {
+                    const done = completedIds.has(d.id);
+                    const unlocked = unlockedIds.has(d.id);
+                    const isNext = unlocked && !done && nextDevotional?.id === d.id;
+                    const progress = progressByDevotional.get(d.id);
+                    const commitment = progress?.application_commitment?.trim();
+                    const completedLabel = formatCompletedDate(progress?.completed_at ?? null);
+                    const daysUntil = unlockDaysFor(d.day_number);
+
+                    return (
+                      <Pressable
+                        key={d.id}
+                        disabled={!unlocked && !done}
+                        style={({ pressed }) => [
+                          styles.row,
+                          done && styles.rowDone,
+                          unlocked && isNext && styles.rowCurrent,
+                          !unlocked && !done && styles.rowLocked,
+                          pressed && (unlocked || done) && styles.rowPressed,
+                        ]}
+                        onPress={() => (unlocked || done) && router.push(`/devotional/${d.id}`)}
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: !unlocked && !done }}
+                      >
+                        <View style={styles.rowMain}>
+                          <View
+                            style={[
+                              styles.rowBadge,
+                              done && styles.rowBadgeDone,
+                              isNext && styles.rowBadgeCurrent,
+                            ]}
+                          >
+                            {done ? (
+                              <Ionicons name="checkmark" size={16} color="#fff" />
+                            ) : !unlocked ? (
+                              <Ionicons name="lock-closed" size={13} color={colors.muted} />
+                            ) : (
+                              <Text style={[styles.rowBadgeText, isNext && styles.rowBadgeTextCurrent]}>
+                                {d.day_number}
                               </Text>
-                              {commitment ? (
-                                <Text style={styles.commitmentSnippet} numberOfLines={1}>
-                                  “{commitment}”
-                                </Text>
-                              ) : null}
-                            </>
-                          ) : unlocked ? (
-                            <Text style={styles.rowSub}>
-                              {isNext ? 'Current · ' : ''}
-                              {d.estimated_minutes} min read
+                            )}
+                          </View>
+                          <View style={styles.rowTextCol}>
+                            <Text
+                              style={[styles.dayHeading, !unlocked && !done && styles.dayMuted]}
+                              numberOfLines={2}
+                            >
+                              {devotionalDayHeading(d.day_number, d.title)}
                             </Text>
-                          ) : (
-                            <Text style={styles.rowUnlock}>{formatUnlockLabel(daysUntil)}</Text>
-                          )}
+                            {done ? (
+                              <>
+                                <Text style={styles.completedMeta}>
+                                  {completedLabel
+                                    ? t('sermon.completedOn', { date: completedLabel })
+                                    : t('home.completed')}
+                                </Text>
+                                {commitment ? (
+                                  <Text style={styles.commitmentSnippet} numberOfLines={1}>
+                                    “{commitment}”
+                                  </Text>
+                                ) : null}
+                              </>
+                            ) : unlocked ? (
+                              <Text style={[styles.rowSub, isNext && styles.rowSubCurrent]}>
+                                {isNext ? `${t('sermon.current')} · ` : ''}
+                                {t('sermon.minRead', { min: d.estimated_minutes })}
+                              </Text>
+                            ) : (
+                              <Text style={styles.rowUnlock}>{unlockLabel(daysUntil)}</Text>
+                            )}
+                          </View>
+                          {done || unlocked ? (
+                            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+                          ) : null}
                         </View>
-                        {done || unlocked ? (
-                          <Text style={styles.rowChevron}>{done ? 'Review' : 'Open'} →</Text>
-                        ) : null}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+            </FadeInView>
           </ScrollView>
         )}
       </SafeAreaView>
@@ -362,33 +410,47 @@ export default function SermonDetailScreen() {
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bgPage },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    padBare: { padding: 20, paddingBottom: 40 },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
     scrollOuter: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 40 },
-    err: { color: '#b91c1c', fontSize: 16 },
+    err: { color: c.navyMid, fontSize: 16, lineHeight: 22, textAlign: 'center' },
+    retryBtn: {
+      marginTop: 4,
+      minHeight: 44,
+      paddingHorizontal: 24,
+      borderRadius: 50,
+      borderWidth: 1,
+      borderColor: c.blue,
+      backgroundColor: c.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    retryLabel: { fontSize: 15, fontWeight: '700', color: c.blue },
     title: { ...typeScale.dayTitle, color: c.navy },
-    meta: { marginTop: 8, fontSize: 15, color: c.navyMid },
-    preached: { marginTop: 4, fontSize: 14, color: c.muted },
+    meta: { marginTop: 8, fontSize: 15, lineHeight: 21, color: c.muted },
     progressBlock: {
-      marginTop: 22,
+      marginTop: 24,
       marginBottom: 8,
+      gap: 10,
+    },
+    progressHeader: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'space-between',
       gap: 12,
     },
     progressTitle: {
       ...typeScale.kicker,
       color: c.muted,
     },
-    nextUp: {
-      fontSize: 15,
-      color: c.navyMid,
-      lineHeight: 22,
-    },
+    progressCount: { fontSize: 13, fontWeight: '600', color: c.navyMid },
     heroCta: {
       marginTop: 12,
       marginBottom: 8,
       backgroundColor: c.ctaSolid,
       borderRadius: 50,
       paddingVertical: 15,
+      minHeight: 52,
+      justifyContent: 'center',
       alignItems: 'center',
     },
     heroCtaDisabled: {
@@ -396,7 +458,7 @@ function createStyles(c: RecallionColors) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.borderSubtle,
     },
-    heroCtaPressed: { opacity: 0.92 },
+    heroCtaPressed: { opacity: pressedOpacity },
     heroCtaLabel: {
       fontSize: 16,
       fontWeight: '700',
@@ -417,19 +479,15 @@ function createStyles(c: RecallionColors) {
     row: {
       borderRadius: c.radiusMd,
       paddingVertical: 12,
-      paddingHorizontal: 14,
+      paddingHorizontal: 12,
+      minHeight: 60,
+      justifyContent: 'center',
       backgroundColor: c.bgCard,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.borderSubtle,
     },
     rowDone: {
-      paddingVertical: 10,
       backgroundColor: 'transparent',
-      borderColor: 'transparent',
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: c.borderSubtle,
-      borderRadius: 0,
-      paddingHorizontal: 2,
     },
     rowCurrent: {
       borderColor: c.blue,
@@ -437,15 +495,27 @@ function createStyles(c: RecallionColors) {
       backgroundColor: c.accentSoft,
     },
     rowLocked: {
-      opacity: 0.65,
       backgroundColor: 'transparent',
+      borderStyle: 'dashed',
     },
-    rowPressed: { opacity: 0.92 },
+    rowPressed: { opacity: pressedOpacity },
     rowMain: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: 12,
     },
+    rowBadge: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.bgWash,
+    },
+    rowBadgeDone: { backgroundColor: c.ctaSolid },
+    rowBadgeCurrent: { backgroundColor: c.bgCard, borderWidth: 1.5, borderColor: c.blue },
+    rowBadgeText: { fontSize: 13, fontWeight: '700', color: c.navyMid },
+    rowBadgeTextCurrent: { color: c.blue },
     rowTextCol: { flex: 1, minWidth: 0 },
     dayHeading: {
       fontSize: 15,
@@ -455,6 +525,7 @@ function createStyles(c: RecallionColors) {
     },
     dayMuted: { color: c.muted },
     rowSub: { marginTop: 3, fontSize: 13, color: c.muted },
+    rowSubCurrent: { color: c.blue, fontWeight: '600' },
     rowUnlock: { marginTop: 3, fontSize: 13, color: c.muted, fontWeight: '500' },
     completedMeta: {
       marginTop: 2,
@@ -468,12 +539,6 @@ function createStyles(c: RecallionColors) {
       color: c.navyMid,
       lineHeight: 18,
       fontStyle: 'italic',
-    },
-    rowChevron: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: c.blue,
-      flexShrink: 0,
     },
   });
 }

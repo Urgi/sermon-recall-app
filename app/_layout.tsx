@@ -11,6 +11,7 @@ import { GlobalAuthToast } from '../components/GlobalAuthToast';
 import { AuthProvider } from '../contexts/AuthContext';
 import { I18nProvider } from '../contexts/I18nContext';
 import { ThemeProvider, useRecallionTheme } from '../contexts/ThemeContext';
+import { duration } from '../lib/motion';
 import { useNotificationRouting } from '../lib/notificationRouting';
 
 function RootStack() {
@@ -54,6 +55,7 @@ function RootStack() {
           headerShown: false,
           contentStyle: { backgroundColor: colors.bgPage },
           animation: 'fade',
+          animationDuration: duration.screen,
         }}
       />
     </NavigationThemeProvider>

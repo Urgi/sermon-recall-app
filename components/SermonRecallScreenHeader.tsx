@@ -1,8 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useI18n } from '../contexts/I18nContext';
 import { useRecallionTheme } from '../contexts/ThemeContext';
+import { pressedOpacity } from '../lib/motion';
 import type { RecallionColors } from '../lib/recallionTheme';
 
 type Props = {
@@ -14,26 +17,30 @@ type Props = {
 };
 
 /** Compact stack header — back + optional day/progress label (no brand wordmark). */
-export function SermonRecallScreenHeader({
-  backLabel = 'Back',
-  trailing,
-  onBack,
-}: Props) {
+export function SermonRecallScreenHeader({ backLabel, trailing, onBack }: Props) {
   const { colors } = useRecallionTheme();
+  const { t } = useI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const label = backLabel ?? t('common.back');
+
+  function goBack() {
+    if (onBack) onBack();
+    else if (router.canGoBack()) router.back();
+    else router.replace('/home');
+  }
 
   return (
     <View style={styles.wrap}>
       <Pressable
-        onPress={onBack ?? (() => router.back())}
-        hitSlop={12}
+        onPress={goBack}
+        hitSlop={8}
         style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
         accessibilityRole="button"
-        accessibilityLabel={`Go back${backLabel !== 'Back' ? `: ${backLabel}` : ''}`}
+        accessibilityLabel={backLabel ? `${t('common.back')}: ${backLabel}` : t('common.back')}
       >
-        <Text style={styles.backArrow}>←</Text>
+        <Ionicons name="chevron-back" size={22} color={colors.blue} />
         <Text style={styles.backLabel} numberOfLines={1}>
-          {backLabel}
+          {label}
         </Text>
       </Pressable>
       {trailing ? (
@@ -54,27 +61,23 @@ function createStyles(c: RecallionColors) {
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: 12,
-      paddingHorizontal: 16,
-      paddingTop: 6,
-      paddingBottom: 10,
+      paddingHorizontal: 12,
+      paddingTop: 2,
+      paddingBottom: 6,
     },
     backBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: 2,
       flexShrink: 1,
-      maxWidth: '62%',
-      paddingVertical: 4,
-    },
-    backArrow: {
-      fontSize: 17,
-      color: c.blue,
-      fontWeight: '600',
+      maxWidth: '68%',
+      minHeight: 44,
+      paddingRight: 8,
     },
     backLabel: {
       fontSize: 15,
-      color: c.navyMid,
-      fontWeight: '500',
+      color: c.blue,
+      fontWeight: '600',
       flexShrink: 1,
     },
     trailing: {
@@ -84,6 +87,6 @@ function createStyles(c: RecallionColors) {
       flexShrink: 0,
     },
     trailingSpacer: { width: 8 },
-    pressed: { opacity: 0.75 },
+    pressed: { opacity: pressedOpacity },
   });
 }

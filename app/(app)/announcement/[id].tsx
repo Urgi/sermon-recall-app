@@ -1,8 +1,18 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { FadeInView } from '../../../components/FadeInView';
+import { ScreenBackdrop } from '../../../components/ScreenBackdrop';
+import { SermonRecallScreenHeader } from '../../../components/SermonRecallScreenHeader';
+import { useI18n } from '../../../contexts/I18nContext';
 
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
+import { typeScale } from '../../../lib/designTokens';
+import type { UiKey } from '../../../lib/i18n/ui';
+import { pressedOpacity } from '../../../lib/motion';
 import type { RecallionColors } from '../../../lib/recallionTheme';
 import { supabase } from '../../../lib/supabase';
 
@@ -21,12 +31,13 @@ export default function AnnouncementScreen() {
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { t } = useI18n();
+  const [error, setError] = useState<UiKey | null>(null);
   const [message, setMessage] = useState<BroadcastRow | null>(null);
 
   useEffect(() => {
     if (!broadcastId) {
-      setError('Invalid message.');
+      setError('announcement.notFound');
       setLoading(false);
       return;
     }
@@ -48,8 +59,8 @@ export default function AnnouncementScreen() {
       if (fetchErr) {
         setError(
           fetchErr.message.includes('not_a_recipient')
-            ? 'This message was not sent to your account.'
-            : 'Could not load message.',
+            ? 'announcement.notRecipient'
+            : 'announcement.loadError',
         );
         setLoading(false);
         return;
@@ -57,7 +68,7 @@ export default function AnnouncementScreen() {
 
       const row = (data as BroadcastRow[] | null)?.[0];
       if (!row) {
-        setError('Message not found.');
+        setError('announcement.notFound');
         setLoading(false);
         return;
       }
@@ -78,52 +89,79 @@ export default function AnnouncementScreen() {
   }, [broadcastId]);
 
   return (
-    <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
+    <ScreenBackdrop>
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+        <SermonRecallScreenHeader />
         {loading ? (
-          <ActivityIndicator color={colors.ctaSolid} size="large" />
+          <View style={styles.center}>
+            <ActivityIndicator color={colors.blue} size="large" />
+          </View>
         ) : error ? (
-          <>
-            <Text style={styles.error}>{error}</Text>
-            <Pressable onPress={() => router.back()} style={styles.button}>
-              <Text style={styles.buttonLabel}>Go back</Text>
-            </Pressable>
-          </>
+          <View style={styles.center}>
+            <Ionicons name="mail-unread-outline" size={32} color={colors.muted} />
+            <Text style={styles.error}>{t(error)}</Text>
+          </View>
         ) : message ? (
           <>
-            <Text style={styles.label}>From your church</Text>
-            <Text style={styles.title}>{message.title}</Text>
-            <Text style={styles.body}>{message.body}</Text>
-            <Pressable onPress={() => router.replace('/home')} style={styles.button}>
-              <Text style={styles.buttonLabel}>Done</Text>
-            </Pressable>
+            <ScrollView contentContainerStyle={styles.content}>
+              <FadeInView>
+                <Text style={styles.label}>{t('announcement.from')}</Text>
+                <Text style={styles.title} accessibilityRole="header">
+                  {message.title}
+                </Text>
+                <Text style={styles.date}>{formatSentDate(message.created_at)}</Text>
+                <Text style={styles.body} selectable>
+                  {message.body}
+                </Text>
+              </FadeInView>
+            </ScrollView>
+            <View style={styles.footer}>
+              <Pressable
+                onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))}
+                style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+                accessibilityRole="button"
+              >
+                <Text style={styles.buttonLabel}>{t('common.done')}</Text>
+              </Pressable>
+            </View>
           </>
         ) : null}
-      </ScrollView>
-    </View>
+      </SafeAreaView>
+    </ScreenBackdrop>
   );
+}
+
+function formatSentDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    return '';
+  }
 }
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bgPage },
-    content: {
-      flexGrow: 1,
-      padding: 24,
-      justifyContent: 'center',
-      gap: 16,
-    },
-    label: { fontSize: 13, fontWeight: '600', color: c.muted, textTransform: 'uppercase' },
-    title: { fontSize: 24, fontWeight: '700', color: c.navy },
-    body: { fontSize: 16, lineHeight: 24, color: c.navy },
-    error: { fontSize: 15, color: '#b91c1c', lineHeight: 22 },
+    safe: { flex: 1, backgroundColor: c.bgPage },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
+    content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 32 },
+    label: { ...typeScale.kicker, color: c.blue, marginBottom: 10 },
+    title: { ...typeScale.dayTitle, color: c.navy },
+    date: { ...typeScale.meta, marginTop: 6, color: c.muted },
+    body: { ...typeScale.bodyCompact, marginTop: 20, color: c.navyMid },
+    error: { fontSize: 16, lineHeight: 22, color: c.navyMid, textAlign: 'center' },
+    footer: { paddingHorizontal: 20, paddingTop: 12 },
     button: {
-      marginTop: 8,
       backgroundColor: c.ctaSolid,
-      paddingVertical: 14,
-      borderRadius: c.radiusMd,
+      minHeight: 52,
+      borderRadius: 50,
       alignItems: 'center',
+      justifyContent: 'center',
     },
-    buttonLabel: { color: '#fff', fontSize: 17, fontWeight: '600' },
+    buttonLabel: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    pressed: { opacity: pressedOpacity },
   });
 }

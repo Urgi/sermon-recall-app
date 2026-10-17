@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useI18n } from '../contexts/I18nContext';
 import { useRecallionTheme } from '../contexts/ThemeContext';
+import { pressedOpacity } from '../lib/motion';
 import type { RecallionColors } from '../lib/recallionTheme';
 import {
   bumpHour12,
@@ -17,36 +19,46 @@ type Props = {
   disabled?: boolean;
   /** Shown under the wheels (e.g. church timezone note). */
   caption?: string;
+  /** Wheels only — the parent already shows the chosen time. */
+  compact?: boolean;
 };
 
 /** Dubbadhu-style chevron time wheels (hour + AM/PM). Minutes are always :00. */
-export function ReminderTimePicker({ value, onChange, disabled, caption }: Props) {
+export function ReminderTimePicker({ value, onChange, disabled, caption, compact }: Props) {
   const { colors } = useRecallionTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { t } = useI18n();
+  const styles = useMemo(() => createStyles(colors, Boolean(compact)), [colors, compact]);
+  const chevronColor = disabled ? colors.muted : colors.blue;
+  const [atBefore, atAfter = ''] = t('notify.reminderAt').split('{time}');
+
+  function chevron(direction: 'up' | 'down', label: string, onPress: () => void) {
+    return (
+      <Pressable
+        style={({ pressed }) => [styles.chevronBtn, pressed && styles.pressed]}
+        disabled={disabled}
+        onPress={onPress}
+        hitSlop={4}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+      >
+        <Ionicons name={`chevron-${direction}`} size={compact ? 24 : 28} color={chevronColor} />
+      </Pressable>
+    );
+  }
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.timeRow}>
+      <View
+        style={styles.timeRow}
+        accessible={false}
+        accessibilityLabel={formatReminderClock(value)}
+      >
         <View style={styles.column}>
-          <Pressable
-            style={({ pressed }) => [styles.chevronBtn, pressed && styles.pressed]}
-            disabled={disabled}
-            onPress={() => onChange({ ...value, hour12: bumpHour12(value.hour12, 1) })}
-            accessibilityLabel="Increase hour"
-          >
-            <Ionicons name="chevron-up" size={28} color={colors.blue} />
-          </Pressable>
+          {chevron('up', t('notify.increaseHour'), () => onChange({ ...value, hour12: bumpHour12(value.hour12, 1) }))}
           <View style={styles.valueBox}>
             <Text style={styles.value}>{value.hour12}</Text>
           </View>
-          <Pressable
-            style={({ pressed }) => [styles.chevronBtn, pressed && styles.pressed]}
-            disabled={disabled}
-            onPress={() => onChange({ ...value, hour12: bumpHour12(value.hour12, -1) })}
-            accessibilityLabel="Decrease hour"
-          >
-            <Ionicons name="chevron-down" size={28} color={colors.blue} />
-          </Pressable>
+          {chevron('down', t('notify.decreaseHour'), () => onChange({ ...value, hour12: bumpHour12(value.hour12, -1) }))}
         </View>
 
         <Text style={styles.colon}>:</Text>
@@ -60,40 +72,31 @@ export function ReminderTimePicker({ value, onChange, disabled, caption }: Props
         </View>
 
         <View style={[styles.column, styles.ampmColumn]}>
-          <Pressable
-            style={({ pressed }) => [styles.chevronBtn, pressed && styles.pressed]}
-            disabled={disabled}
-            onPress={() => onChange({ ...value, ampm: toggleAmpm(value.ampm) })}
-            accessibilityLabel="Toggle AM PM"
-          >
-            <Ionicons name="chevron-up" size={28} color={colors.blue} />
-          </Pressable>
+          {chevron('up', t('notify.toggleAmPm'), () => onChange({ ...value, ampm: toggleAmpm(value.ampm) }))}
           <View style={styles.valueBox}>
             <Text style={[styles.value, styles.ampmValue]}>{value.ampm}</Text>
           </View>
-          <Pressable
-            style={({ pressed }) => [styles.chevronBtn, pressed && styles.pressed]}
-            disabled={disabled}
-            onPress={() => onChange({ ...value, ampm: toggleAmpm(value.ampm) })}
-            accessibilityLabel="Toggle AM PM"
-          >
-            <Ionicons name="chevron-down" size={28} color={colors.blue} />
-          </Pressable>
+          {chevron('down', t('notify.toggleAmPm'), () => onChange({ ...value, ampm: toggleAmpm(value.ampm) }))}
         </View>
       </View>
 
-      <View style={styles.infoBox}>
-        <Ionicons name="notifications-outline" size={22} color={colors.blue} />
-        <Text style={styles.infoText}>
-          Reminder at <Text style={styles.infoBold}>{formatReminderClock(value)}</Text>
-          {caption ? ` · ${caption}` : ''}
-        </Text>
-      </View>
+      {compact ? null : (
+        <View style={styles.infoBox}>
+          <Ionicons name="notifications-outline" size={20} color={colors.blue} />
+          <Text style={styles.infoText}>
+            {atBefore}
+            <Text style={styles.infoBold}>{formatReminderClock(value)}</Text>
+            {atAfter}
+            {caption ? ` · ${caption}` : ''}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
 
-function createStyles(c: RecallionColors) {
+function createStyles(c: RecallionColors, compact: boolean) {
+  const valueSize = compact ? 26 : 32;
   return StyleSheet.create({
     wrap: { marginTop: 4 },
     timeRow: {
@@ -103,30 +106,34 @@ function createStyles(c: RecallionColors) {
     },
     column: { alignItems: 'center' },
     ampmColumn: { marginLeft: 14 },
-    chevronBtn: { padding: 8 },
-    chevronBtnPlaceholder: { height: 44, width: 44 },
-    pressed: { opacity: 0.7 },
+    chevronBtn: {
+      width: 44,
+      height: compact ? 36 : 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    chevronBtnPlaceholder: { height: compact ? 36 : 44, width: 44 },
+    pressed: { opacity: pressedOpacity },
     valueBox: {
       backgroundColor: c.accentSoft,
       borderRadius: 14,
-      paddingVertical: 14,
-      paddingHorizontal: 20,
-      marginVertical: 4,
+      paddingVertical: compact ? 8 : 14,
+      paddingHorizontal: 18,
       minWidth: 64,
       alignItems: 'center',
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.borderSubtle,
     },
     value: {
-      fontSize: 32,
+      fontSize: valueSize,
       fontWeight: '700',
       color: c.navy,
       fontVariant: ['tabular-nums'],
     },
-    ampmValue: { fontSize: 20 },
+    ampmValue: { fontSize: compact ? 18 : 20, lineHeight: valueSize * 1.2 },
     colon: {
       marginHorizontal: 6,
-      fontSize: 32,
+      fontSize: valueSize,
       fontWeight: '700',
       color: c.navy,
       marginBottom: 4,

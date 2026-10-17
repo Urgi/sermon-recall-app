@@ -20,8 +20,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FadeInView } from '../../../components/FadeInView';
 import { JourneyProgressBar } from '../../../components/JourneyProgressBar';
 import { ScreenBackdrop } from '../../../components/ScreenBackdrop';
 import { SermonRecallScreenHeader } from '../../../components/SermonRecallScreenHeader';
@@ -29,6 +30,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { accessibleDevotionalIds, buildUnlockContext, nextUnlockedIncompleteDevotional } from '../../../lib/devotionalUnlock';
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
 import { typeScale } from '../../../lib/designTokens';
+import { pressedOpacity } from '../../../lib/motion';
 import type { RecallionColors } from '../../../lib/recallionTheme';
 import { displaySermonTitle } from '../../../lib/sermonHomeStatus';
 import { supabase } from '../../../lib/supabase';
@@ -117,6 +119,9 @@ export default function DevotionalScreen() {
   const playAfterLoadRef = useRef(false);
   const playbackFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentScrollRef = useRef<ScrollView>(null);
+  const commitmentInputRef = useRef<TextInput>(null);
+  const commitmentYRef = useRef(0);
+  const insets = useSafeAreaInsets();
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recordState = useAudioRecorderState(recorder, 400);
@@ -518,6 +523,12 @@ export default function DevotionalScreen() {
       }
       if (!commitmentText && !storedVoice) {
         setError('Add a written commitment or record a short voice commitment before completing.');
+        // Take the reader straight to the missing step instead of leaving them hunting.
+        contentScrollRef.current?.scrollTo({
+          y: Math.max(0, commitmentYRef.current - 16),
+          animated: true,
+        });
+        setTimeout(() => commitmentInputRef.current?.focus(), 350);
         return;
       }
     }
@@ -577,8 +588,6 @@ export default function DevotionalScreen() {
 
 
   const hasVoiceRecording = Boolean(effectiveVoicePath);
-  const dayTrailing =
-    row && totalDays > 0 ? `Day ${row.day_number} of ${totalDays}` : null;
   const dayHeroTitle = row
     ? row.title?.trim()
       ? `Day ${row.day_number} — ${row.title.trim()}`
@@ -588,10 +597,8 @@ export default function DevotionalScreen() {
 
   const inner = (
     <>
-      <SermonRecallScreenHeader
-        backLabel={sermonTitle ? sermonTitle : 'Back'}
-        trailing={dayTrailing}
-      />
+      {/* Day position lives in the kicker + progress bar below — not repeated here. */}
+      <SermonRecallScreenHeader backLabel={sermonTitle ?? undefined} />
 
       {loading ? (
         <View style={styles.center}>
@@ -695,237 +702,270 @@ export default function DevotionalScreen() {
           </Pressable>
         </ScrollView>
       ) : (
-        <ScrollView
-          ref={contentScrollRef}
-          contentContainerStyle={[styles.scrollOuter, { paddingBottom: 120 }]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          automaticallyAdjustKeyboardInsets
-          contentInsetAdjustmentBehavior="automatic"
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
-          }
-        >
-          <Text style={styles.dayOfCaps}>
-            Day {row.day_number} of {totalDays || '—'}
-          </Text>
-          <View style={styles.progressInline}>
-            <JourneyProgressBar
-              totalDays={Math.max(totalDays, 1)}
-              completedCount={siblingCompletedCount}
-              currentDayNumber={progressCurrentDay}
-              size="thin"
-            />
-          </View>
-
-          <Text style={styles.title}>{dayHeroTitle}</Text>
-          <View style={styles.readTimeRow}>
-            <Ionicons name="time-outline" size={14} color={colors.muted} />
-            <Text style={styles.min}>{row.estimated_minutes} min read</Text>
-          </View>
-
-          {completed ? (
-            <View style={styles.doneBanner}>
-              <Text style={styles.doneText}>You completed this day.</Text>
-            </View>
-          ) : null}
-
-          {savedRecall || recallDraft.trim() ? (
-            <View style={styles.recallSummary}>
-              <Text style={styles.recallSummaryTitle}>✓ Your pre-session recall</Text>
-              <Text
-                style={styles.recallSummaryAnswer}
-                {...(showRecallQuestion ? {} : { numberOfLines: 3 })}
-              >
-                “{recallDraft.trim() || savedRecall}”
+        <>
+          <ScrollView
+            ref={contentScrollRef}
+            style={styles.scrollFill}
+            contentContainerStyle={[styles.scrollOuter, { paddingBottom: 32 }]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            automaticallyAdjustKeyboardInsets
+            contentInsetAdjustmentBehavior="automatic"
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
+            }
+          >
+            <FadeInView>
+              <Text style={styles.dayOfCaps}>
+                Day {row.day_number} of {totalDays || '—'}
               </Text>
-              {showRecallQuestion ? (
-                <Text style={styles.recallSummaryPrompt}>{gatePromptText}</Text>
+              <View style={styles.progressInline}>
+                <JourneyProgressBar
+                  totalDays={Math.max(totalDays, 1)}
+                  completedCount={siblingCompletedCount}
+                  currentDayNumber={progressCurrentDay}
+                  size="thin"
+                />
+              </View>
+
+              <Text style={styles.title} accessibilityRole="header">
+                {dayHeroTitle}
+              </Text>
+              <View style={styles.readTimeRow}>
+                <Ionicons name="time-outline" size={14} color={colors.muted} />
+                <Text style={styles.min}>{row.estimated_minutes} min read</Text>
+              </View>
+
+              {completed ? (
+                <View style={styles.doneBanner}>
+                  <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                  <Text style={styles.doneText}>You completed this day.</Text>
+                </View>
               ) : null}
-              <Pressable
-                onPress={() => setShowRecallQuestion((v) => !v)}
-                hitSlop={8}
-                style={styles.recallToggle}
+
+              {savedRecall || recallDraft.trim() ? (
+                <View style={styles.recallSummary}>
+                  <Text style={styles.recallSummaryTitle}>✓ Your pre-session recall</Text>
+                  <Text
+                    style={styles.recallSummaryAnswer}
+                    {...(showRecallQuestion ? {} : { numberOfLines: 3 })}
+                  >
+                    “{recallDraft.trim() || savedRecall}”
+                  </Text>
+                  {showRecallQuestion ? (
+                    <Text style={styles.recallSummaryPrompt}>{gatePromptText}</Text>
+                  ) : null}
+                  <Pressable
+                    onPress={() => setShowRecallQuestion((v) => !v)}
+                    hitSlop={8}
+                    style={styles.recallToggle}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: showRecallQuestion }}
+                  >
+                    <Text style={styles.recallToggleLabel}>
+                      {showRecallQuestion ? 'Hide question' : 'View question'}
+                    </Text>
+                  </Pressable>
+                  {!completed ? (
+                    <TextInput
+                      style={styles.recallEditInput}
+                      placeholder="Edit your answer"
+                      placeholderTextColor={colors.muted}
+                      value={recallDraft}
+                      onChangeText={setRecallDraft}
+                      multiline
+                      editable={!saving && Boolean(session?.user)}
+                      textAlignVertical="top"
+                    />
+                  ) : null}
+                </View>
+              ) : null}
+
+              {row.scripture_reference || scriptureBody || scriptureLoading ? (
+                <View style={styles.scriptureBlock}>
+                  {row.scripture_reference ? (
+                    <Text style={styles.scriptureRef}>{row.scripture_reference}</Text>
+                  ) : null}
+                  {scriptureLoading ? (
+                    <View style={styles.scriptureLoadingRow}>
+                      <ActivityIndicator size="small" color={colors.blue} />
+                      <Text style={styles.scriptureLoadingText}>Loading passage…</Text>
+                    </View>
+                  ) : scriptureBody ? (
+                    <Text style={styles.scriptureBody}>{scriptureBody}</Text>
+                  ) : row.scripture_reference ? (
+                    <Text style={styles.scriptureMissing}>
+                      Full verse text is not available for this reference yet.
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {row.main_content ? <Text style={styles.body}>{row.main_content}</Text> : null}
+
+              {row.reflection_question ? (
+                <View style={styles.reflectSection}>
+                  <Text style={styles.reflectLabel}>Reflection</Text>
+                  <Text style={styles.reflect}>{row.reflection_question}</Text>
+                </View>
+              ) : null}
+
+              <View
+                style={styles.commitmentSection}
+                onLayout={(e) => {
+                  commitmentYRef.current = e.nativeEvent.layout.y;
+                }}
               >
-                <Text style={styles.recallToggleLabel}>
-                  {showRecallQuestion ? 'Hide question' : 'View question'}
-                </Text>
-              </Pressable>
-              {!completed ? (
+                <Text style={styles.commitmentTitle}>Application commitment</Text>
+                <Text style={styles.commitmentHint}>This week I will…</Text>
                 <TextInput
-                  style={styles.recallEditInput}
-                  placeholder="Edit your answer"
+                  ref={commitmentInputRef}
+                  style={styles.commitmentInput}
+                  placeholder="This week I will ..."
                   placeholderTextColor={colors.muted}
-                  value={recallDraft}
-                  onChangeText={setRecallDraft}
+                  value={commitmentDraft}
+                  onChangeText={setCommitmentDraft}
                   multiline
                   editable={!saving && Boolean(session?.user)}
                   textAlignVertical="top"
+                  returnKeyType="done"
+                  blurOnSubmit
+                  onFocus={() => {
+                    setTimeout(() => contentScrollRef.current?.scrollToEnd({ animated: true }), 120);
+                  }}
                 />
-              ) : null}
-            </View>
-          ) : null}
-
-          {row.scripture_reference || scriptureBody || scriptureLoading ? (
-            <View style={styles.scriptureBlock}>
-              {row.scripture_reference ? (
-                <Text style={styles.scriptureRef}>{row.scripture_reference}</Text>
-              ) : null}
-              {scriptureLoading ? (
-                <View style={styles.scriptureLoadingRow}>
-                  <ActivityIndicator size="small" color={colors.blue} />
-                  <Text style={styles.scriptureLoadingText}>Loading passage…</Text>
-                </View>
-              ) : scriptureBody ? (
-                <Text style={styles.scriptureBody}>{scriptureBody}</Text>
-              ) : row.scripture_reference ? (
-                <Text style={styles.scriptureMissing}>
-                  Full verse text is not available for this reference yet.
-                </Text>
-              ) : null}
-            </View>
-          ) : null}
-
-          {row.main_content ? <Text style={styles.body}>{row.main_content}</Text> : null}
-
-          {row.reflection_question ? (
-            <View style={styles.reflectSection}>
-              <Text style={styles.reflectLabel}>Reflection</Text>
-              <Text style={styles.reflect}>{row.reflection_question}</Text>
-            </View>
-          ) : null}
-
-          <View style={styles.commitmentSection}>
-            <Text style={styles.commitmentTitle}>Application commitment</Text>
-            <Text style={styles.commitmentHint}>This week I will…</Text>
-            <TextInput
-              style={styles.commitmentInput}
-              placeholder="This week I will ..."
-              placeholderTextColor={colors.muted}
-              value={commitmentDraft}
-              onChangeText={setCommitmentDraft}
-              multiline
-              editable={!saving && Boolean(session?.user)}
-              textAlignVertical="top"
-              returnKeyType="done"
-              blurOnSubmit
-              onFocus={() => {
-                setTimeout(() => contentScrollRef.current?.scrollToEnd({ animated: true }), 120);
-              }}
-            />
-            {session?.user ? (
-              <View style={[styles.voiceRow, styles.voiceRowAfterInput]}>
-                <View style={styles.voiceButtonsRow}>
-                  {hasVoiceRecording && !recordState.isRecording ? (
-                    <>
+                {session?.user ? (
+                  <View style={[styles.voiceRow, styles.voiceRowAfterInput]}>
+                    <View style={styles.voiceButtonsRow}>
+                      {hasVoiceRecording && !recordState.isRecording ? (
+                        <>
+                          <Pressable
+                            style={({ pressed }) => [
+                              styles.voiceBtnOutline,
+                              pressed && styles.primaryBtnPressed,
+                            ]}
+                            onPress={() => void toggleVoicePlayback()}
+                            disabled={voiceBusy}
+                          >
+                            <Text style={styles.voiceBtnOutlineLabel}>
+                              {voicePlayerStatus.playing ? 'Stop playback' : 'Play recording'}
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            style={({ pressed }) => [
+                              styles.voiceBtnOutline,
+                              pressed && styles.primaryBtnPressed,
+                            ]}
+                            onPress={() => void reRecordVoice()}
+                            disabled={voiceBusy || saving}
+                          >
+                            <Text style={styles.voiceBtnOutlineLabel}>Re-record</Text>
+                          </Pressable>
+                          <Pressable
+                            style={({ pressed }) => [
+                              styles.voiceBtnOutline,
+                              styles.voiceBtnDangerOutline,
+                              pressed && styles.primaryBtnPressed,
+                            ]}
+                            onPress={() => void clearVoiceRecording()}
+                            disabled={voiceBusy || saving}
+                          >
+                            <Text style={styles.voiceBtnDangerOutlineLabel}>Delete</Text>
+                          </Pressable>
+                      </>
+                    ) : (
                       <Pressable
                         style={({ pressed }) => [
                           styles.voiceBtnOutline,
+                          recordState.isRecording && styles.voiceBtnDanger,
                           pressed && styles.primaryBtnPressed,
                         ]}
-                        onPress={() => void toggleVoicePlayback()}
-                        disabled={voiceBusy}
-                      >
-                        <Text style={styles.voiceBtnOutlineLabel}>
-                          {voicePlayerStatus.playing ? 'Stop playback' : 'Play recording'}
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        style={({ pressed }) => [
-                          styles.voiceBtnOutline,
-                          pressed && styles.primaryBtnPressed,
-                        ]}
-                        onPress={() => void reRecordVoice()}
+                        onPress={() =>
+                          void (recordState.isRecording ? stopVoiceUpload() : startVoice())
+                        }
                         disabled={voiceBusy || saving}
                       >
-                        <Text style={styles.voiceBtnOutlineLabel}>Re-record</Text>
+                        <View style={styles.voiceBtnInner}>
+                          {!recordState.isRecording ? <View style={styles.recDot} /> : null}
+                          <Ionicons
+                            name="mic-outline"
+                            size={16}
+                            color={recordState.isRecording ? '#fff' : colors.muted}
+                          />
+                          <Text
+                            style={[
+                              styles.voiceBtnOutlineLabel,
+                              recordState.isRecording && styles.voiceBtnDangerLabel,
+                            ]}
+                          >
+                            {voiceBusy && !recordState.isRecording
+                              ? 'Saving…'
+                              : recordState.isRecording
+                                ? 'Stop & upload'
+                                : 'Voice note'}
+                          </Text>
+                        </View>
                       </Pressable>
-                      <Pressable
-                        style={({ pressed }) => [
-                          styles.voiceBtnOutline,
-                          styles.voiceBtnDangerOutline,
-                          pressed && styles.primaryBtnPressed,
-                        ]}
-                        onPress={() => void clearVoiceRecording()}
-                        disabled={voiceBusy || saving}
-                      >
-                        <Text style={styles.voiceBtnDangerOutlineLabel}>Delete</Text>
-                      </Pressable>
-                    </>
-                  ) : (
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.voiceBtnOutline,
-                        recordState.isRecording && styles.voiceBtnDanger,
-                        pressed && styles.primaryBtnPressed,
-                      ]}
-                      onPress={() =>
-                        void (recordState.isRecording ? stopVoiceUpload() : startVoice())
-                      }
-                      disabled={voiceBusy || saving}
-                    >
-                      <View style={styles.voiceBtnInner}>
-                        {!recordState.isRecording ? <View style={styles.recDot} /> : null}
-                        <Ionicons
-                          name="mic-outline"
-                          size={16}
-                          color={recordState.isRecording ? '#fff' : colors.muted}
-                        />
-                        <Text
-                          style={[
-                            styles.voiceBtnOutlineLabel,
-                            recordState.isRecording && styles.voiceBtnDangerLabel,
-                          ]}
-                        >
-                          {voiceBusy && !recordState.isRecording
-                            ? 'Saving…'
-                            : recordState.isRecording
-                              ? 'Stop & upload'
-                              : 'Voice note'}
-                        </Text>
-                      </View>
-                    </Pressable>
-                  )}
+                    )}
+                  </View>
                 </View>
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.ctaSection}>
-            {error ? <Text style={styles.inlineErr}>{error}</Text> : null}
+              ) : null}
+            </View>
 
             {responsesDirty ? (
-              <Pressable
-                style={({ pressed }) => [
-                  completed ? styles.primaryBtn : styles.secondaryBtn,
-                  pressed && styles.primaryBtnPressed,
-                ]}
-                onPress={() => void saveProgressResponses()}
-                disabled={saving || !session?.user}
-              >
-                <Text style={completed ? styles.primaryBtnLabel : styles.secondaryBtnLabel}>
-                  {saving ? 'Saving…' : 'Save changes'}
-                </Text>
-              </Pressable>
-            ) : null}
-
-            {!completed ? (
-              <Pressable
-                style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
-                onPress={() => void markComplete()}
-                disabled={saving || !session?.user}
-              >
-                <View style={styles.primaryBtnInner}>
-                  <Ionicons name="checkmark" size={18} color="#fff" />
-                  <Text style={styles.primaryBtnLabel}>
-                    {saving ? 'Saving…' : 'Mark day complete'}
+              <View style={styles.ctaSection}>
+                <Pressable
+                  style={({ pressed }) => [
+                    completed ? styles.primaryBtn : styles.secondaryBtn,
+                    pressed && styles.primaryBtnPressed,
+                  ]}
+                  onPress={() => void saveProgressResponses()}
+                  disabled={saving || !session?.user}
+                >
+                  <Text style={completed ? styles.primaryBtnLabel : styles.secondaryBtnLabel}>
+                    {saving ? 'Saving…' : 'Save changes'}
                   </Text>
-                </View>
-              </Pressable>
+                </Pressable>
+              </View>
             ) : null}
-          </View>
+            {completed && error ? <Text style={styles.inlineErr}>{error}</Text> : null}
+          </FadeInView>
         </ScrollView>
+
+        {!completed ? (
+          /* Pinned next step: always visible, never buried under the reading. */
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+            {error ? (
+              <Text style={[styles.inlineErr, styles.footerErr]} accessibilityRole="alert">
+                {error}
+              </Text>
+            ) : null}
+            <Pressable
+              style={({ pressed }) => [
+                styles.primaryBtn,
+                styles.footerBtn,
+                pressed && styles.primaryBtnPressed,
+              ]}
+              onPress={() => void markComplete()}
+              disabled={saving || !session?.user}
+              accessibilityRole="button"
+              accessibilityState={{ busy: saving }}
+            >
+              <View style={styles.primaryBtnInner}>
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Ionicons name="checkmark" size={18} color="#fff" />
+                )}
+                <Text style={styles.primaryBtnLabel}>
+                  {saving ? 'Saving…' : 'Mark day complete'}
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+        ) : null}
+        </>
       )}
     </>
   );
@@ -951,8 +991,17 @@ function createStyles(c: RecallionColors) {
       ...typeScale.kicker,
       color: c.muted,
     },
-    err: { color: '#b91c1c', fontSize: 16 },
-    inlineErr: { color: '#b91c1c', fontSize: 14, marginBottom: 12 },
+    err: { color: c.danger, fontSize: 16, lineHeight: 22 },
+    inlineErr: { color: c.danger, fontSize: 14, fontWeight: '600', lineHeight: 20, marginBottom: 12 },
+    footer: {
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      backgroundColor: c.bgPage,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.borderSubtle,
+    },
+    footerErr: { marginBottom: 10 },
+    footerBtn: { marginTop: 0 },
     lockTitle: { ...typeScale.dayTitle, color: c.navy, marginBottom: 10 },
     lockBody: { fontSize: 16, lineHeight: 24, color: c.navyMid, marginBottom: 12 },
     lockHint: { fontSize: 15, fontWeight: '600', color: c.navyMid, marginBottom: 20 },
@@ -989,12 +1038,15 @@ function createStyles(c: RecallionColors) {
     doneBanner: {
       marginTop: 12,
       marginBottom: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
       paddingVertical: 10,
       paddingHorizontal: 12,
       borderRadius: c.radiusSm,
-      backgroundColor: 'rgba(34,197,94,0.12)',
+      backgroundColor: c.successSoft,
     },
-    doneText: { fontSize: 14, fontWeight: '600', color: '#86efac' },
+    doneText: { fontSize: 14, fontWeight: '600', color: c.success },
     recallSummary: {
       marginTop: 16,
       marginBottom: 8,
@@ -1018,7 +1070,7 @@ function createStyles(c: RecallionColors) {
       lineHeight: 21,
       color: c.muted,
     },
-    recallToggle: { alignSelf: 'flex-start', paddingVertical: 2 },
+    recallToggle: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' },
     recallToggleLabel: { fontSize: 14, fontWeight: '600', color: c.blue },
     recallEditInput: {
       marginTop: 8,
@@ -1116,7 +1168,7 @@ function createStyles(c: RecallionColors) {
       alignItems: 'center',
     },
     secondaryBtnLabel: { color: c.navy, fontSize: 15, fontWeight: '600' },
-    ctaSection: { marginTop: 8, paddingBottom: 24 },
+    ctaSection: { marginTop: 8, paddingBottom: 8 },
     primaryBtn: {
       marginTop: 16,
       backgroundColor: c.ctaSolid,
@@ -1137,7 +1189,7 @@ function createStyles(c: RecallionColors) {
       gap: 8,
       justifyContent: 'center',
     },
-    primaryBtnPressed: { opacity: 0.9 },
+    primaryBtnPressed: { opacity: pressedOpacity },
     primaryBtnLabel: { color: '#fff', fontSize: 16, fontWeight: '600' },
     primaryBtnLabelDisabled: { color: c.muted },
     voiceRow: {
@@ -1160,8 +1212,9 @@ function createStyles(c: RecallionColors) {
       backgroundColor: 'transparent',
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.borderSubtle,
-      paddingVertical: 8,
-      paddingHorizontal: 12,
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 14,
       borderRadius: c.radiusSm,
     },
     voiceBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -1182,10 +1235,10 @@ function createStyles(c: RecallionColors) {
     },
     voiceBtnDangerLabel: { color: '#fff' },
     voiceBtnDangerOutline: {
-      borderColor: 'rgba(185,28,28,0.35)',
+      borderColor: c.dangerBorder,
     },
     voiceBtnDangerOutlineLabel: {
-      color: '#b91c1c',
+      color: c.danger,
       fontSize: 14,
       fontWeight: '500',
     },

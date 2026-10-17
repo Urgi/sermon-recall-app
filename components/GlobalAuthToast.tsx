@@ -1,5 +1,5 @@
 import { useGlobalSearchParams, usePathname } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { toastFromAuthParams } from '../lib/authToastMessages';
 import { consumePendingToast, type PendingToast } from '../lib/pendingToast';
@@ -41,5 +41,7 @@ export function GlobalAuthToast() {
     };
   }, [pathname, searchParams.email_sent, searchParams.confirmed, searchParams.error]);
 
-  return <AuthToastBanner toast={toast} onDismiss={() => setToast(null)} />;
+  const dismiss = useCallback(() => setToast(null), []);
+
+  return <AuthToastBanner toast={toast} onDismiss={dismiss} />;
 }

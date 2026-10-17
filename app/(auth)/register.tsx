@@ -1,8 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -10,27 +10,31 @@ import {
   View,
 } from 'react-native';
 
+import { AuthBackButtonSlot } from '../../components/AuthBackButton';
+import { FadeInView } from '../../components/FadeInView';
 import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
 import { ReminderTimePicker } from '../../components/ReminderTimePicker';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useI18n } from '../../contexts/I18nContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
+import { createAuthFormStyles } from '../../lib/authFormStyles';
 import {
   APP_LANGUAGES,
   DEFAULT_APP_LANGUAGE,
   type AppLanguage,
-  languageOptionLabel,
 } from '../../lib/i18n/languages';
 import type { RecallionColors } from '../../lib/recallionTheme';
 import {
   clockToHour24,
   DEFAULT_REMINDER_CLOCK,
+  formatReminderClock,
   type ReminderClock,
 } from '../../lib/reminderTime';
 
 export default function RegisterScreen() {
   const { colors } = useRecallionTheme();
+  const form = useMemo(() => createAuthFormStyles(colors), [colors]);
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { sendEmailOtp, session, loading, profileLoading } = useAuth();
   const { t, setLanguagePreview } = useI18n();
@@ -39,6 +43,7 @@ export default function RegisterScreen() {
   const [preferredLanguage, setPreferredLanguage] =
     useState<AppLanguage>(DEFAULT_APP_LANGUAGE);
   const [reminderClock, setReminderClock] = useState<ReminderClock>(DEFAULT_REMINDER_CLOCK);
+  const [reminderOpen, setReminderOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const emailRef = useRef<TextInput>(null);
@@ -71,49 +76,50 @@ export default function RegisterScreen() {
     router.replace(`/verify-email?email=${encodeURIComponent(trimmedEmail)}`);
   }
 
+  const ready = email.trim().length > 0 && !submitting;
+
   return (
     <KeyboardFormScreen backgroundColor={colors.bgPage} centerContent={false}>
-      <View style={styles.card}>
-        <Image
-          source={require('../../assets/logo.png')}
-          style={styles.logo}
-          accessibilityLabel="Sermon Recall"
-        />
-        <Text style={styles.kicker}>{t('auth.getStarted')}</Text>
-        <Text style={styles.title}>{t('auth.createAccount')}</Text>
-        <Text style={styles.hint}>{t('auth.signupHint')}</Text>
+      <View style={form.card}>
+        <AuthBackButtonSlot />
 
-        <Text style={styles.fieldLabel}>{t('auth.fullName')}</Text>
+        <Text style={form.kicker}>{t('auth.getStarted')}</Text>
+        <Text style={form.title}>{t('auth.createAccount')}</Text>
+        <Text style={form.subtitle}>{t('auth.signupHint')}</Text>
+
+        <Text style={form.fieldLabel}>{t('auth.fullName')}</Text>
         <TextInput
-          style={styles.input}
+          style={form.input}
           placeholder={t('auth.optional')}
           placeholderTextColor={colors.muted}
           autoComplete="name"
+          textContentType="name"
           value={fullName}
           onChangeText={setFullName}
           returnKeyType="next"
           submitBehavior="submit"
-          blurOnSubmit={false}
           onSubmitEditing={() => emailRef.current?.focus()}
         />
-        <Text style={styles.fieldLabel}>{t('auth.email')}</Text>
+        <Text style={form.fieldLabel}>{t('auth.email')}</Text>
         <TextInput
           ref={emailRef}
-          style={styles.input}
+          style={form.input}
           placeholder={t('auth.emailPlaceholder')}
           placeholderTextColor={colors.muted}
           autoCapitalize="none"
+          autoCorrect={false}
           keyboardType="email-address"
           autoComplete="email"
+          textContentType="emailAddress"
           value={email}
           onChangeText={setEmail}
-          returnKeyType="done"
+          returnKeyType="go"
           submitBehavior="blurAndSubmit"
+          onSubmitEditing={() => void onSubmit()}
         />
 
-        <Text style={styles.fieldLabel}>{t('auth.preferredLanguage')}</Text>
-        <Text style={styles.fieldHint}>{t('auth.languageHint')}</Text>
-        <View style={styles.languageRow}>
+        <Text style={form.fieldLabel}>{t('auth.preferredLanguage')}</Text>
+        <View style={styles.segment} accessibilityRole="radiogroup">
           {APP_LANGUAGES.map((opt) => {
             const selected = preferredLanguage === opt.value;
             return (
@@ -123,58 +129,82 @@ export default function RegisterScreen() {
                   setPreferredLanguage(opt.value);
                   setLanguagePreview(opt.value);
                 }}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={opt.label}
                 style={({ pressed }) => [
-                  styles.languageChip,
-                  selected && styles.languageChipSelected,
-                  pressed && styles.buttonPressed,
+                  styles.segmentItem,
+                  selected && styles.segmentItemSelected,
+                  pressed && form.pressed,
                 ]}
               >
                 <Text
-                  style={[styles.languageChipLabel, selected && styles.languageChipLabelSelected]}
+                  style={[styles.segmentLabel, selected && styles.segmentLabelSelected]}
+                  numberOfLines={1}
                 >
-                  {languageOptionLabel(opt.value)}
+                  {opt.nativeLabel}
                 </Text>
               </Pressable>
             );
           })}
         </View>
 
-        <Text style={styles.fieldLabel}>{t('auth.dailyReminder')}</Text>
-        <Text style={styles.fieldHint}>{t('auth.reminderHint')}</Text>
-        <ReminderTimePicker value={reminderClock} onChange={setReminderClock} />
+        <Pressable
+          onPress={() => setReminderOpen((v) => !v)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: reminderOpen }}
+          accessibilityHint={t('auth.reminderHint')}
+          style={({ pressed }) => [styles.reminderRow, pressed && form.pressed]}
+        >
+          <Ionicons name="notifications-outline" size={20} color={colors.blue} />
+          <View style={styles.reminderText}>
+            <Text style={styles.reminderLabel}>{t('auth.dailyReminder')}</Text>
+            <Text style={styles.reminderValue}>{formatReminderClock(reminderClock)}</Text>
+          </View>
+          <Text style={styles.reminderAction}>
+            {reminderOpen ? t('common.done') : t('common.change')}
+          </Text>
+        </Pressable>
+        {reminderOpen ? (
+          <FadeInView style={styles.reminderPicker}>
+            <ReminderTimePicker value={reminderClock} onChange={setReminderClock} compact />
+          </FadeInView>
+        ) : null}
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <Text style={[form.error, styles.errorGap]} accessibilityRole="alert">
+            {error}
+          </Text>
+        ) : null}
         <Pressable
           style={({ pressed }) => [
-            styles.button,
-            (!email.trim() || submitting) && styles.buttonDisabled,
-            pressed && email.trim() && !submitting && styles.buttonPressed,
+            form.button,
+            styles.submit,
+            !ready && form.buttonDisabled,
+            pressed && ready && form.pressed,
           ]}
           onPress={() => void onSubmit()}
-          disabled={!email.trim() || submitting}
+          disabled={!ready}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !ready, busy: submitting }}
         >
           {submitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text
-              style={[
-                styles.buttonLabel,
-                (!email.trim() || submitting) && styles.buttonLabelDisabled,
-              ]}
-            >
+            <Text style={[form.buttonLabel, !ready && form.buttonLabelDisabled]}>
               {t('auth.emailMeCode')}
             </Text>
           )}
         </Pressable>
 
         <Pressable
-          onPress={() => router.push('/login')}
-          style={styles.signupRow}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/login'))}
+          style={form.footerRow}
           accessibilityRole="button"
-          accessibilityLabel="Sign in"
+          accessibilityLabel={t('auth.signIn')}
         >
-          <Text style={styles.signupPrompt}>{t('auth.haveAccount')}</Text>
-          <Text style={styles.signupLink}>{t('auth.signIn')}</Text>
+          <Text style={form.footerPrompt}>{t('auth.haveAccount')}</Text>
+          <Text style={form.footerLink}>{t('auth.signIn')}</Text>
         </Pressable>
       </View>
     </KeyboardFormScreen>
@@ -183,85 +213,48 @@ export default function RegisterScreen() {
 
 function createStyles(c: RecallionColors) {
   return StyleSheet.create({
-    card: { gap: 0, alignSelf: 'stretch' },
-    logo: {
-      width: 72,
-      height: 72,
-      borderRadius: 16,
-      alignSelf: 'flex-start',
-      marginBottom: 20,
-    },
-    kicker: {
-      fontSize: 12,
-      letterSpacing: 1.6,
-      textTransform: 'uppercase',
-      color: c.blue,
-      fontWeight: '600',
-      marginBottom: 10,
-    },
-    title: {
-      fontSize: 32,
-      fontWeight: '700',
-      color: c.navy,
-      marginBottom: 10,
-      lineHeight: 38,
-    },
-    hint: { fontSize: 16, color: c.muted, marginBottom: 28, lineHeight: 24 },
-    fieldLabel: { fontSize: 13, fontWeight: '600', color: c.navy, marginBottom: 8, marginTop: 8 },
-    fieldHint: { marginBottom: 10, fontSize: 13, color: c.muted, lineHeight: 18 },
-    languageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-    languageChip: {
-      borderWidth: 1,
-      borderColor: c.borderInput,
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      backgroundColor: c.bgCard,
-    },
-    languageChipSelected: {
-      borderColor: c.blue,
-      backgroundColor: 'rgba(14, 165, 233, 0.12)',
-    },
-    languageChipLabel: { fontSize: 14, fontWeight: '500', color: c.navy },
-    languageChipLabelSelected: { color: c.blue, fontWeight: '600' },
-    input: {
-      borderWidth: 1,
-      borderColor: c.borderInput,
-      borderRadius: 14,
-      paddingHorizontal: 16,
-      minHeight: 56,
-      fontSize: 16,
-      color: c.navy,
-      backgroundColor: c.bgCard,
-      marginBottom: 8,
-    },
-    error: { color: '#b91c1c', fontSize: 14, marginBottom: 12, marginTop: 12, fontWeight: '600' },
-    button: {
-      marginTop: 20,
-      backgroundColor: c.ctaSolid,
-      paddingVertical: 16,
-      borderRadius: 50,
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 54,
-    },
-    buttonDisabled: {
-      backgroundColor: c.bgCard,
-      borderWidth: 1,
-      borderColor: c.borderInput,
-    },
-    buttonPressed: { opacity: 0.9 },
-    buttonLabel: { color: '#fff', fontSize: 16, fontWeight: '600' },
-    buttonLabelDisabled: { color: c.muted },
-    signupRow: {
+    segment: {
       flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginTop: 28,
-      paddingVertical: 8,
-      flexWrap: 'wrap',
+      padding: 4,
+      gap: 4,
+      borderRadius: 14,
+      backgroundColor: c.bgWash,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.borderSubtle,
+      marginBottom: 16,
     },
-    signupPrompt: { color: c.muted, fontSize: 15 },
-    signupLink: { color: c.navy, fontSize: 15, fontWeight: '600' },
+    segmentItem: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 6,
+    },
+    segmentItemSelected: {
+      backgroundColor: c.bgCard,
+      borderWidth: 1,
+      borderColor: c.blue,
+    },
+    segmentLabel: { fontSize: 15, fontWeight: '500', color: c.muted },
+    segmentLabelSelected: { color: c.navy, fontWeight: '700' },
+    reminderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      minHeight: 56,
+      paddingHorizontal: 16,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: c.borderInput,
+      backgroundColor: c.bgCard,
+    },
+    reminderText: { flex: 1 },
+    reminderLabel: { fontSize: 13, fontWeight: '600', color: c.muted },
+    reminderValue: { marginTop: 2, fontSize: 16, fontWeight: '700', color: c.navy },
+    reminderAction: { fontSize: 15, fontWeight: '700', color: c.blue },
+    reminderPicker: { marginTop: 8 },
+    errorGap: { marginTop: 16, marginBottom: 0 },
+    submit: { marginTop: 24 },
   });
 }

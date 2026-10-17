@@ -28,6 +28,19 @@ export type RecallionColors = {
   accentSoft: string;
   /** Hero card accent edge (light mode) / border (dark). */
   heroAccent: string;
+  /** Error text / destructive actions — tuned per theme for contrast. */
+  danger: string;
+  dangerSoft: string;
+  dangerBorder: string;
+  /** Confirmation text (saved, completed, code sent). */
+  success: string;
+  successSoft: string;
+  /** Caution notices (church dissolved, church will be removed). */
+  warning: string;
+  warningSoft: string;
+  warningBorder: string;
+  /** Dim layer behind modals and sheets. */
+  scrim: string;
   shadowColor: string;
   shadowOpacity: number;
   shadowRadius: number;
@@ -59,6 +72,15 @@ const dark: RecallionColors = {
   brandMarkText: '#38bdf8',
   accentSoft: 'rgba(56, 189, 248, 0.14)',
   heroAccent: '#38bdf8',
+  danger: '#f87171',
+  dangerSoft: 'rgba(248, 113, 113, 0.12)',
+  dangerBorder: 'rgba(248, 113, 113, 0.45)',
+  success: '#86efac',
+  successSoft: 'rgba(34, 197, 94, 0.12)',
+  warning: '#fde68a',
+  warningSoft: 'rgba(120, 53, 15, 0.22)',
+  warningBorder: 'rgba(251, 191, 36, 0.4)',
+  scrim: 'rgba(0, 0, 0, 0.7)',
   shadowColor: '#000000',
   shadowOpacity: 0,
   shadowRadius: 0,
@@ -89,6 +111,15 @@ const light: RecallionColors = {
   brandMarkText: '#0369a1',
   accentSoft: 'rgba(3, 105, 161, 0.1)',
   heroAccent: '#0284c7',
+  danger: '#b91c1c',
+  dangerSoft: 'rgba(254, 226, 226, 0.7)',
+  dangerBorder: 'rgba(185, 28, 28, 0.28)',
+  success: '#15803d',
+  successSoft: 'rgba(34, 197, 94, 0.12)',
+  warning: '#92400e',
+  warningSoft: '#fffbeb',
+  warningBorder: 'rgba(217, 119, 6, 0.35)',
+  scrim: 'rgba(15, 23, 42, 0.45)',
   shadowColor: '#0b1f33',
   shadowOpacity: 0.08,
   shadowRadius: 14,

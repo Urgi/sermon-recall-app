@@ -28,6 +28,7 @@ import {
   languageOptionLabel,
   normalizeAppLanguage,
 } from '../../../lib/i18n/languages';
+import { pressedOpacity } from '../../../lib/motion';
 import { formatReminderHour24 } from '../../../lib/reminderTime';
 import {
   cardShadowStyle,
@@ -144,7 +145,9 @@ export default function SettingsScreen() {
     <ScreenBackdrop>
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <Text style={styles.kicker}>{t('settings.kicker')}</Text>
-        <Text style={styles.title}>{t('settings.title')}</Text>
+        <Text style={styles.title} accessibilityRole="header">
+          {t('settings.title')}
+        </Text>
 
         <ScrollView
           ref={scrollRef}
@@ -171,6 +174,7 @@ export default function SettingsScreen() {
               <Pressable
                 style={({ pressed }) => [styles.joinLink, pressed && styles.pressed]}
                 onPress={() => router.push('/join-church')}
+                accessibilityRole="button"
               >
                 <Text style={styles.joinLinkLabel}>{t('settings.joinChurch')}</Text>
                 <Ionicons name="chevron-forward" size={16} color={colors.blue} />
@@ -190,7 +194,10 @@ export default function SettingsScreen() {
             <SettingsRow
               icon="globe-outline"
               label={t('settings.language')}
-              subtitle={languageOptionLabel(selectedLanguage)}
+              subtitle={
+                APP_LANGUAGES.find((o) => o.value === selectedLanguage)?.nativeLabel ??
+                languageOptionLabel(selectedLanguage)
+              }
               onPress={() => setPanel('language')}
               styles={styles}
               colors={colors}
@@ -217,6 +224,7 @@ export default function SettingsScreen() {
           <Pressable
             style={({ pressed }) => [styles.signOutBtn, pressed && styles.pressed]}
             onPress={confirmSignOut}
+            accessibilityRole="button"
           >
             <Text style={styles.signOutLabel}>{t('settings.signOut')}</Text>
           </Pressable>
@@ -272,6 +280,8 @@ export default function SettingsScreen() {
               key={opt.value}
               onPress={() => void onSelectLanguage(opt.value)}
               disabled={languagePending}
+              accessibilityRole="radio"
+              accessibilityState={{ selected, disabled: languagePending }}
               style={({ pressed }) => [
                 styles.option,
                 selected && styles.optionSelected,
@@ -298,6 +308,8 @@ export default function SettingsScreen() {
             <Pressable
               key={opt.value}
               onPress={() => setPreference(opt.value)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
               style={({ pressed }) => [
                 styles.option,
                 selected && styles.optionSelected,
@@ -358,8 +370,12 @@ function SettingsRow({
     <Pressable
       style={({ pressed }) => [styles.row, !last && styles.rowBorder, pressed && styles.pressed]}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={subtitle ? `${label}, ${subtitle}` : label}
     >
-      <Ionicons name={icon} size={22} color={colors.navy} style={styles.rowIcon} />
+      <View style={styles.rowIconWrap}>
+        <Ionicons name={icon} size={20} color={colors.blue} />
+      </View>
       <View style={styles.rowText}>
         <Text style={styles.rowLabel}>{label}</Text>
         {subtitle ? <Text style={styles.rowSubtitle}>{subtitle}</Text> : null}
@@ -371,7 +387,6 @@ function SettingsRow({
 
 function createStyles(colors: RecallionColors, resolved: 'light' | 'dark') {
   const elevation = cardShadowStyle(colors);
-  const isLight = resolved === 'light';
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.bgPage },
     flex: { flex: 1, backgroundColor: colors.bgPage },
@@ -426,7 +441,7 @@ function createStyles(colors: RecallionColors, resolved: 'light' | 'dark') {
     },
     joinLinkLabel: { fontSize: 14, fontWeight: '700', color: colors.blue },
     menuCard: {
-      borderRadius: 14,
+      borderRadius: colors.radiusMd,
       backgroundColor: colors.bgCard,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.borderSubtle,
@@ -436,17 +451,26 @@ function createStyles(colors: RecallionColors, resolved: 'light' | 'dark') {
     row: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 14,
+      minHeight: 64,
+      paddingVertical: 12,
       paddingHorizontal: 16,
     },
     rowBorder: {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.borderSubtle,
     },
-    rowIcon: { marginRight: 12, width: 24, textAlign: 'center' },
+    rowIconWrap: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      marginRight: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.accentSoft,
+    },
     rowText: { flex: 1, paddingRight: 8 },
     rowLabel: { fontSize: 16, fontWeight: '600', color: colors.navy },
-    rowSubtitle: { marginTop: 2, fontSize: 12, color: colors.muted },
+    rowSubtitle: { marginTop: 2, fontSize: 13, lineHeight: 18, color: colors.muted },
     option: {
       flexDirection: 'row',
       alignItems: 'flex-start',
@@ -478,30 +502,34 @@ function createStyles(colors: RecallionColors, resolved: 'light' | 'dark') {
     error: {
       marginTop: 4,
       fontSize: 14,
-      color: resolved === 'light' ? '#b91c1c' : '#fca5a5',
+      fontWeight: '600',
+      color: colors.danger,
     },
     modalCta: {
       marginTop: 8,
       backgroundColor: colors.ctaSolid,
       borderRadius: 50,
-      paddingVertical: 14,
+      minHeight: 52,
+      justifyContent: 'center',
       alignItems: 'center',
     },
     modalCtaLabel: { color: '#fff', fontSize: 16, fontWeight: '700' },
     signOutBtn: {
-      marginTop: 28,
-      borderRadius: 50,
-      borderWidth: 1.5,
-      borderColor: isLight ? 'rgba(185, 28, 28, 0.28)' : 'rgba(248, 113, 113, 0.45)',
-      backgroundColor: isLight ? 'rgba(254, 226, 226, 0.65)' : 'transparent',
-      paddingVertical: 14,
+      marginTop: 20,
+      minHeight: 52,
+      borderRadius: 14,
+      backgroundColor: colors.bgCard,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSubtle,
       alignItems: 'center',
+      justifyContent: 'center',
+      ...elevation,
     },
     signOutLabel: {
       fontSize: 16,
-      fontWeight: '700',
-      color: isLight ? '#b91c1c' : '#f87171',
+      fontWeight: '600',
+      color: colors.danger,
     },
-    pressed: { opacity: 0.85 },
+    pressed: { opacity: pressedOpacity },
   });
 }
