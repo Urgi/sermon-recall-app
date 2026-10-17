@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -17,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DevotionalNotifyPrompt } from '../../../components/DevotionalNotifyPrompt';
 import { FadeInView } from '../../../components/FadeInView';
 import { HomeStreakBadge } from '../../../components/HomeStreakBadge';
-import { JourneyProgressBar } from '../../../components/JourneyProgressBar';
+import { DayStepper } from '../../../components/DayStepper';
 import { ScreenBackdrop } from '../../../components/ScreenBackdrop';
 import { StreakCalendarModal } from '../../../components/StreakCalendarModal';
 import { StreakCelebration } from '../../../components/StreakCelebration';
@@ -340,9 +339,10 @@ function HeroSermonCard({
     totalDays > 0 && focusDay
       ? t('home.dayOf', { day: focusDay.day_number, total: totalDays })
       : null;
+  // The day label already says "Day N" — drop a repeated "Day N —" prefix from the title.
   const readingTitle = focusDay
     ? (() => {
-        const trimmed = focusDay.title?.trim();
+        const trimmed = focusDay.title?.trim().replace(/^(day|d[ií]a|jour)\s*\d+\s*[—–:-]\s*/i, '');
         if (trimmed && trimmed.toLowerCase() !== 'title') return trimmed;
         return t('home.dayFallback', { day: focusDay.day_number });
       })()
@@ -378,88 +378,81 @@ function HeroSermonCard({
     ? () => router.push(`/devotional/${nextDevotional.id}`)
     : undefined;
 
+  const completedDays = new Set(
+    devotionals.filter((d) => summary.completedIds.has(d.id)).map((d) => d.day_number),
+  );
+
   return (
     <View style={styles.heroCard}>
-      <LinearGradient
-        colors={colors.heroGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.heroInner}
-      >
-        <Text style={styles.heroTitle} numberOfLines={3}>
-          {displaySermonTitle(sermon.title, sermon.sermon_date)}
-        </Text>
-        <Text style={styles.heroMeta}>{meta}</Text>
-
-        {dayLabel ? <Text style={styles.heroDayLabel}>{dayLabel}</Text> : null}
-        {readingTitle ? (
-          <Text style={styles.heroReadingTitle} numberOfLines={2}>
-            {readingTitle}
-          </Text>
-        ) : null}
-
-        {totalDays > 0 ? (
-          <View style={styles.progressWrap}>
-            <JourneyProgressBar
-              totalDays={totalDays}
-              completedCount={completedCount}
-              currentDayNumber={currentDayNumber}
-            />
-          </View>
-        ) : null}
-
-        {!showReadingPrimary ? (
-          <Text
-            style={[
-              styles.statusLabel,
-              statusTone === 'action' ? styles.statusAction : styles.statusMuted,
-            ]}
-          >
-            {statusLabel}
-          </Text>
-        ) : null}
-
-        <View style={styles.heroActions}>
-          {showReadingPrimary ? (
-            <Pressable
-              style={({ pressed }) => [styles.heroCtaPrimary, pressed && styles.heroCtaPressed]}
-              onPress={readingOnPress}
-              accessibilityRole="button"
-            >
-              <Text style={styles.heroCtaPrimaryLabel}>{readingLabel}</Text>
-            </Pressable>
-          ) : null}
-
+      <View style={styles.heroTopRow}>
+        {dayLabel ? <Text style={styles.heroDayLabel}>{dayLabel}</Text> : <View />}
+        {showReadingPrimary ? (
           <Pressable
-            style={({ pressed }) => [
-              showReadingPrimary ? styles.heroTextLink : styles.heroCtaPrimary,
-              pressed && styles.heroCtaPressed,
-            ]}
             onPress={() => router.push(`/sermon/${sermon.id}`)}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={t('home.viewAllDays', { total: totalDays || 6 })}
+            style={({ pressed }) => [styles.heroAllDays, pressed && styles.heroCtaPressed]}
+          >
+            <Text style={styles.heroAllDaysLabel}>
+              {t('home.allDaysShort', { total: totalDays || 6 })}
+            </Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.blue} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      <Text style={styles.heroReadingTitle} numberOfLines={3} accessibilityRole="header">
+        {readingTitle ?? displaySermonTitle(sermon.title, sermon.sermon_date)}
+      </Text>
+      <Text style={styles.heroMeta} numberOfLines={2}>
+        {[readingTitle ? displaySermonTitle(sermon.title, sermon.sermon_date) : null, meta]
+          .filter(Boolean)
+          .join(' · ')}
+      </Text>
+
+      {totalDays > 0 ? (
+        <View style={styles.progressWrap}>
+          <DayStepper
+            totalDays={totalDays}
+            completedDays={completedDays}
+            currentDay={currentDayNumber}
+          />
+        </View>
+      ) : null}
+
+      {!showReadingPrimary ? (
+        <Text
+          style={[
+            styles.statusLabel,
+            statusTone === 'action' ? styles.statusAction : styles.statusMuted,
+          ]}
+        >
+          {statusLabel}
+        </Text>
+      ) : null}
+
+      <View style={styles.heroActions}>
+        <Pressable
+          style={({ pressed }) => [styles.heroCtaPrimary, pressed && styles.heroCtaPressed]}
+          onPress={readingOnPress ?? (() => router.push(`/sermon/${sermon.id}`))}
+          accessibilityRole="button"
+        >
+          <Text style={styles.heroCtaPrimaryLabel}>
+            {showReadingPrimary ? readingLabel : t('home.viewJourney')}
+          </Text>
+        </Pressable>
+
+        {!showReadingPrimary && allDone && lastDevotional ? (
+          <Pressable
+            style={({ pressed }) => [styles.heroTextLink, pressed && styles.heroCtaPressed]}
+            onPress={() => router.push(`/devotional/${lastDevotional.id}`)}
             accessibilityRole="button"
           >
-            <Text
-              style={
-                showReadingPrimary ? styles.heroTextLinkLabel : styles.heroCtaPrimaryLabel
-              }
-            >
-              {showReadingPrimary
-                ? t('home.viewAllDays', { total: totalDays || 6 })
-                : t('home.viewJourney')}
-            </Text>
+            <Text style={styles.heroTextLinkLabel}>{t('home.reviewLastDay')}</Text>
           </Pressable>
-
-          {!showReadingPrimary && allDone && lastDevotional ? (
-            <Pressable
-              style={({ pressed }) => [styles.heroTextLink, pressed && styles.heroCtaPressed]}
-              onPress={() => router.push(`/devotional/${lastDevotional.id}`)}
-              accessibilityRole="button"
-            >
-              <Text style={styles.heroTextLinkLabel}>{t('home.reviewLastDay')}</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </LinearGradient>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -555,18 +548,30 @@ function createStyles(c: RecallionColors) {
       paddingTop: 48,
     },
     heroCard: {
+      padding: 20,
       borderRadius: c.radiusCard,
       backgroundColor: c.bgCard,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.borderSubtle,
       ...elevation,
     },
-    heroInner: {
-      padding: 22,
-      borderRadius: c.radiusCard,
-      borderWidth: 1,
-      borderColor: c.heroBorder,
-      overflow: 'hidden',
+    heroTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      minHeight: 24,
     },
-    heroTitle: {
+    heroDayLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: c.blue,
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
+    },
+    heroAllDays: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    heroAllDaysLabel: { fontSize: 14, fontWeight: '600', color: c.blue },
+    heroReadingTitle: {
+      marginTop: 10,
       fontSize: 24,
       fontWeight: '700',
       color: c.navy,
@@ -574,27 +579,13 @@ function createStyles(c: RecallionColors) {
       letterSpacing: -0.3,
     },
     heroMeta: {
-      marginTop: 8,
+      marginTop: 6,
       fontSize: 14,
+      lineHeight: 20,
       color: c.muted,
-    },
-    heroDayLabel: {
-      marginTop: 16,
-      fontSize: 12,
-      fontWeight: '700',
-      color: c.muted,
-      letterSpacing: 1.2,
-      textTransform: 'uppercase',
-    },
-    heroReadingTitle: {
-      marginTop: 8,
-      fontSize: 18,
-      fontWeight: '600',
-      color: c.navy,
-      lineHeight: 24,
     },
     progressWrap: {
-      marginTop: 14,
+      marginTop: 20,
     },
     statusLabel: {
       marginTop: 14,
@@ -605,7 +596,6 @@ function createStyles(c: RecallionColors) {
     statusMuted: { color: c.muted },
     heroActions: {
       marginTop: 20,
-      gap: 4,
     },
     heroCtaPrimary: {
       backgroundColor: c.ctaSolid,
@@ -614,9 +604,9 @@ function createStyles(c: RecallionColors) {
       minHeight: 52,
       justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: 4,
     },
     heroTextLink: {
+      marginTop: 4,
       minHeight: 44,
       justifyContent: 'center',
       alignItems: 'center',

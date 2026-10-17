@@ -28,9 +28,6 @@ export type RecallionColors = {
   accentSoft: string;
   /** Hero card accent edge (light mode) / border (dark). */
   heroAccent: string;
-  /** Current-journey card fill (diagonal, top-left → bottom-right). */
-  heroGradient: readonly [string, string];
-  heroBorder: string;
   /** Soft brand glow behind the top of each screen (top → transparent). */
   glow: readonly [string, string];
   /** Warm second accent — streaks, completed days, celebration. Cyan stays for "do this next". */
@@ -84,8 +81,6 @@ const dark: RecallionColors = {
   brandMarkText: '#38bdf8',
   accentSoft: 'rgba(56, 189, 248, 0.14)',
   heroAccent: '#38bdf8',
-  heroGradient: ['#123352', '#0f1724'],
-  heroBorder: 'rgba(56, 189, 248, 0.22)',
   glow: ['rgba(14, 165, 233, 0.16)', 'rgba(7, 11, 18, 0)'],
   gold: '#f5b544',
   goldSoft: 'rgba(245, 181, 68, 0.14)',
@@ -130,8 +125,6 @@ const light: RecallionColors = {
   brandMarkText: '#0369a1',
   accentSoft: 'rgba(3, 105, 161, 0.1)',
   heroAccent: '#0284c7',
-  heroGradient: ['#e3f0fa', '#ffffff'],
-  heroBorder: 'rgba(2, 132, 199, 0.18)',
   glow: ['rgba(2, 132, 199, 0.1)', 'rgba(246, 244, 239, 0)'],
   gold: '#a8670f',
   goldSoft: 'rgba(217, 119, 6, 0.12)',
