@@ -222,6 +222,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error.message.includes('invalid_church_code')) {
           return { error: 'That church code was not found.' };
         }
+        if (error.message.includes('church_member_limit_reached')) {
+          return { error: 'This church is full on its current plan. Ask your pastor to upgrade.' };
+        }
         return { error: error.message };
       }
       await refreshProfile();
