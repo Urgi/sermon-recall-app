@@ -3,7 +3,6 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -13,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BrandWordmark } from '../../../components/Brand';
 import { DevotionalNotifyPrompt } from '../../../components/DevotionalNotifyPrompt';
 import { FadeInView } from '../../../components/FadeInView';
 import { HomeStreakBadge } from '../../../components/HomeStreakBadge';
@@ -236,13 +236,7 @@ export default function HomeScreen() {
       ) : null}
 
       <View style={styles.header}>
-        <View style={styles.brandMarkWrap}>
-          <Image
-            source={require('../../../assets/logo.png')}
-            style={styles.brandMark}
-            accessibilityLabel="Sermon Recall"
-          />
-        </View>
+        <BrandWordmark height={34} />
         <View style={styles.headerRight}>
           <HomeStreakBadge
             status={streakStatus}
@@ -384,23 +378,25 @@ function HeroSermonCard({
 
   return (
     <View style={styles.heroCard}>
-      <View style={styles.heroTopRow}>
-        {dayLabel ? <Text style={styles.heroDayLabel}>{dayLabel}</Text> : <View />}
-        {showReadingPrimary ? (
-          <Pressable
-            onPress={() => router.push(`/sermon/${sermon.id}`)}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel={t('home.viewAllDays', { total: totalDays || 6 })}
-            style={({ pressed }) => [styles.heroAllDays, pressed && styles.heroCtaPressed]}
-          >
-            <Text style={styles.heroAllDaysLabel}>
-              {t('home.allDaysShort', { total: totalDays || 6 })}
-            </Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.blue} />
-          </Pressable>
-        ) : null}
-      </View>
+      {dayLabel || showReadingPrimary ? (
+        <View style={styles.heroTopRow}>
+          {dayLabel ? <Text style={styles.heroDayLabel}>{dayLabel}</Text> : <View />}
+          {showReadingPrimary ? (
+            <Pressable
+              onPress={() => router.push(`/sermon/${sermon.id}`)}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={t('home.viewAllDays', { total: totalDays || 6 })}
+              style={({ pressed }) => [styles.heroAllDays, pressed && styles.heroCtaPressed]}
+            >
+              <Text style={styles.heroAllDaysLabel}>
+                {t('home.allDaysShort', { total: totalDays || 6 })}
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.blue} />
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
 
       <Text style={styles.heroReadingTitle} numberOfLines={3} accessibilityRole="header">
         {readingTitle ?? displaySermonTitle(sermon.title, sermon.sermon_date)}
@@ -516,15 +512,6 @@ function createStyles(c: RecallionColors) {
       alignItems: 'center',
       gap: 4,
     },
-    brandMarkWrap: {
-      borderRadius: 14,
-      ...elevation,
-    },
-    brandMark: {
-      width: 48,
-      height: 48,
-      borderRadius: 14,
-    },
     greeting: {
       fontSize: 30,
       fontWeight: '700',
@@ -560,6 +547,7 @@ function createStyles(c: RecallionColors) {
       alignItems: 'center',
       justifyContent: 'space-between',
       minHeight: 24,
+      marginBottom: 10,
     },
     heroDayLabel: {
       fontSize: 12,
@@ -571,7 +559,6 @@ function createStyles(c: RecallionColors) {
     heroAllDays: { flexDirection: 'row', alignItems: 'center', gap: 2 },
     heroAllDaysLabel: { fontSize: 14, fontWeight: '600', color: c.blue },
     heroReadingTitle: {
-      marginTop: 10,
       fontSize: 24,
       fontWeight: '700',
       color: c.navy,

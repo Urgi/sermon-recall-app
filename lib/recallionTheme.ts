@@ -7,6 +7,26 @@ import type { ViewStyle } from 'react-native';
 
 export type ThemePreference = 'dark' | 'light' | 'system';
 
+/**
+ * Brand palette sampled from Garvin's Mark B logo pack (Nov 2026). Fixed across themes —
+ * use for the logo, icon tiles and brand moments, not for general UI chrome.
+ * Native configs that can't import this (app.json splash / adaptive icon) repeat the values;
+ * keep them in sync with .cursor/brand-assets.md.
+ */
+export const BRAND = {
+  /** Top of the mark gradient. */
+  sky: '#12C6FB',
+  /** Bottom of the mark gradient; Android notification tint. */
+  blue: '#0057EE',
+  /** App icon tile / adaptive icon background. */
+  navy: '#021635',
+  navyDeep: '#010E24',
+  /** "Sermon" in the light wordmark. */
+  ink: '#0B1626',
+  /** Tagline on dark. */
+  slate: '#9FB0C8',
+} as const;
+
 export type RecallionColors = {
   bgPage: string;
   /** Soft page wash / secondary surface (streak chips, inputs). */
@@ -22,8 +42,6 @@ export type RecallionColors = {
   ctaSolid: string;
   muted: string;
   progressRest: string;
-  brandMarkBg: string;
-  brandMarkText: string;
   /** Soft fill behind focused tab icons / selected chips. */
   accentSoft: string;
   /** Hero card accent edge (light mode) / border (dark). */
@@ -77,8 +95,6 @@ const dark: RecallionColors = {
   ctaSolid: '#0ea5e9',
   muted: '#94a3b8',
   progressRest: '#223047',
-  brandMarkBg: '#020617',
-  brandMarkText: '#38bdf8',
   accentSoft: 'rgba(56, 189, 248, 0.14)',
   heroAccent: '#38bdf8',
   glow: ['rgba(14, 165, 233, 0.16)', 'rgba(7, 11, 18, 0)'],
@@ -121,8 +137,6 @@ const light: RecallionColors = {
   ctaSolid: '#0284c7',
   muted: '#5b6f86',
   progressRest: '#ddd8cc',
-  brandMarkBg: '#ffffff',
-  brandMarkText: '#0369a1',
   accentSoft: 'rgba(3, 105, 161, 0.1)',
   heroAccent: '#0284c7',
   glow: ['rgba(2, 132, 199, 0.1)', 'rgba(246, 244, 239, 0)'],

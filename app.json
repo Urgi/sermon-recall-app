@@ -5,12 +5,12 @@
     "slug": "sermon-recall",
     "version": "1.0.2",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
+    "icon": "./assets/brand/app-icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/logo.png",
+      "image": "./assets/brand/splash-mark.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0a0f18"
+      "backgroundColor": "#070b12"
     },
     "ios": {
       "supportsTablet": false,
@@ -24,8 +24,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo.png",
-        "backgroundColor": "#0a0f18"
+        "foregroundImage": "./assets/brand/adaptive-icon-foreground.png",
+        "backgroundColor": "#021635"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -42,12 +42,13 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/logo.png",
-          "backgroundColor": "#0a0f18",
+          "image": "./assets/brand/splash-mark.png",
+          "imageWidth": 140,
+          "backgroundColor": "#070b12",
           "resizeMode": "contain",
           "dark": {
-            "image": "./assets/logo.png",
-            "backgroundColor": "#0a0f18"
+            "image": "./assets/brand/splash-mark.png",
+            "backgroundColor": "#070b12"
           }
         }
       ],
@@ -55,8 +56,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/logo.png",
-          "color": "#05070a",
+          "icon": "./assets/brand/notification-icon.png",
+          "color": "#0057EE",
           "sounds": [],
           "enableBackgroundRemoteNotifications": true
         }
@@ -72,7 +73,7 @@
       "./plugins/withNoBackgroundAudio.js"
     ],
     "web": {
-      "favicon": "./assets/logo.png"
+      "favicon": "./assets/brand/favicon.png"
     },
     "extra": {
       "eas": {

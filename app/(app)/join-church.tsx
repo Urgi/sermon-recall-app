@@ -2,7 +2,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -10,6 +9,7 @@ import {
   View,
 } from 'react-native';
 
+import { BrandMark } from '../../components/Brand';
 import { FadeInView } from '../../components/FadeInView';
 import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
 
@@ -70,11 +70,7 @@ export default function JoinChurchScreen() {
   return (
     <KeyboardFormScreen backgroundColor={colors.bgPage}>
       <FadeInView style={form.card}>
-        <Image
-          source={require('../../assets/logo.png')}
-          style={form.logo}
-          accessible={false}
-        />
+        <BrandMark height={64} style={styles.mark} />
         <Text style={form.title} accessibilityRole="header">
           {t('join.title')}
         </Text>
@@ -158,6 +154,7 @@ function createStyles(c: RecallionColors) {
     noticeTitle: { fontSize: 15, fontWeight: '700', color: c.warning },
     noticeText: { marginTop: 6, fontSize: 14, color: c.navyMid, lineHeight: 20 },
     codeInput: { fontSize: 18, fontWeight: '600', letterSpacing: 1.5 },
+    mark: { marginBottom: 20 },
     signOut: { marginTop: 16 },
     signOutLabel: { color: c.muted, fontSize: 15, fontWeight: '600' },
   });
