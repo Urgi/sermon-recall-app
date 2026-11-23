@@ -11,7 +11,7 @@ import { useI18n } from '../../../contexts/I18nContext';
 
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
 import { typeScale } from '../../../lib/designTokens';
-import type { UiKey } from '../../../lib/i18n/ui';
+import { uiLocale, type UiKey } from '../../../lib/i18n/ui';
 import { pressedOpacity } from '../../../lib/motion';
 import type { RecallionColors } from '../../../lib/recallionTheme';
 import { supabase } from '../../../lib/supabase';
@@ -133,7 +133,7 @@ export default function AnnouncementScreen() {
 
 function formatSentDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString(undefined, {
+    return new Date(iso).toLocaleDateString(uiLocale(), {
       weekday: 'long',
       month: 'long',
       day: 'numeric',

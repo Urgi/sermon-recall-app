@@ -18,6 +18,7 @@ import { ScreenBackdrop } from '../../../components/ScreenBackdrop';
 import { SermonRecallScreenHeader } from '../../../components/SermonRecallScreenHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useI18n } from '../../../contexts/I18nContext';
+import { uiLocale } from '../../../lib/i18n/ui';
 import { useRecallionTheme } from '../../../contexts/ThemeContext';
 import { typeScale } from '../../../lib/designTokens';
 import { devotionalDayHeading } from '../../../lib/devotionalDayTopics';
@@ -64,7 +65,7 @@ function formatPreachedDate(iso: string | null): string | null {
   if (!iso) return null;
   try {
     const d = new Date(`${iso}T12:00:00`);
-    return d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+    return d.toLocaleDateString(uiLocale(), { month: 'long', day: 'numeric' });
   } catch {
     return null;
   }
@@ -74,7 +75,7 @@ function formatCompletedDate(iso: string | null): string | null {
   if (!iso) return null;
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return d.toLocaleDateString(uiLocale(), { month: 'short', day: 'numeric' });
   } catch {
     return null;
   }

@@ -43,7 +43,12 @@ export function DayStepper({ totalDays, completedDays, currentDay }: Props) {
               {done ? (
                 <Ionicons name="checkmark" size={15} color={colors.onGold} />
               ) : (
-                <Text style={[styles.num, current && styles.numCurrent]}>{day}</Text>
+                <Text
+                  style={[styles.num, current && styles.numCurrent]}
+                  maxFontSizeMultiplier={1.2}
+                >
+                  {day}
+                </Text>
               )}
             </View>
           </View>

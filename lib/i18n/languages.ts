@@ -26,3 +26,20 @@ export function languageOptionLabel(code: AppLanguage): string {
   if (opt.nativeLabel === opt.label) return opt.label;
   return `${opt.label} (${opt.nativeLabel})`;
 }
+
+/** BCP 47 locale used for dates and numbers in each UI language. */
+export function localeForLanguage(code: AppLanguage): string {
+  if (code === 'es') return 'es-US';
+  if (code === 'fr') return 'fr-CA';
+  return 'en-US';
+}
+
+/** Best supported language for the phone's language setting (falls back to English). */
+export function deviceAppLanguage(): AppLanguage {
+  try {
+    const tag = Intl.DateTimeFormat().resolvedOptions().locale?.toLowerCase() ?? '';
+    return normalizeAppLanguage(tag.split(/[-_]/)[0]);
+  } catch {
+    return DEFAULT_APP_LANGUAGE;
+  }
+}

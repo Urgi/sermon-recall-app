@@ -44,7 +44,7 @@ export function DevotionalNotifyPrompt({ visible, userId, onComplete }: Props) {
 
   async function apply(patch: Record<string, boolean | number | string | null>): Promise<void> {
     if (!supabase) {
-      setError('App is not configured.');
+      setError(t('err.notConfigured'));
       return;
     }
     setError(null);
@@ -55,7 +55,7 @@ export function DevotionalNotifyPrompt({ visible, userId, onComplete }: Props) {
       .eq('id', userId);
     setBusy(false);
     if (upErr) {
-      setError(upErr.message);
+      setError(t('err.saveFailed'));
       return;
     }
     if (patch.devotional_notify_enabled !== false) {

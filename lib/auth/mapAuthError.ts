@@ -1,32 +1,34 @@
-/** Maps Supabase Auth errors to user-safe copy (avoid leaking internals). */
+import { tr } from '../i18n/ui';
+
+/** Maps Supabase Auth errors to user-safe copy in the active UI language (avoid leaking internals). */
 export function mapAuthError(message: string): string {
   const m = message.toLowerCase();
   if (m.includes('signups not allowed') || m.includes('signup is disabled')) {
-    return 'New accounts are not allowed for that email. Try signing in instead.';
+    return tr('err.signupsNotAllowed');
   }
   if (m.includes('user not found') || m.includes('unable to find user')) {
-    return 'No account found for that email. Create an account first.';
+    return tr('err.noAccount');
   }
   if (m.includes('email rate limit') || m.includes('over_email_send_rate_limit')) {
-    return 'Too many emails sent. Wait a few minutes, then request a new code.';
+    return tr('err.emailRateLimit');
   }
   if (
     m.includes('invalid') &&
     (m.includes('otp') || m.includes('token') || m.includes('code') || m.includes('email'))
   ) {
-    return 'That code is incorrect or expired. Request a new one and try again.';
+    return tr('err.codeInvalid');
   }
   if (m.includes('expired')) {
-    return 'That code expired. Request a new one and try again.';
+    return tr('err.codeExpired');
   }
   if (m.includes('user already registered') || m.includes('already been registered')) {
-    return 'An account with this email already exists. Sign in with a code instead.';
+    return tr('err.alreadyRegistered');
   }
   if (m.includes('fetch') || m.includes('network') || m.includes('failed to fetch')) {
-    return 'Network error. Check your connection and try again.';
+    return tr('err.network');
   }
   if (m.includes('rate limit') || m.includes('too many requests')) {
-    return 'Too many attempts. Please wait a few minutes and try again.';
+    return tr('err.tooMany');
   }
-  return 'Something went wrong. Please try again.';
+  return tr('err.generic');
 }

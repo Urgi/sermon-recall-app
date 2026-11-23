@@ -1,13 +1,9 @@
-export const EMAIL_SENT_TOAST =
-  'We sent a one-time code to your email. Enter it on the next screen. Check spam if needed.';
+import { tr } from './i18n/ui';
 
-export const CONFIRMED_TOAST = 'You’re signed in. Welcome to Sermon Recall.';
-
-export const USE_CODE_NOT_LINK_MESSAGE =
-  'Email links cannot sign you in. Enter the one-time code from your email instead.';
-
-/** @deprecated Password reset retired — same copy as USE_CODE_NOT_LINK_MESSAGE. */
-export const USE_RESET_CODE_NOT_LINK_MESSAGE = USE_CODE_NOT_LINK_MESSAGE;
+/** Copy is resolved when called so it follows the active UI language. */
+export const emailSentToast = () => tr('toast.emailSent');
+export const confirmedToast = () => tr('toast.confirmed');
+export const useCodeNotLinkMessage = () => tr('auth.useCodeNotLink');
 
 export function toastFromAuthParams(params: {
   email_sent?: string | string[];
@@ -16,11 +12,11 @@ export function toastFromAuthParams(params: {
 }): { message: string; variant: 'success' | 'error' } | null {
   const emailSent = param(params.email_sent);
   if (emailSent === '1') {
-    return { message: EMAIL_SENT_TOAST, variant: 'success' };
+    return { message: emailSentToast(), variant: 'success' };
   }
   const confirmed = param(params.confirmed);
   if (confirmed === '1') {
-    return { message: CONFIRMED_TOAST, variant: 'success' };
+    return { message: confirmedToast(), variant: 'success' };
   }
   const error = param(params.error);
   if (
@@ -29,11 +25,11 @@ export function toastFromAuthParams(params: {
     error === 'confirmation_failed' ||
     error === 'wrong_client'
   ) {
-    return { message: USE_CODE_NOT_LINK_MESSAGE, variant: 'error' };
+    return { message: useCodeNotLinkMessage(), variant: 'error' };
   }
   if (error === 'missing_auth_code') {
     return {
-      message: 'This link is not valid for sign-in. Use the one-time code from your email in the app.',
+      message: tr('toast.invalidLink'),
       variant: 'error',
     };
   }

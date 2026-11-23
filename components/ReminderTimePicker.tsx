@@ -108,11 +108,11 @@ function createStyles(c: RecallionColors, compact: boolean) {
     ampmColumn: { marginLeft: 14 },
     chevronBtn: {
       width: 44,
-      height: compact ? 36 : 44,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    chevronBtnPlaceholder: { height: compact ? 36 : 44, width: 44 },
+    chevronBtnPlaceholder: { height: 44, width: 44 },
     pressed: { opacity: pressedOpacity },
     valueBox: {
       backgroundColor: c.accentSoft,

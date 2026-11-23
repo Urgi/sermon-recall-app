@@ -309,7 +309,8 @@ function createStyles(c: RecallionColors) {
       flexWrap: 'wrap',
     },
     cell: {
-      width: `${100 / 7}%`,
+      // Slightly under 1/7 so float rounding can't push the 7th cell onto the next row.
+      width: '14.28%',
       alignItems: 'center',
       paddingVertical: 6,
     },

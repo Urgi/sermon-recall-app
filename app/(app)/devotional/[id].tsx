@@ -37,12 +37,13 @@ import { supabase } from '../../../lib/supabase';
 import { touchDevotionalOpen } from '../../../lib/touchDevotionalOpen';
 import { queuePendingToast } from '../../../lib/pendingToast';
 import { fetchScripturePassage, resolveScriptureBody } from '../../../lib/fetchScriptureText';
-import { type AppLanguage, normalizeAppLanguage } from '../../../lib/i18n/languages';
+import { useI18n } from '../../../contexts/I18nContext';
+import {
+  type AppLanguage,
+  normalizeAppLanguage,
+} from '../../../lib/i18n/languages';
+import { translateUi } from '../../../lib/i18n/ui';
 import { createVoicePlaybackUrl, deleteVoiceCommitment, uploadVoiceCommitment } from '../../../lib/voiceCommitment';
-
-/** When the row has no AI `pre_prompt`, we still gate reading with a generic retrieval question. */
-const DEFAULT_PRE_SESSION_PROMPT =
-  'Before you read: in a sentence or two, what do you remember from the sermon that connects to today’s theme?';
 
 type DevotionalDetail = {
   id: string;
@@ -74,25 +75,12 @@ type SermonTiny = {
     | null;
 };
 
-function formatSermonKicker(iso: string | null): string | null {
-  if (!iso) return null;
-  try {
-    const d = new Date(`${iso}T12:00:00`);
-    return d.toLocaleDateString(undefined, {
-      weekday: 'long',
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return null;
-  }
-}
-
 export default function DevotionalScreen() {
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
+  const { t } = useI18n();
   const [row, setRow] = useState<DevotionalDetail | null>(null);
   const [progress, setProgress] = useState<ProgressRow | null>(null);
   const [sermonTitle, setSermonTitle] = useState<string | null>(null);
@@ -130,8 +118,10 @@ export default function DevotionalScreen() {
 
   const completed = Boolean(progress?.completed_at);
 
+  // When the row has no AI `pre_prompt`, gate reading with a generic retrieval question in the
+  // church's content language (the sermon content is in that language too).
   const gatePromptText =
-    row?.pre_prompt?.trim() || DEFAULT_PRE_SESSION_PROMPT;
+    row?.pre_prompt?.trim() || translateUi(churchLanguage, 'dev.defaultPrompt');
 
   /** Deliverables: answer the retrieval question before any devotional body is shown. */
   const needsPreSessionGate =
@@ -157,7 +147,7 @@ export default function DevotionalScreen() {
       .maybeSingle();
 
     if (e1 || !d) {
-      setError('Could not load this devotional.');
+      setError(t('dev.loadError'));
       setRow(null);
       setProgress(null);
       if (!silent) setLoading(false);
@@ -344,7 +334,7 @@ export default function DevotionalScreen() {
     try {
       const { granted } = await requestRecordingPermissionsAsync();
       if (!granted) {
-        setError('Microphone access is needed to record.');
+        setError(t('dev.micNeeded'));
         return;
       }
       await setAudioModeAsync({
@@ -357,7 +347,7 @@ export default function DevotionalScreen() {
       await recorder.prepareToRecordAsync();
       recorder.record();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not start recording.');
+      setError(t('dev.recordStartFail'));
     }
   }
 
@@ -372,7 +362,7 @@ export default function DevotionalScreen() {
       if (path) {
         const del = await deleteVoiceCommitment(supabase, path);
         if (del.error) {
-          setError(del.error);
+          setError(t('err.saveFailed'));
           return;
         }
       }
@@ -391,7 +381,7 @@ export default function DevotionalScreen() {
           { onConflict: 'user_id,devotional_id' },
         );
         if (upErr) {
-          setError(upErr.message);
+          setError(t('err.saveFailed'));
           return;
         }
         setProgress((prev) =>
@@ -435,7 +425,7 @@ export default function DevotionalScreen() {
       }
       /** Next `startVoice()` calls `prepareToRecordAsync()` — avoid preparing here so the temp file stays valid for playback. */
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Recording failed.');
+      setError(t('dev.recordFail'));
     }
     setVoiceBusy(false);
   }
@@ -472,7 +462,7 @@ export default function DevotionalScreen() {
         localVoiceUri == null ? await createVoicePlaybackUrl(supabase, effectiveVoicePath) : null;
       const src = localVoiceUri ?? remoteUrl;
       if (!src) {
-        setError('Could not prepare playback.');
+        setError(t('dev.playbackPrepare'));
         setVoiceBusy(false);
         return;
       }
@@ -501,11 +491,11 @@ export default function DevotionalScreen() {
         if (!playAfterLoadRef.current) return;
         playAfterLoadRef.current = false;
         setVoiceBusy(false);
-        setError('Playback did not start. Check volume and try again.');
+        setError(t('dev.playbackNoStart'));
       }, 12000);
     } catch (e) {
       playAfterLoadRef.current = false;
-      setError(e instanceof Error ? e.message : 'Playback failed.');
+      setError(t('dev.playbackFail'));
       setVoiceBusy(false);
     }
   }
@@ -518,11 +508,11 @@ export default function DevotionalScreen() {
 
     if (opts?.markComplete) {
       if (!recallText) {
-        setError('Answer the pre-session retrieval question before completing.');
+        setError(t('dev.needRecall'));
         return;
       }
       if (!commitmentText && !storedVoice) {
-        setError('Add a written commitment or record a short voice commitment before completing.');
+        setError(t('dev.needCommitment'));
         // Take the reader straight to the missing step instead of leaving them hunting.
         contentScrollRef.current?.scrollTo({
           y: Math.max(0, commitmentYRef.current - 16),
@@ -550,7 +540,7 @@ export default function DevotionalScreen() {
     );
     setSaving(false);
     if (upErr) {
-      setError(upErr.message);
+      setError(t('err.saveFailed'));
       return;
     }
 
@@ -564,19 +554,19 @@ export default function DevotionalScreen() {
     }));
 
     if (opts?.markComplete) {
-      await queuePendingToast({ variant: 'success', message: 'Devotional complete' });
+      await queuePendingToast({ variant: 'success', message: t('toast.devotionalComplete') });
       router.replace(`/sermon/${row.sermon_id}`);
       return;
     }
 
     if (!opts?.silent) {
-      await queuePendingToast({ variant: 'success', message: 'Responses saved' });
+      await queuePendingToast({ variant: 'success', message: t('toast.responsesSaved') });
     }
   }
 
   async function submitGate() {
     if (!recallDraft.trim()) {
-      setError('Write a short answer to continue.');
+      setError(t('dev.writeAnswer'));
       return;
     }
     await saveProgressResponses({ silent: true });
@@ -590,8 +580,8 @@ export default function DevotionalScreen() {
   const hasVoiceRecording = Boolean(effectiveVoicePath);
   const dayHeroTitle = row
     ? row.title?.trim()
-      ? `Day ${row.day_number} — ${row.title.trim()}`
-      : `Day ${row.day_number}`
+      ? t('day.heading', { day: row.day_number, topic: row.title.trim() })
+      : t('home.dayFallback', { day: row.day_number })
     : '';
   const progressCurrentDay = row && !completed ? row.day_number : null;
 
@@ -610,31 +600,22 @@ export default function DevotionalScreen() {
         </View>
       ) : !row ? (
         <View style={styles.padBare}>
-          <Text style={styles.err}>Not found.</Text>
+          <Text style={styles.err}>{t('dev.notFound')}</Text>
         </View>
       ) : accessDenied ? (
         <ScrollView contentContainerStyle={styles.scrollOuter} showsVerticalScrollIndicator={false}>
-          <Text style={styles.lockTitle}>This day is locked</Text>
-          <Text style={styles.lockBody}>
-            During the six-day window after the sermon date, each day opens on its matching calendar
-            day (your church&apos;s time zone). After those six days, every day unlocks so you can
-            catch up in any order.
-          </Text>
+          <Text style={styles.lockTitle}>{t('dev.lockedTitle')}</Text>
+          <Text style={styles.lockBody}>{t('dev.lockedBody')}</Text>
           {nextDayHint != null ? (
-            <Text style={styles.lockHint}>
-              Open Day {nextDayHint} from this sermon first — you can still do earlier days if they
-              are open for you.
-            </Text>
+            <Text style={styles.lockHint}>{t('dev.lockedHintDay', { day: nextDayHint })}</Text>
           ) : (
-            <Text style={styles.lockHint}>
-              Go back to the sermon list to open a day that is available today.
-            </Text>
+            <Text style={styles.lockHint}>{t('dev.lockedHintBack')}</Text>
           )}
           <Pressable
             style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
             onPress={() => router.back()}
           >
-            <Text style={styles.primaryBtnLabel}>Back to sermon</Text>
+            <Text style={styles.primaryBtnLabel}>{t('dev.backToSermon')}</Text>
           </Pressable>
         </ScrollView>
       ) : needsPreSessionGate ? (
@@ -651,7 +632,7 @@ export default function DevotionalScreen() {
           }
         >
           <Text style={styles.dayOfCaps}>
-            Day {row.day_number} of {totalDays || '—'}
+            {t('home.dayOf', { day: row.day_number, total: totalDays || '—' })}
           </Text>
           <View style={styles.progressInline}>
             <JourneyProgressBar
@@ -661,14 +642,12 @@ export default function DevotionalScreen() {
               size="thin"
             />
           </View>
-          <Text style={styles.gateKicker}>Pre-session recall</Text>
+          <Text style={styles.gateKicker}>{t('dev.gateKicker')}</Text>
           <Text style={styles.gatePrompt}>{gatePromptText}</Text>
-          <Text style={styles.gateHint}>
-            Write a short answer from memory. Today&apos;s reading unlocks next.
-          </Text>
+          <Text style={styles.gateHint}>{t('dev.gateHint')}</Text>
           <TextInput
             style={styles.gateInput}
-            placeholder="Your answer"
+            placeholder={t('dev.answerPlaceholder')}
             placeholderTextColor={colors.muted}
             value={recallDraft}
             onChangeText={setRecallDraft}
@@ -697,7 +676,7 @@ export default function DevotionalScreen() {
                   styles.primaryBtnLabelDisabled,
               ]}
             >
-              {saving ? 'Saving…' : 'Continue to reading'}
+              {saving ? t('common.saving') : t('dev.continueReading')}
             </Text>
           </Pressable>
         </ScrollView>
@@ -718,7 +697,7 @@ export default function DevotionalScreen() {
           >
             <FadeInView>
               <Text style={styles.dayOfCaps}>
-                Day {row.day_number} of {totalDays || '—'}
+                {t('home.dayOf', { day: row.day_number, total: totalDays || '—' })}
               </Text>
               <View style={styles.progressInline}>
                 <JourneyProgressBar
@@ -734,19 +713,19 @@ export default function DevotionalScreen() {
               </Text>
               <View style={styles.readTimeRow}>
                 <Ionicons name="time-outline" size={14} color={colors.muted} />
-                <Text style={styles.min}>{row.estimated_minutes} min read</Text>
+                <Text style={styles.min}>{t('sermon.minRead', { min: row.estimated_minutes })}</Text>
               </View>
 
               {completed ? (
                 <View style={styles.doneBanner}>
                   <Ionicons name="checkmark-circle" size={18} color={colors.gold} />
-                  <Text style={styles.doneText}>You completed this day.</Text>
+                  <Text style={styles.doneText}>{t('dev.completedBanner')}</Text>
                 </View>
               ) : null}
 
               {savedRecall || recallDraft.trim() ? (
                 <View style={styles.recallSummary}>
-                  <Text style={styles.recallSummaryTitle}>✓ Your pre-session recall</Text>
+                  <Text style={styles.recallSummaryTitle}>{t('dev.recallSummary')}</Text>
                   <Text
                     style={styles.recallSummaryAnswer}
                     {...(showRecallQuestion ? {} : { numberOfLines: 3 })}
@@ -764,13 +743,13 @@ export default function DevotionalScreen() {
                     accessibilityState={{ expanded: showRecallQuestion }}
                   >
                     <Text style={styles.recallToggleLabel}>
-                      {showRecallQuestion ? 'Hide question' : 'View question'}
+                      {showRecallQuestion ? t('dev.hideQuestion') : t('dev.viewQuestion')}
                     </Text>
                   </Pressable>
                   {!completed ? (
                     <TextInput
                       style={styles.recallEditInput}
-                      placeholder="Edit your answer"
+                      placeholder={t('dev.editAnswer')}
                       placeholderTextColor={colors.muted}
                       value={recallDraft}
                       onChangeText={setRecallDraft}
@@ -790,14 +769,12 @@ export default function DevotionalScreen() {
                   {scriptureLoading ? (
                     <View style={styles.scriptureLoadingRow}>
                       <ActivityIndicator size="small" color={colors.blue} />
-                      <Text style={styles.scriptureLoadingText}>Loading passage…</Text>
+                      <Text style={styles.scriptureLoadingText}>{t('dev.loadingPassage')}</Text>
                     </View>
                   ) : scriptureBody ? (
                     <Text style={styles.scriptureBody}>{scriptureBody}</Text>
                   ) : row.scripture_reference ? (
-                    <Text style={styles.scriptureMissing}>
-                      Full verse text is not available for this reference yet.
-                    </Text>
+                    <Text style={styles.scriptureMissing}>{t('dev.verseMissing')}</Text>
                   ) : null}
                 </View>
               ) : null}
@@ -806,7 +783,7 @@ export default function DevotionalScreen() {
 
               {row.reflection_question ? (
                 <View style={styles.reflectSection}>
-                  <Text style={styles.reflectLabel}>Reflection</Text>
+                  <Text style={styles.reflectLabel}>{t('dev.reflection')}</Text>
                   <Text style={styles.reflect}>{row.reflection_question}</Text>
                 </View>
               ) : null}
@@ -817,12 +794,12 @@ export default function DevotionalScreen() {
                   commitmentYRef.current = e.nativeEvent.layout.y;
                 }}
               >
-                <Text style={styles.commitmentTitle}>Application commitment</Text>
-                <Text style={styles.commitmentHint}>This week I will…</Text>
+                <Text style={styles.commitmentTitle}>{t('dev.commitmentTitle')}</Text>
+                <Text style={styles.commitmentHint}>{t('dev.commitmentHint')}</Text>
                 <TextInput
                   ref={commitmentInputRef}
                   style={styles.commitmentInput}
-                  placeholder="This week I will ..."
+                  placeholder={t('dev.commitmentPlaceholder')}
                   placeholderTextColor={colors.muted}
                   value={commitmentDraft}
                   onChangeText={setCommitmentDraft}
@@ -849,7 +826,7 @@ export default function DevotionalScreen() {
                             disabled={voiceBusy}
                           >
                             <Text style={styles.voiceBtnOutlineLabel}>
-                              {voicePlayerStatus.playing ? 'Stop playback' : 'Play recording'}
+                              {voicePlayerStatus.playing ? t('dev.stopPlayback') : t('dev.playRecording')}
                             </Text>
                           </Pressable>
                           <Pressable
@@ -860,7 +837,7 @@ export default function DevotionalScreen() {
                             onPress={() => void reRecordVoice()}
                             disabled={voiceBusy || saving}
                           >
-                            <Text style={styles.voiceBtnOutlineLabel}>Re-record</Text>
+                            <Text style={styles.voiceBtnOutlineLabel}>{t('dev.reRecord')}</Text>
                           </Pressable>
                           <Pressable
                             style={({ pressed }) => [
@@ -871,7 +848,7 @@ export default function DevotionalScreen() {
                             onPress={() => void clearVoiceRecording()}
                             disabled={voiceBusy || saving}
                           >
-                            <Text style={styles.voiceBtnDangerOutlineLabel}>Delete</Text>
+                            <Text style={styles.voiceBtnDangerOutlineLabel}>{t('dev.delete')}</Text>
                           </Pressable>
                       </>
                     ) : (
@@ -900,10 +877,10 @@ export default function DevotionalScreen() {
                             ]}
                           >
                             {voiceBusy && !recordState.isRecording
-                              ? 'Saving…'
+                              ? t('common.saving')
                               : recordState.isRecording
-                                ? 'Stop & upload'
-                                : 'Voice note'}
+                                ? t('dev.stopUpload')
+                                : t('dev.voiceNote')}
                           </Text>
                         </View>
                       </Pressable>
@@ -924,7 +901,7 @@ export default function DevotionalScreen() {
                   disabled={saving || !session?.user}
                 >
                   <Text style={completed ? styles.primaryBtnLabel : styles.secondaryBtnLabel}>
-                    {saving ? 'Saving…' : 'Save changes'}
+                    {saving ? t('common.saving') : t('dev.saveChanges')}
                   </Text>
                 </Pressable>
               </View>
@@ -959,7 +936,7 @@ export default function DevotionalScreen() {
                   <Ionicons name="checkmark" size={18} color="#fff" />
                 )}
                 <Text style={styles.primaryBtnLabel}>
-                  {saving ? 'Saving…' : 'Mark day complete'}
+                  {saving ? t('common.saving') : t('dev.markComplete')}
                 </Text>
               </View>
             </Pressable>

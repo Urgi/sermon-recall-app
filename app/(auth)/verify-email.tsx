@@ -17,7 +17,7 @@ import { useI18n } from '../../contexts/I18nContext';
 import { useRecallionTheme } from '../../contexts/ThemeContext';
 import { ensurePublicUserProfile } from '../../lib/auth/ensurePublicProfile';
 import { createAuthFormStyles } from '../../lib/authFormStyles';
-import { CONFIRMED_TOAST } from '../../lib/authToastMessages';
+import { confirmedToast } from '../../lib/authToastMessages';
 import { queuePendingToast } from '../../lib/pendingToast';
 import { requireSupabase } from '../../lib/supabase';
 
@@ -76,7 +76,7 @@ export default function VerifyEmailScreen() {
       await ensurePublicUserProfile(supabase, nextSession.user);
     }
     setSubmitting(false);
-    await queuePendingToast({ variant: 'success', message: CONFIRMED_TOAST });
+    await queuePendingToast({ variant: 'success', message: confirmedToast() });
     router.replace('/?confirmed=1');
   }
 

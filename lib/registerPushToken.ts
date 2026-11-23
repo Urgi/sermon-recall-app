@@ -3,6 +3,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { tr } from './i18n/ui';
 import { requireSupabase } from './supabase';
 
 export type PushRegistrationResult =
@@ -81,13 +82,13 @@ export async function registerExpoPushTokenForCurrentUser(
 export function pushRegistrationHint(result: PushRegistrationResult): string | null {
   switch (result.status) {
     case 'denied':
-      return 'Reminders are saved, but notifications are off for Sermon Recall. Enable them in your phone Settings → Notifications.';
+      return tr('push.denied');
     case 'simulator':
-      return 'Push notifications only work on a physical device, not the simulator.';
+      return tr('push.simulator');
     case 'missing_project_id':
-      return 'This build is missing push configuration. Reinstall from TestFlight or the App Store.';
+      return tr('push.missingConfig');
     case 'error':
-      return `Could not register for push notifications: ${result.message}`;
+      return tr('push.error');
     default:
       return null;
   }

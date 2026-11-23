@@ -57,6 +57,7 @@ export default function TabsLayout() {
         },
         tabBarActiveTintColor: colors.blue,
         tabBarInactiveTintColor: colors.muted,
+        tabBarAllowFontScaling: false,
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '700',

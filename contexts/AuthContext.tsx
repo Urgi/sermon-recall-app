@@ -7,6 +7,7 @@ import {
   isAppReviewSignIn,
 } from '../lib/appReviewSignIn';
 import { mapAuthError } from '../lib/auth/mapAuthError';
+import { tr } from '../lib/i18n/ui';
 import { syncUserDeviceTimeZone } from '../lib/deviceTimezone';
 import { registerExpoPushTokenForCurrentUser } from '../lib/registerPushToken';
 import { supabase } from '../lib/supabase';
@@ -137,9 +138,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         createUser?: boolean;
       },
     ) => {
-      if (!supabase) return { error: 'Supabase is not configured' };
+      if (!supabase) return { error: tr('err.notConfigured') };
       const trimmed = email.trim().toLowerCase();
-      if (!trimmed) return { error: 'Enter your email address.' };
+      if (!trimmed) return { error: tr('auth.enterEmail') };
 
       if (isAppReviewEmail(trimmed)) {
         return { error: null };
@@ -185,7 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const verifyEmailOtp = useCallback(async (email: string, token: string) => {
-    if (!supabase) return { error: 'Supabase is not configured' };
+    if (!supabase) return { error: tr('err.notConfigured') };
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedToken = token.trim();
 
@@ -216,16 +217,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const joinChurch = useCallback(
     async (code: string) => {
-      if (!supabase) return { error: 'Supabase is not configured' };
+      if (!supabase) return { error: tr('err.notConfigured') };
       const { error } = await supabase.rpc('join_church', { p_code: code.trim() });
       if (error) {
         if (error.message.includes('invalid_church_code')) {
-          return { error: 'That church code was not found.' };
+          return { error: tr('err.churchNotFound') };
         }
         if (error.message.includes('church_member_limit_reached')) {
-          return { error: 'This church is full on its current plan. Ask your pastor to upgrade.' };
+          return { error: tr('err.churchFull') };
         }
-        return { error: error.message };
+        return { error: tr('err.generic') };
       }
       await refreshProfile();
       return { error: null };
@@ -234,25 +235,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const leaveChurch = useCallback(async () => {
-    if (!supabase) return { error: 'Supabase is not configured' };
+    if (!supabase) return { error: tr('err.notConfigured') };
     const { error } = await supabase.rpc('leave_church');
     if (error) {
       if (error.message.includes('not_in_church')) {
-        return { error: 'You are not linked to a church.' };
+        return { error: tr('err.notLinked') };
       }
       if (error.message.includes('staff_cannot_leave')) {
-        return {
-          error:
-            'Church staff cannot leave from the app. Ask another admin to remove you in the admin portal, or delete your account in Settings.',
-        };
+        return { error: tr('err.staffCannotLeave') };
       }
       if (error.message.includes('owner_cannot_leave')) {
-        return {
-          error:
-            'Church owners cannot leave from the app. Transfer ownership or delete the church in the admin portal first.',
-        };
+        return { error: tr('err.ownerCannotLeave') };
       }
-      return { error: error.message };
+      return { error: tr('err.generic') };
     }
     await refreshProfile();
     return { error: null };
@@ -260,17 +255,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updatePreferredLanguage = useCallback(
     async (language: string) => {
-      if (!supabase) return { error: 'Supabase is not configured' };
+      if (!supabase) return { error: tr('err.notConfigured') };
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return { error: 'Sign in again to update language.' };
+      if (!user) return { error: tr('err.signInAgain') };
       const lang = language === 'es' || language === 'fr' || language === 'en' ? language : 'en';
       const { error } = await supabase
         .from('users')
         .update({ preferred_language: lang })
         .eq('id', user.id);
-      if (error) return { error: error.message };
+      if (error) return { error: tr('err.saveFailed') };
       await refreshProfile();
       return { error: null };
     },

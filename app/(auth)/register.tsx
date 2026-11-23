@@ -21,7 +21,6 @@ import { useRecallionTheme } from '../../contexts/ThemeContext';
 import { createAuthFormStyles } from '../../lib/authFormStyles';
 import {
   APP_LANGUAGES,
-  DEFAULT_APP_LANGUAGE,
   type AppLanguage,
 } from '../../lib/i18n/languages';
 import type { RecallionColors } from '../../lib/recallionTheme';
@@ -37,11 +36,11 @@ export default function RegisterScreen() {
   const form = useMemo(() => createAuthFormStyles(colors), [colors]);
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { sendEmailOtp, session, loading, profileLoading } = useAuth();
-  const { t, setLanguagePreview } = useI18n();
+  const { t, language, setLanguagePreview } = useI18n();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [preferredLanguage, setPreferredLanguage] =
-    useState<AppLanguage>(DEFAULT_APP_LANGUAGE);
+    useState<AppLanguage>(language);
   const [reminderClock, setReminderClock] = useState<ReminderClock>(DEFAULT_REMINDER_CLOCK);
   const [reminderOpen, setReminderOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,7 +130,7 @@ export default function RegisterScreen() {
                 }}
                 accessibilityRole="radio"
                 accessibilityState={{ selected }}
-                accessibilityLabel={opt.label}
+                accessibilityLabel={opt.nativeLabel}
                 style={({ pressed }) => [
                   styles.segmentItem,
                   selected && styles.segmentItemSelected,

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../contexts/I18nContext';
 import { useRecallionTheme } from '../contexts/ThemeContext';
 import {
   deleteAccount,
@@ -30,6 +31,7 @@ type Props = {
 
 export function DeleteAccountPanel({ scrollRef }: Props) {
   const { session, signOut } = useAuth();
+  const { t } = useI18n();
   const { colors, resolved } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors, resolved), [colors, resolved]);
   const [preview, setPreview] = useState<AccountDeletionPreview | null>(null);
@@ -86,11 +88,11 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
     setError(null);
     const expectedEmail = accountEmail || session.user.email || '';
     if (!expectedEmail || !emailsMatchForDeletion(confirmEmail, expectedEmail)) {
-      setError('Enter your account email to confirm deletion.');
+      setError(t('delete.enterEmail'));
       return;
     }
     if (preview?.will_delete_church && !churchAck) {
-      setError('Confirm that you understand the impact on your church.');
+      setError(t('delete.confirmImpact'));
       return;
     }
     setPending(true);
@@ -110,10 +112,8 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
 
   return (
     <View style={styles.wrap} ref={formRef} collapsable={false}>
-      <Text style={styles.title}>Delete account</Text>
-      <Text style={styles.hint}>
-        Permanently remove your profile, progress, and sign-in.
-      </Text>
+      <Text style={styles.title}>{t('delete.title')}</Text>
+      <Text style={styles.hint}>{t('delete.hint')}</Text>
 
       {!open ? (
         <Pressable
@@ -121,7 +121,7 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
           onPress={() => setOpen(true)}
           accessibilityRole="button"
         >
-          <Text style={styles.linkLabel}>Delete account →</Text>
+          <Text style={styles.linkLabel}>{t('delete.link')}</Text>
         </Pressable>
       ) : (
         <View style={styles.form}>
@@ -131,18 +131,19 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
 
           {error && !preview && !loadingPreview ? (
             <Pressable onPress={() => void loadPreview()} style={styles.linkRow}>
-              <Text style={styles.retryLabel}>Couldn’t load details. Tap to retry.</Text>
+              <Text style={styles.retryLabel}>{t('delete.loadRetry')}</Text>
             </Pressable>
           ) : null}
 
           {preview?.will_delete_church ? (
             <View style={styles.warnBox}>
-              <Text style={styles.warnTitle}>Church will be removed</Text>
+              <Text style={styles.warnTitle}>{t('delete.churchWarnTitle')}</Text>
               <Text style={styles.warnText}>
-                You are the only pastor for {preview.church_name ?? 'your church'}. Deleting your
-                account removes the church from Sermon Recall, including sermons and devotionals.
+                {t('delete.churchWarnBody', {
+                  church: preview.church_name ?? t('delete.yourChurch'),
+                })}
                 {preview.other_member_count > 0
-                  ? ` ${preview.other_member_count} member(s) will need to join another church.`
+                  ? ` ${t('delete.churchWarnMembers', { count: preview.other_member_count })}`
                   : ''}
               </Text>
             </View>
@@ -158,13 +159,11 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
               <View style={[styles.checkbox, churchAck && styles.checkboxOn]}>
                 {churchAck ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
               </View>
-              <Text style={styles.checkLabel}>
-                I understand members will lose access to this church on Sermon Recall.
-              </Text>
+              <Text style={styles.checkLabel}>{t('delete.ack')}</Text>
             </Pressable>
           ) : null}
 
-          <Text style={styles.inputLabel}>Re-enter your email to confirm</Text>
+          <Text style={styles.inputLabel}>{t('delete.emailLabel')}</Text>
           <TextInput
             style={styles.input}
             value={confirmEmail}
@@ -194,7 +193,7 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
             {pending ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.dangerLabel}>Permanently delete account</Text>
+              <Text style={styles.dangerLabel}>{t('delete.confirmButton')}</Text>
             )}
           </Pressable>
           <Pressable
@@ -206,7 +205,7 @@ export function DeleteAccountPanel({ scrollRef }: Props) {
             }}
             disabled={pending}
           >
-            <Text style={styles.cancel}>Cancel</Text>
+            <Text style={styles.cancel}>{t('settings.cancel')}</Text>
           </Pressable>
         </View>
       )}

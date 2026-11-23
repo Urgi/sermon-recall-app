@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { tr } from './i18n/ui';
+
 const BUCKET = 'voice-commitments';
 
 export type VoiceUploadOk = { path: string };
@@ -21,7 +23,7 @@ export async function uploadVoiceCommitment(opts: {
     const res = await fetch(opts.localUri);
     blob = await res.blob();
   } catch {
-    return { error: 'Could not read the recording file.' };
+    return { error: tr('err.recordFile') };
   }
 
   const { error: upErr } = await opts.supabase.storage
@@ -29,7 +31,7 @@ export async function uploadVoiceCommitment(opts: {
     .upload(path, blob, { contentType: 'audio/m4a', upsert: true });
 
   if (upErr) {
-    return { error: upErr.message };
+    return { error: tr('err.saveFailed') };
   }
 
   return { path };

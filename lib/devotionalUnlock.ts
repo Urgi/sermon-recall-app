@@ -1,3 +1,5 @@
+import { tr } from './i18n/ui';
+
 /**
  * Calendar-based unlock (church timezone) aligned with the six-day journey:
  * - On anchor day (sermon date): only Day 1 opens.
@@ -123,14 +125,8 @@ export function daysUntilCalendarUnlock(
   return Math.max(0, dayNumber - 1 - diff);
 }
 
-export function formatUnlockRelative(daysUntil: number): string {
-  if (daysUntil <= 0) return 'soon';
-  if (daysUntil === 1) return 'tomorrow';
-  return `in ${daysUntil} days`;
-}
-
 export function formatUnlockLabel(daysUntil: number): string {
-  if (daysUntil <= 0) return 'Unlocks soon';
-  if (daysUntil === 1) return 'Unlocks tomorrow';
-  return `Unlocks in ${daysUntil} days`;
+  if (daysUntil <= 0) return tr('sermon.unlocksSoon');
+  if (daysUntil === 1) return tr('sermon.unlocksTomorrow');
+  return tr('sermon.unlocksInDays', { days: daysUntil });
 }

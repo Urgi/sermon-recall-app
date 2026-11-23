@@ -1,4 +1,5 @@
 import { localYmdInTimeZone } from './devotionalUnlock';
+import { uiLocale } from './i18n/ui';
 import { supabase } from './supabase';
 
 function parseYmd(ymd: string): number {
@@ -78,7 +79,7 @@ export function buildMonthGrid(
 
 export function monthLabel(year: number, monthIndex: number): string {
   const d = new Date(Date.UTC(year, monthIndex, 1, 12));
-  return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  return d.toLocaleDateString(uiLocale(), { month: 'long', year: 'numeric' });
 }
 
 export function completedAtToYmd(iso: string, timeZone: string): string {

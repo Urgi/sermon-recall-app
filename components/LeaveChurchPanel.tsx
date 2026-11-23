@@ -3,11 +3,13 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../contexts/I18nContext';
 import { useRecallionTheme } from '../contexts/ThemeContext';
 import type { RecallionColors } from '../lib/recallionTheme';
 
 export function LeaveChurchPanel() {
   const { profile, leaveChurch } = useAuth();
+  const { t } = useI18n();
   const { colors } = useRecallionTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [pending, setPending] = useState(false);
@@ -17,12 +19,12 @@ export function LeaveChurchPanel() {
 
   function onLeavePress() {
     Alert.alert(
-      'Leave church?',
-      'You will lose access to this church’s sermons and devotionals until you join again with a church code. Your past progress stays on your account.',
+      t('leave.alertTitle'),
+      t('leave.alertBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('settings.cancel'), style: 'cancel' },
         {
-          text: 'Leave church',
+          text: t('leave.title'),
           style: 'destructive',
           onPress: () => {
             void (async () => {
@@ -30,7 +32,7 @@ export function LeaveChurchPanel() {
               const { error } = await leaveChurch();
               setPending(false);
               if (error) {
-                Alert.alert('Could not leave church', error);
+                Alert.alert(t('leave.errorTitle'), error);
                 return;
               }
               router.replace('/join-church');
@@ -43,10 +45,8 @@ export function LeaveChurchPanel() {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>Leave church</Text>
-      <Text style={styles.hint}>
-        Join another church using a new code. Your past progress stays on your account.
-      </Text>
+      <Text style={styles.title}>{t('leave.title')}</Text>
+      <Text style={styles.hint}>{t('leave.hint')}</Text>
       <Pressable
         style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}
         onPress={onLeavePress}
@@ -56,7 +56,7 @@ export function LeaveChurchPanel() {
         {pending ? (
           <ActivityIndicator color={colors.blue} />
         ) : (
-          <Text style={styles.linkLabel}>Leave church →</Text>
+          <Text style={styles.linkLabel}>{t('leave.link')}</Text>
         )}
       </Pressable>
     </View>

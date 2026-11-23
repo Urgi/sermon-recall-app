@@ -3,6 +3,7 @@ import {
   buildUnlockContext,
   nextUnlockedIncompleteDevotional,
 } from './devotionalUnlock';
+import { tr, uiLocale } from './i18n/ui';
 
 export type SermonHomeRow = {
   id: string;
@@ -103,28 +104,28 @@ export function heroStatusLabel(summary: SermonHomeSummary): {
   label: string;
   tone: 'action' | 'muted';
 } {
-  if (summary.totalDays === 0) return { label: 'Coming soon', tone: 'muted' };
-  if (summary.allDone) return { label: 'Completed', tone: 'muted' };
+  if (summary.totalDays === 0) return { label: tr('home.comingSoon'), tone: 'muted' };
+  if (summary.allDone) return { label: tr('home.completed'), tone: 'muted' };
   if (summary.nextDevotional) {
     return {
-      label: `Day ${summary.nextDevotional.day_number} ready`,
+      label: tr('home.dayReady', { day: summary.nextDevotional.day_number }),
       tone: 'action',
     };
   }
-  return { label: 'Opens on the calendar', tone: 'muted' };
+  return { label: tr('home.opensOnCalendar'), tone: 'muted' };
 }
 
 export function pastSermonProgressLabel(summary: SermonHomeSummary): string {
-  if (summary.totalDays === 0) return 'Coming soon';
-  if (summary.allDone) return 'Completed';
-  return `${summary.completedCount} of ${summary.totalDays} complete`;
+  if (summary.totalDays === 0) return tr('home.comingSoon');
+  if (summary.allDone) return tr('home.completed');
+  return tr('home.ofComplete', { done: summary.completedCount, total: summary.totalDays });
 }
 
 export function devotionalDisplayTitle(next?: NextDevotionalHome | null): string | null {
   if (!next) return null;
   const trimmed = next.title?.trim();
   if (trimmed && !isPlaceholderTitle(trimmed)) return trimmed;
-  return `Day ${next.day_number}`;
+  return tr('home.dayFallback', { day: next.day_number });
 }
 
 /** Short date for graceful title fallbacks, e.g. "Sep 1". */
@@ -132,7 +133,7 @@ export function formatSermonDateShort(iso: string | null | undefined): string | 
   if (!iso) return null;
   try {
     const d = new Date(`${iso}T12:00:00`);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return d.toLocaleDateString(uiLocale(), { month: 'short', day: 'numeric' });
   } catch {
     return null;
   }
@@ -152,13 +153,13 @@ export function displaySermonTitle(
   if (short) {
     try {
       const d = new Date(`${sermonDate}T12:00:00`);
-      const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
-      return `${weekday} Sermon · ${short}`;
+      const weekday = d.toLocaleDateString(uiLocale(), { weekday: 'long' });
+      return tr('sermon.titleWithDate', { weekday, date: short });
     } catch {
-      return `Sermon · ${short}`;
+      return tr('sermon.titleDateOnly', { date: short });
     }
   }
-  return 'Sermon';
+  return tr('sermon.titleFallback');
 }
 
 function isPlaceholderTitle(title: string): boolean {
@@ -168,15 +169,15 @@ function isPlaceholderTitle(title: string): boolean {
 
 export function timeOfDayGreeting(now = new Date()): string {
   const hour = now.getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < 12) return tr('home.goodMorning');
+  if (hour < 17) return tr('home.goodAfternoon');
+  return tr('home.goodEvening');
 }
 
 export function greetingFirstName(
   fullName: string | null | undefined,
   email: string | null | undefined,
-  fallback = 'there',
+  fallback = tr('home.there'),
 ): string {
   const trimmed = fullName?.trim();
   if (trimmed) {
@@ -191,7 +192,7 @@ export function formatSermonDate(iso: string | null): string | null {
   if (!iso) return null;
   try {
     const d = new Date(`${iso}T12:00:00`);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return d.toLocaleDateString(uiLocale(), { month: 'short', day: 'numeric', year: 'numeric' });
   } catch {
     return iso;
   }

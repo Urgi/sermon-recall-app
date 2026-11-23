@@ -122,7 +122,11 @@ export default function SettingsScreen() {
     setLanguagePreview(value);
     const { error } = await updatePreferredLanguage(value);
     setLanguagePending(false);
-    if (error) setLanguageError(error);
+    if (error) {
+      // Saving failed: go back to the language that is actually stored on the account.
+      setLanguagePreview(selectedLanguage);
+      setLanguageError(error);
+    }
   }
 
   function confirmSignOut() {
@@ -289,7 +293,7 @@ export default function SettingsScreen() {
               ]}
             >
               <View style={[styles.radio, selected && styles.radioSelected]} />
-              <Text style={styles.optionLabel}>{languageOptionLabel(opt.value)}</Text>
+              <Text style={styles.optionLabel}>{opt.nativeLabel}</Text>
             </Pressable>
           );
         })}

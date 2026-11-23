@@ -5,9 +5,10 @@ import { useAuth } from './AuthContext';
 import {
   DEFAULT_APP_LANGUAGE,
   type AppLanguage,
+  deviceAppLanguage,
   normalizeAppLanguage,
 } from '../lib/i18n/languages';
-import { translateUi, type UiKey, type UiVars } from '../lib/i18n/ui';
+import { setActiveUiLanguage, translateUi, type UiKey, type UiVars } from '../lib/i18n/ui';
 
 const STORAGE_KEY = 'sr.preferred_language';
 
@@ -21,7 +22,8 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const { profile } = useAuth();
-  const [stored, setStored] = useState<AppLanguage>(DEFAULT_APP_LANGUAGE);
+  // First launch (nothing saved yet): follow the phone's language if we support it.
+  const [stored, setStored] = useState<AppLanguage>(() => deviceAppLanguage());
   const [preview, setPreview] = useState<AppLanguage | null>(null);
 
   useEffect(() => {
@@ -35,9 +37,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     : null;
 
   const language = preview ?? fromProfile ?? stored;
+  // Keep non-React code (error mappers, toasts, date helpers) on the same language.
+  setActiveUiLanguage(language);
 
   useEffect(() => {
     if (!fromProfile) return;
+    // The saved profile is the source of truth; drop any in-session preview.
+    setPreview(null);
     setStored(fromProfile);
     void AsyncStorage.setItem(STORAGE_KEY, fromProfile);
   }, [fromProfile]);

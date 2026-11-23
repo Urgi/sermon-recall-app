@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { useRecallionTheme } from '../../contexts/ThemeContext';
-import { USE_CODE_NOT_LINK_MESSAGE } from '../../lib/authToastMessages';
+import { useCodeNotLinkMessage } from '../../lib/authToastMessages';
 import { queuePendingToast } from '../../lib/pendingToast';
 import type { RecallionColors } from '../../lib/recallionTheme';
 import { requireSupabase } from '../../lib/supabase';
@@ -50,7 +50,7 @@ export default function AuthCallbackScreen() {
         setMessage('Use your email code');
         await queuePendingToast({
           variant: 'error',
-          message: USE_CODE_NOT_LINK_MESSAGE,
+          message: useCodeNotLinkMessage(),
         });
         router.replace('/login?error=use_code');
         return;
