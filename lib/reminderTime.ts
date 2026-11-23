@@ -1,3 +1,11 @@
+import { type AppLanguage } from './i18n/languages';
+import { getActiveUiLanguage } from './i18n/ui';
+
+/** French uses a 24-hour clock; English and Spanish keep AM/PM. */
+export function uses24HourClock(language: AppLanguage = getActiveUiLanguage()): boolean {
+  return language === 'fr';
+}
+
 /** 12-hour clock preference stored as `users.devotional_notify_hour` (0–23). */
 
 export type ReminderClock = {
@@ -20,12 +28,21 @@ export function clockToHour24(clock: ReminderClock): number {
   return h === 12 ? 12 : h + 12;
 }
 
-export function formatReminderClock(clock: ReminderClock): string {
+export function formatReminderClock(
+  clock: ReminderClock,
+  language: AppLanguage = getActiveUiLanguage(),
+): string {
+  if (uses24HourClock(language)) return `${clockToHour24(clock)}\u00a0h\u00a000`;
   return `${clock.hour12}:00 ${clock.ampm}`;
 }
 
-export function formatReminderHour24(hour24: number): string {
-  return formatReminderClock(hour24ToClock(hour24));
+export function formatReminderHour24(hour24: number, language?: AppLanguage): string {
+  return formatReminderClock(hour24ToClock(hour24), language);
+}
+
+/** Step the hour by one in 24-hour mode, wrapping 23 → 0, keeping the 12h+AM/PM model. */
+export function bumpHour24(clock: ReminderClock, delta: 1 | -1): ReminderClock {
+  return hour24ToClock((clockToHour24(clock) + delta + 24) % 24);
 }
 
 export function bumpHour12(hour12: number, delta: 1 | -1): number {

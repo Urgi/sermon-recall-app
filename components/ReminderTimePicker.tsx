@@ -8,8 +8,11 @@ import { pressedOpacity } from '../lib/motion';
 import type { RecallionColors } from '../lib/recallionTheme';
 import {
   bumpHour12,
+  bumpHour24,
+  clockToHour24,
   formatReminderClock,
   toggleAmpm,
+  uses24HourClock,
   type ReminderClock,
 } from '../lib/reminderTime';
 
@@ -26,7 +29,8 @@ type Props = {
 /** Dubbadhu-style chevron time wheels (hour + AM/PM). Minutes are always :00. */
 export function ReminderTimePicker({ value, onChange, disabled, caption, compact }: Props) {
   const { colors } = useRecallionTheme();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const is24 = uses24HourClock(language);
   const styles = useMemo(() => createStyles(colors, Boolean(compact)), [colors, compact]);
   const chevronColor = disabled ? colors.muted : colors.blue;
   const [atBefore, atAfter = ''] = t('notify.reminderAt').split('{time}');
@@ -54,11 +58,11 @@ export function ReminderTimePicker({ value, onChange, disabled, caption, compact
         accessibilityLabel={formatReminderClock(value)}
       >
         <View style={styles.column}>
-          {chevron('up', t('notify.increaseHour'), () => onChange({ ...value, hour12: bumpHour12(value.hour12, 1) }))}
+          {chevron('up', t('notify.increaseHour'), () => onChange(is24 ? bumpHour24(value, 1) : { ...value, hour12: bumpHour12(value.hour12, 1) }))}
           <View style={styles.valueBox}>
-            <Text style={styles.value}>{value.hour12}</Text>
+            <Text style={styles.value}>{is24 ? clockToHour24(value) : value.hour12}</Text>
           </View>
-          {chevron('down', t('notify.decreaseHour'), () => onChange({ ...value, hour12: bumpHour12(value.hour12, -1) }))}
+          {chevron('down', t('notify.decreaseHour'), () => onChange(is24 ? bumpHour24(value, -1) : { ...value, hour12: bumpHour12(value.hour12, -1) }))}
         </View>
 
         <Text style={styles.colon}>:</Text>
@@ -71,13 +75,15 @@ export function ReminderTimePicker({ value, onChange, disabled, caption, compact
           <View style={styles.chevronBtnPlaceholder} />
         </View>
 
-        <View style={[styles.column, styles.ampmColumn]}>
-          {chevron('up', t('notify.toggleAmPm'), () => onChange({ ...value, ampm: toggleAmpm(value.ampm) }))}
-          <View style={styles.valueBox}>
-            <Text style={[styles.value, styles.ampmValue]}>{value.ampm}</Text>
+        {is24 ? null : (
+          <View style={[styles.column, styles.ampmColumn]}>
+            {chevron('up', t('notify.toggleAmPm'), () => onChange({ ...value, ampm: toggleAmpm(value.ampm) }))}
+            <View style={styles.valueBox}>
+              <Text style={[styles.value, styles.ampmValue]}>{value.ampm}</Text>
+            </View>
+            {chevron('down', t('notify.toggleAmPm'), () => onChange({ ...value, ampm: toggleAmpm(value.ampm) }))}
           </View>
-          {chevron('down', t('notify.toggleAmPm'), () => onChange({ ...value, ampm: toggleAmpm(value.ampm) }))}
-        </View>
+        )}
       </View>
 
       {compact ? null : (
