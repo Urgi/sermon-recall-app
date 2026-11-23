@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -148,7 +148,16 @@ export default function SermonDetailScreen() {
     if (!silent) setLoading(false);
   }, [id, session?.user?.id]);
 
+  // Come back from a devotional (or anywhere) and the progress should be current.
+  const loadedOnce = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (loadedOnce.current) void load({ silent: true });
+    }, [load]),
+  );
+
   useEffect(() => {
+    loadedOnce.current = true;
     void load();
   }, [load]);
 

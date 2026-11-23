@@ -32,6 +32,7 @@ import { useRecallionTheme } from '../../../contexts/ThemeContext';
 import { typeScale } from '../../../lib/designTokens';
 import { pressedOpacity } from '../../../lib/motion';
 import type { RecallionColors } from '../../../lib/recallionTheme';
+import { devotionalDayHeading } from '../../../lib/devotionalDayTopics';
 import { displaySermonTitle } from '../../../lib/sermonHomeStatus';
 import { supabase } from '../../../lib/supabase';
 import { touchDevotionalOpen } from '../../../lib/touchDevotionalOpen';
@@ -555,7 +556,9 @@ export default function DevotionalScreen() {
 
     if (opts?.markComplete) {
       await queuePendingToast({ variant: 'success', message: t('toast.devotionalComplete') });
-      router.replace(`/sermon/${row.sermon_id}`);
+      // Return to the sermon screen already in the stack (it refreshes on focus) rather than
+      // stacking a second copy that leaves a stale one underneath.
+      router.dismissTo(`/sermon/${row.sermon_id}`);
       return;
     }
 
@@ -578,9 +581,10 @@ export default function DevotionalScreen() {
 
 
   const hasVoiceRecording = Boolean(effectiveVoicePath);
+  // The stored title may already start with "Day N —"; devotionalDayHeading strips that.
   const dayHeroTitle = row
     ? row.title?.trim()
-      ? t('day.heading', { day: row.day_number, topic: row.title.trim() })
+      ? devotionalDayHeading(row.day_number, row.title)
       : t('home.dayFallback', { day: row.day_number })
     : '';
   const progressCurrentDay = row && !completed ? row.day_number : null;
@@ -726,12 +730,15 @@ export default function DevotionalScreen() {
               {savedRecall || recallDraft.trim() ? (
                 <View style={styles.recallSummary}>
                   <Text style={styles.recallSummaryTitle}>{t('dev.recallSummary')}</Text>
-                  <Text
-                    style={styles.recallSummaryAnswer}
-                    {...(showRecallQuestion ? {} : { numberOfLines: 3 })}
-                  >
-                    “{recallDraft.trim() || savedRecall}”
-                  </Text>
+                  {/* While editable, the edit box below already shows the answer. */}
+                  {completed ? (
+                    <Text
+                      style={styles.recallSummaryAnswer}
+                      {...(showRecallQuestion ? {} : { numberOfLines: 3 })}
+                    >
+                      “{recallDraft.trim() || savedRecall}”
+                    </Text>
+                  ) : null}
                   {showRecallQuestion ? (
                     <Text style={styles.recallSummaryPrompt}>{gatePromptText}</Text>
                   ) : null}

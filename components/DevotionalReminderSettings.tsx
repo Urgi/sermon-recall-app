@@ -135,7 +135,10 @@ export function DevotionalReminderSettings({
                 pressed && styles.pressed,
               ]}
               disabled={busy}
-              onPress={() => setMode(opt.key)}
+              onPress={() => {
+                setError(null);
+                setMode(opt.key);
+              }}
               accessibilityRole="radio"
               accessibilityState={{ selected, disabled: busy }}
             >
@@ -150,7 +153,10 @@ export function DevotionalReminderSettings({
       {mode === 'custom' ? (
         <ReminderTimePicker
           value={clock}
-          onChange={setClock}
+          onChange={(next) => {
+            setError(null);
+            setClock(next);
+          }}
           disabled={busy}
           caption={t('notify.onTheHour')}
         />
