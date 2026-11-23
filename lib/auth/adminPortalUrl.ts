@@ -5,7 +5,7 @@ export function getAdminPortalUrl(): string {
 }
 
 export const PASTOR_CONFIRM_IN_BROWSER_MESSAGE =
-  'This confirmation is for the church admin website. You signed up in a browser — open the email link in Chrome or Safari (not the Sermon Recall app), or sign in at the admin portal.';
+  'This confirmation is for the church admin website. You signed up in a browser — open the email link in Chrome or Safari (not the SermonRecall app), or sign in at the admin portal.';
 
 export function isLikelyCrossClientAuthError(message: string): boolean {
   const m = message.toLowerCase();

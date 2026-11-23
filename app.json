@@ -1,9 +1,9 @@
 {
   "expo": {
     "scheme": "sermon-recall",
-    "name": "Sermon Recall",
+    "name": "SermonRecall",
     "slug": "sermon-recall",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/brand/app-icon.png",
     "userInterfaceStyle": "dark",

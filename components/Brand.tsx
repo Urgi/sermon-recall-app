@@ -25,7 +25,7 @@ export function BrandWordmark({ height, style }: Props) {
       style={[{ height, width: height * WORDMARK_ASPECT }, style]}
       resizeMode="contain"
       accessibilityRole="image"
-      accessibilityLabel="Sermon Recall"
+      accessibilityLabel="SermonRecall"
     />
   );
 }
