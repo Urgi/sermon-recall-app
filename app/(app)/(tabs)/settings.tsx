@@ -148,7 +148,6 @@ export default function SettingsScreen() {
   return (
     <ScreenBackdrop>
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-        <Text style={styles.kicker}>{t('settings.kicker')}</Text>
         <Text style={styles.title} accessibilityRole="header">
           {t('settings.title')}
         </Text>
@@ -396,17 +395,8 @@ function createStyles(colors: RecallionColors, resolved: 'light' | 'dark') {
   return StyleSheet.create({
     safe: { flex: 1 },
     flex: { flex: 1 },
-    kicker: {
-      marginTop: 8,
-      paddingHorizontal: 20,
-      fontSize: 12,
-      letterSpacing: 1.4,
-      textTransform: 'uppercase',
-      color: colors.blue,
-      fontWeight: '700',
-    },
     title: {
-      marginTop: 6,
+      marginTop: 14,
       paddingHorizontal: 20,
       marginBottom: 8,
       fontSize: 34,

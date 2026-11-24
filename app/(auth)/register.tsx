@@ -82,7 +82,6 @@ export default function RegisterScreen() {
       <View style={form.card}>
         <AuthBackButtonSlot />
 
-        <Text style={form.kicker}>{t('auth.getStarted')}</Text>
         <Text style={form.title}>{t('auth.createAccount')}</Text>
         <Text style={form.subtitle}>{t('auth.signupHint')}</Text>
 

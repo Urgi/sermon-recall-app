@@ -100,7 +100,6 @@ export default function VerifyEmailScreen() {
       <FadeInView style={form.card}>
         <AuthBackButtonSlot href="/register" label={t('common.back')} />
 
-        <Text style={form.kicker}>{t('auth.verification')}</Text>
         <Text style={form.title} accessibilityRole="header">
           {t('auth.enterYourCode')}
         </Text>

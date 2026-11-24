@@ -990,7 +990,8 @@ function createStyles(c: RecallionColors) {
     lockBody: { fontSize: 16, lineHeight: 24, color: c.navyMid, marginBottom: 12 },
     lockHint: { fontSize: 15, fontWeight: '600', color: c.navyMid, marginBottom: 20 },
     gateKicker: {
-      ...typeScale.kicker,
+      ...typeScale.meta,
+      fontWeight: '600',
       color: c.muted,
       marginBottom: 10,
     },
@@ -1109,7 +1110,8 @@ function createStyles(c: RecallionColors) {
       borderTopColor: c.borderSubtle,
     },
     reflectLabel: {
-      ...typeScale.kicker,
+      ...typeScale.meta,
+      fontWeight: '600',
       color: c.muted,
       marginBottom: 10,
     },

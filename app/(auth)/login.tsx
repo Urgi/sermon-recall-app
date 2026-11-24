@@ -212,7 +212,6 @@ export default function LoginScreen() {
         ) : (
           <>
             <AuthBackButtonSlot label={t('common.back')} onPress={() => goTo('email')} />
-            <Text style={form.kicker}>{t('auth.verification')}</Text>
             <Text style={form.title} accessibilityRole="header">
               {t('auth.enterYourCode')}
             </Text>

@@ -148,7 +148,7 @@ function createStyles(c: RecallionColors) {
     safe: { flex: 1 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
     content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 32 },
-    label: { ...typeScale.kicker, color: c.blue, marginBottom: 10 },
+    label: { ...typeScale.meta, color: c.muted, marginBottom: 8 },
     title: { ...typeScale.dayTitle, color: c.navy },
     date: { ...typeScale.meta, marginTop: 6, color: c.muted },
     body: { ...typeScale.bodyCompact, marginTop: 20, color: c.navyMid },
