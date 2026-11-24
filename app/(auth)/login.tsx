@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -10,7 +11,6 @@ import {
 } from 'react-native';
 
 import { AuthBackButtonSlot } from '../../components/AuthBackButton';
-import { BrandWordmark } from '../../components/Brand';
 import { FadeInView } from '../../components/FadeInView';
 import { KeyboardFormScreen } from '../../components/KeyboardFormScreen';
 
@@ -119,7 +119,12 @@ export default function LoginScreen() {
       <FadeInView key={step} style={form.card}>
         {step === 'welcome' ? (
           <>
-            <BrandWordmark height={44} style={styles.logoWelcome} />
+            <Image
+              source={require('../../assets/logo.png')}
+              style={[form.logo, styles.logoWelcome]}
+              accessibilityIgnoresInvertColors
+              accessible={false}
+            />
             <Text style={form.title} accessibilityRole="header">
               {t('auth.welcome')}
             </Text>
@@ -283,6 +288,6 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  logoWelcome: { marginBottom: 32 },
+  logoWelcome: { width: 72, height: 72, marginBottom: 24 },
   gap: { marginTop: 12 },
 });

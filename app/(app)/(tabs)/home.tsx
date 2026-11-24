@@ -3,6 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,7 +13,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BrandWordmark } from '../../../components/Brand';
 import { DevotionalNotifyPrompt } from '../../../components/DevotionalNotifyPrompt';
 import { FadeInView } from '../../../components/FadeInView';
 import { HomeStreakBadge } from '../../../components/HomeStreakBadge';
@@ -236,7 +236,13 @@ export default function HomeScreen() {
       ) : null}
 
       <View style={styles.header}>
-        <BrandWordmark height={34} />
+        <View style={styles.brandMarkWrap}>
+          <Image
+            source={require('../../../assets/logo.png')}
+            style={styles.brandMark}
+            accessibilityLabel="SermonRecall"
+          />
+        </View>
         <View style={styles.headerRight}>
           <HomeStreakBadge
             status={streakStatus}
@@ -511,6 +517,15 @@ function createStyles(c: RecallionColors) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
+    },
+    brandMarkWrap: {
+      borderRadius: 14,
+      ...elevation,
+    },
+    brandMark: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
     },
     greeting: {
       fontSize: 30,
