@@ -236,7 +236,7 @@ export default function LoginScreen() {
               autoComplete="one-time-code"
               accessibilityLabel={t('auth.codeLabel')}
               autoFocus
-              maxLength={8}
+              maxLength={6}
               value={code}
               onChangeText={(v) => setCode(v.replace(/\D/g, ''))}
             />

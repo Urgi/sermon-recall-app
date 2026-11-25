@@ -148,7 +148,7 @@ export default function VerifyEmailScreen() {
           textContentType="oneTimeCode"
           autoComplete="one-time-code"
           accessibilityLabel={t('auth.codeLabel')}
-          maxLength={8}
+          maxLength={6}
           value={code}
           onChangeText={(v) => setCode(v.replace(/\D/g, ''))}
           autoFocus={!showEmailField}
