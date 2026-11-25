@@ -266,6 +266,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .update({ preferred_language: lang })
         .eq('id', user.id);
       if (error) return { error: tr('err.saveFailed') };
+      // Auth emails (sign-in code etc.) pick their language from the auth user's metadata.
+      void supabase.auth.updateUser({ data: { preferred_language: lang } });
       await refreshProfile();
       return { error: null };
     },
